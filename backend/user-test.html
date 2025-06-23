@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiểm tra Người dùng</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    #message {
+      margin: 20px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #dff0d8;
+      color: #3c763d;
+    }
+    .error {
+      background-color: #f2dede;
+      color: #a94442;
+    }
+  </style>
+</head>
+<body>
+  <h1>Kiểm tra Danh sách Người dùng</h1>
+  
+  <button id="loadUsers">Tải danh sách người dùng</button>
+  <button id="checkHealth">Kiểm tra kết nối</button>
+  
+  <div id="message"></div>
+  
+  <h2>Danh sách người dùng</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Tên</th>
+        <th>Email</th>
+        <th>Vai trò</th>
+        <th>Ngày đăng ký</th>
+      </tr>
+    </thead>
+    <tbody id="userTableBody">
+      <!-- Dữ liệu sẽ được thêm vào đây -->
+    </tbody>
+  </table>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const messageDiv = document.getElementById('message');
+      const userTableBody = document.getElementById('userTableBody');
+      const loadUsersBtn = document.getElementById('loadUsers');
+      const checkHealthBtn = document.getElementById('checkHealth');
+      
+      // API URL
+      const API_BASE_URL = 'http://localhost:5000';
+      
+      // Hiển thị thông báo
+      function showMessage(text, isError = false) {
+        messageDiv.textContent = text;
+        messageDiv.className = isError ? 'error' : 'success';
+      }
+      
+      // Tải danh sách người dùng
+      loadUsersBtn.addEventListener('click', function() {
+        showMessage('Đang tải danh sách người dùng...');
+        
+        fetch(`${API_BASE_URL}/api/users/debug/all`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.success) {
+              showMessage(`Đã tìm thấy ${data.count} người dùng.`);
+              
+              // Xóa dữ liệu hiện tại
+              userTableBody.innerHTML = '';
+              
+              // Thêm dữ liệu mới
+              data.data.forEach(user => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                  <td>${user.UserID}</td>
+                  <td>${user.Name}</td>
+                  <td>${user.Email}</td>
+                  <td>${user.RoleName}</td>
+                  <td>${new Date(user.RegisterDate).toLocaleString()}</td>
+                `;
+                
+                userTableBody.appendChild(row);
+              });
+            } else {
+              showMessage('Lỗi: ' + data.message, true);
+            }
+          })
+          .catch(error => {
+            showMessage(`Lỗi: ${error.message}`, true);
+            console.error('Error:', error);
+          });
+      });
+      
+      // Kiểm tra kết nối
+      checkHealthBtn.addEventListener('click', function() {
+        showMessage('Đang kiểm tra kết nối...');
+        
+        fetch(`${API_BASE_URL}/health`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.success) {
+              showMessage(`Kết nối thành công! Backend server và MySQL hoạt động tốt. (${data.timestamp})`);
+            } else {
+              showMessage('Lỗi: ' + data.message, true);
+            }
+          })
+          .catch(error => {
+            showMessage(`Lỗi kết nối: ${error.message}`, true);
+            console.error('Error:', error);
+          });
+      });
+    });
+  </script>
+</body>
+</html>
