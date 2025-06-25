@@ -5,13 +5,20 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
-const PORT = 5000;
-const JWT_SECRET = 'your-super-secret-jwt-key-for-quit-smoking-app-2025';
+const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-for-quit-smoking-app-2025';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5175', 'http://localhost:5176', 'http://localhost:5179', process.env.FRONTEND_URL],
+  credentials: true
+}));
 app.use(express.json());
 
 console.log('✅ Setup middleware thành công');
