@@ -5,6 +5,19 @@ import dotenv from 'dotenv';
 import { testConnection } from './config/database.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
+import planRoutes from './routes/plans.js';
+import coachRoutes from './routes/coaches.js';
+import paymentRoutes from './routes/payments.js';
+import notificationRoutes from './routes/notifications.js';
+import smokingStatusRoutes from './routes/smoking-status.js';
+import appointmentRoutes from './routes/appointments.js';
+import achievementRoutes from './routes/achievements.js';
+import blogRoutes from './routes/blogs.js';
+import communityRoutes from './routes/community.js';
+import packageRoutes from './routes/packages.js';
+import settingsRoutes from './routes/settings.js';
+import dashboardRoutes from './routes/dashboard.js';
+import progressRoutes from './routes/progress.js';
 import ensureTablesExist from './ensureTables.js';
 import path from 'path';
 
@@ -73,6 +86,19 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/quit-plans', planRoutes);
+app.use('/api/coaches', coachRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/smoking-status', smokingStatusRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/blog', blogRoutes);
+app.use('/api/community', communityRoutes);
+app.use('/api/packages', packageRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/progress', progressRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

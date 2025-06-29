@@ -132,12 +132,12 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/plans', planRoutes);
+app.use('/api/quit-plans', planRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/coaches', coachRoutes);
 app.use('/api/appointments', appointmentRoutes);
-app.use('/api/blogs', blogRoutes);
+app.use('/api/blog', blogRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/dashboard', dashboardRoutes);

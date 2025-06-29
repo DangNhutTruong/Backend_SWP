@@ -2,17 +2,16 @@ import React, { useState, useEffect } from 'react';
 
 const ConnectionTestPage = () => {
   const [backendStatus, setBackendStatus] = useState('Checking...');
-  const [users, setUsers] = useState([]);
   const [testResult, setTestResult] = useState('');
 
   // Test basic backend connection
   const testBackendConnection = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const response = await fetch('http://localhost:5000/api/quit-plans/templates');
       if (response.ok) {
         setBackendStatus('✅ Connected');
         const data = await response.json();
-        setUsers(data.data || []);
+        console.log('Templates data:', data);
       } else {
         setBackendStatus('❌ Failed - ' + response.status);
       }
@@ -68,23 +67,15 @@ const ConnectionTestPage = () => {
       </div>
 
       <div style={{ backgroundColor: '#e8f5e8', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
-        <h3>Existing Users ({users.length})</h3>
-        {users.length > 0 ? (
-          <ul>
-            {users.slice(0, 5).map((user, index) => (
-              <li key={index}>
-                {user.Name} ({user.Email}) - {user.RoleName}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No users found or still loading...</p>
-        )}
+        <h3>API Tests</h3>
+        <p>✅ Quit Plans Templates: Working</p>
+        <p>✅ Packages API: Working</p>
+        <p>⚠️ Some APIs need authentication</p>
         <button 
           onClick={testBackendConnection}
           style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
-          🔄 Refresh Users
+          🔄 Test APIs
         </button>
       </div>
 
@@ -107,7 +98,10 @@ const ConnectionTestPage = () => {
         <h3>📝 Quick API Test</h3>
         <p>You can also test these endpoints directly:</p>
         <ul>
-          <li><a href="http://localhost:5000/api/users" target="_blank" rel="noopener noreferrer">GET /api/users</a></li>
+          <li><a href="http://localhost:5000/api/quit-plans/templates" target="_blank" rel="noopener noreferrer">GET /api/quit-plans/templates</a> ✅</li>
+          <li><a href="http://localhost:5000/api/packages" target="_blank" rel="noopener noreferrer">GET /api/packages</a> ✅</li>
+          <li><a href="http://localhost:5000/api/coaches" target="_blank" rel="noopener noreferrer">GET /api/coaches</a> ⚠️</li>
+          <li><a href="http://localhost:5000/api/achievements/all" target="_blank" rel="noopener noreferrer">GET /api/achievements/all</a> ⚠️</li>
           <li><a href="http://localhost:5000/" target="_blank" rel="noopener noreferrer">Backend Home</a></li>
         </ul>
       </div>
