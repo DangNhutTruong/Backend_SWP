@@ -70,8 +70,12 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:5173',
       'http://localhost:3000',
+      'http://localhost:5175',  // Add port 5175 for Vite
+      'http://localhost:5176',  // Add port 5176 for Vite (auto-assigned)
       'http://127.0.0.1:5173',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5175',  // Add port 5175 for Vite
+      'http://127.0.0.1:5176'   // Add port 5176 for Vite (auto-assigned)
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {

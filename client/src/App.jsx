@@ -9,6 +9,7 @@ import ProfilePage from "./page/Profile.jsx"; // Đổi tên từ Tools sang Pro
 import ProgressPage from "./page/Progress.jsx"; // Import component Progress
 import MembershipDebugger from "./components/MembershipDebugger.jsx"; // Import component để debug membership
 import TestPage from "./page/TestPage.jsx"; // Thêm trang test đơn giản
+import ConnectionTestPage from "./page/ConnectionTestPage.jsx"; // Test kết nối frontend-backend
 import Blog from "./page/Blog.jsx"; // Import component Blog
 import Login from "./page/Login.jsx"; // Import component Login
 import Register from "./page/Register.jsx"; // Import component Register
@@ -116,6 +117,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <TestPage />
+      </Layout>
+    ),
+  },
+  {
+    path: "/connection-test",
+    element: (
+      <Layout>
+        <ConnectionTestPage />
       </Layout>
     ),
   },
