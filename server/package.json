@@ -11,6 +11,7 @@
     "api": "nodemon src/server-api-full.js",
     "simple": "node src/server-simple.js",
     "simple-test": "node simple-test-server.js",
+    "mysql-real": "node mysql-real-server.cjs",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test-mysql": "node src/test-mysql-full.js",
     "test-conn": "node src/test-connection.js"
