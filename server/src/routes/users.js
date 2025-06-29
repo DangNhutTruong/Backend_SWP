@@ -1,30 +1,27 @@
 import express from 'express';
-import * as userController from '../controllers/userController.js';
-import { authenticateToken } from '../middleware/auth.js';
-import { 
-    validateProfileUpdate,
-    validateSmokingStatus,
-    handleValidationErrors 
-} from '../middleware/validation.js';
-import { upload } from '../middleware/fileUpload.js';
+import {
+  getAllUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  getUserStats,
+  getUserDashboard
+} from '../controllers/userController.js';
+import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// All routes in this file require authentication
-router.use(authenticateToken);
+// Tất cả routes đều cần authentication
+router.use(protect);
 
-// User profile routes
-router.get('/profile', userController.getProfile);
-router.put('/profile', validateProfileUpdate, handleValidationErrors, userController.updateProfile);
+// Admin routes - cần quyền Admin
+router.get('/', authorize('Admin'), getAllUsers);
+router.get('/stats', authorize('Admin'), getUserStats);
+router.put('/:id', authorize('Admin'), updateUser);
+router.delete('/:id', authorize('Admin'), deleteUser);
 
-// Avatar routes
-router.post('/avatar', upload.single('avatar'), userController.uploadAvatar);
-
-// Smoking status routes
-router.get('/smoking-status', userController.getSmokingStatus);
-router.put('/smoking-status', validateSmokingStatus, handleValidationErrors, userController.updateSmokingStatus);
-
-// Account deletion route
-router.delete('/account', userController.deleteAccount);
+// User routes - tất cả users đã đăng nhập
+router.get('/dashboard', getUserDashboard);
+router.get('/:id', getUserById);
 
 export default router;

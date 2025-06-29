@@ -1,120 +1,54 @@
 import express from 'express';
-import rateLimit from 'express-rate-limit';
-import * as authController from '../controllers/authController.js';
 import {
-    validateRegister,
-    validateLogin,
-    validateProfileUpdate,
-    validateChangePassword,
-    validateEmailVerification,
-    validateResendVerification,
-    validateForgotPassword,
-    validateResetPassword,
-    validateRefreshToken,
-    handleValidationErrors
-} from '../middleware/validation.js';
-import { authenticateToken } from '../middleware/auth.js';
+  registerUser,
+  loginUser,
+  getCurrentUser,
+  updateProfile,
+  changePassword,
+  logoutUser,
+  deleteAccount,
+  forgotPassword,
+  resetPassword,
+  verifyEmail
+} from '../controllers/authController.js';
+import { protect } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
-// Rate limiting configurations
+// Rate limiting cho auth routes
 const authLimiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS), // Limit each IP to 100 requests per windowMs
-    message: {
-        success: false,
-        message: 'Too many requests from this IP, please try again later.',
-        data: null
-    },
-    standardHeaders: true,
-    legacyHeaders: false
+  windowMs: 15 * 60 * 1000, // 15 phút
+  max: 5, // Tối đa 5 attempts mỗi 15 phút
+  message: {
+    success: false,
+    message: 'Quá nhiều lần thử đăng nhập, vui lòng thử lại sau 15 phút'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
-const loginLimiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX), // Limit each IP to 5 login requests per windowMs
-    message: {
-        success: false,
-        message: 'Too many login attempts, please try again later.',
-        data: null
-    },
-    standardHeaders: true,
-    legacyHeaders: false
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 giờ
+  max: 3, // Tối đa 3 lần đăng ký mỗi giờ
+  message: {
+    success: false,
+    message: 'Quá nhiều lần đăng ký, vui lòng thử lại sau 1 giờ'
+  }
 });
 
 // Public routes
-router.post('/register',
-    authLimiter,
-    validateRegister,
-    handleValidationErrors,
-    authController.register
-);
+router.post('/register', registerLimiter, registerUser);
+router.post('/login', authLimiter, loginUser);
+router.post('/forgot-password', authLimiter, forgotPassword);
+router.post('/reset-password/:token', resetPassword);
+router.get('/verify-email/:token', verifyEmail);
 
-router.post('/login',
-    loginLimiter,
-    validateLogin,
-    handleValidationErrors,
-    authController.login
-);
-
-router.post('/refresh-token',
-    authLimiter,
-    validateRefreshToken,
-    handleValidationErrors,
-    authController.refreshToken
-);
-
-router.post('/verify-email',
-    authLimiter,
-    validateEmailVerification,
-    handleValidationErrors,
-    authController.verifyEmail
-);
-
-router.post('/resend-verification',
-    authLimiter,
-    validateResendVerification,
-    handleValidationErrors,
-    authController.resendVerificationCode
-);
-
-router.post('/forgot-password',
-    authLimiter,
-    validateForgotPassword,
-    handleValidationErrors,
-    authController.forgotPassword
-);
-
-router.post('/reset-password',
-    authLimiter,
-    validateResetPassword,
-    handleValidationErrors,
-    authController.resetPassword
-);
-
-// Protected routes
-router.get('/profile',
-    authenticateToken,
-    authController.getProfile
-);
-
-router.put('/profile',
-    authenticateToken,
-    validateProfileUpdate,
-    handleValidationErrors,
-    authController.updateProfile
-);
-
-router.post('/change-password',
-    authenticateToken,
-    validateChangePassword,
-    handleValidationErrors,
-    authController.changePassword
-);
-
-router.post('/logout',
-    authenticateToken,
-    authController.logout
-);
+// Protected routes (cần authentication)
+router.get('/me', protect, getCurrentUser);
+router.put('/profile', protect, updateProfile);
+router.put('/change-password', protect, changePassword);
+router.post('/logout', protect, logoutUser);
+router.delete('/delete-account', protect, deleteAccount);
 
 export default router;

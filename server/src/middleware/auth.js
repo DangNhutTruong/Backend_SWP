@@ -1,94 +1,83 @@
 import jwt from 'jsonwebtoken';
-import { pool } from '../config/database.js';
-import { sendError } from '../utils/response.js';
+import User from '../models/User.js';
 
-export const authenticateToken = async (req, res, next) => {
-    try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-        if (!token) {
-            return sendError(res, 'Access token is required', 401);
-        }
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);        // Check if user still exists and is active
-        const [users] = await pool.execute(
-            `SELECT id, username, email, full_name, phone, date_of_birth, gender, 
-                    role, email_verified, is_active, created_at 
-             FROM users 
-             WHERE id = ? AND is_active = true`,
-            [decoded.userId]
-        );
-
-        if (users.length === 0) {
-            return sendError(res, 'User not found or account deactivated', 401);
-        }        // Add user info to request object
-        req.user = {
-            id: users[0].id,
-            username: users[0].username,
-            email: users[0].email,
-            fullName: users[0].full_name,
-            phone: users[0].phone,
-            dateOfBirth: users[0].date_of_birth,
-            gender: users[0].gender,
-            role: users[0].role,
-            emailVerified: users[0].email_verified,
-            isActive: users[0].is_active,
-            createdAt: users[0].created_at
-        };
-
-        // Also set userId for backward compatibility
-        req.userId = users[0].id;
-
-        next();
-    } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-            return sendError(res, 'Invalid token', 401);
-        }
-        if (error.name === 'TokenExpiredError') {
-            return sendError(res, 'Token expired', 401);
-        }
-        console.error('Auth middleware error:', error);
-        return sendError(res, 'Authentication failed', 500);
-    }
+// Tạo JWT token
+export const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET || 'your-secret-key', {
+    expiresIn: process.env.JWT_EXPIRE || '7d'
+  });
 };
 
-// Optional authentication (for endpoints that work with or without auth)
-export const optionalAuth = async (req, res, next) => {
-    try {
-        const authHeader = req.headers['authorization'];
-        const token = authHeader && authHeader.split(' ')[1];
+// Middleware bảo vệ routes cần authentication
+export const protect = async (req, res, next) => {
+  try {
+    let token;
 
-        if (token) {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET); const [users] = await pool.execute(
-                `SELECT id, username, email, full_name, phone, date_of_birth, gender, 
-                        role, email_verified, is_active, created_at 
-                 FROM users 
-                 WHERE id = ? AND is_active = true`,
-                [decoded.userId]
-            ); if (users.length > 0) {
-                req.user = {
-                    id: users[0].id,
-                    username: users[0].username,
-                    email: users[0].email,
-                    fullName: users[0].full_name,
-                    phone: users[0].phone,
-                    dateOfBirth: users[0].date_of_birth,
-                    gender: users[0].gender,
-                    role: users[0].role,
-                    emailVerified: users[0].email_verified,
-                    isActive: users[0].is_active,
-                    createdAt: users[0].created_at
-                };
-
-                // Also set userId for backward compatibility
-                req.userId = users[0].id;
-            }
-        }
-
-        next();
-    } catch (error) {
-        // For optional auth, continue even if token is invalid
-        next();
+    // Lấy token từ header
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
     }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Không có token, quyền truy cập bị từ chối'
+      });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+
+    // Tìm user trong database
+    const user = await User.findOne({
+      where: { 
+        UserID: decoded.id,
+        IsActive: true 
+      }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token không hợp lệ hoặc user không tồn tại'
+      });
+    }
+
+    // Thêm user vào request object
+    req.user = user;
+    next();
+
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    return res.status(401).json({
+      success: false,
+      message: 'Token không hợp lệ',
+      error: error.message
+    });
+  }
 };
+
+// Middleware kiểm tra role
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Chưa đăng nhập'
+      });
+    }
+
+    if (!roles.includes(req.user.RoleName)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Không có quyền truy cập tính năng này'
+      });
+    }
+
+    next();
+  };
+};
+
+// Alias for protect function  
+export const authenticateToken = protect;
+export const authenticate = protect;
