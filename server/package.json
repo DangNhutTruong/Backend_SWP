@@ -2,19 +2,12 @@
   "name": "quit-smoking-backend",
   "version": "1.0.0",
   "description": "Backend API for Quit Smoking Application",
-  "main": "src/server.js",
+  "main": "mysql-real-backend.cjs",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "mysql": "nodemon src/server-mysql-updated.js",
-    "mvc": "nodemon src/server-mvc.js",
-    "api": "nodemon src/server-api-full.js",
-    "simple": "node src/server-simple.js",
-    "simple-test": "node simple-test-server.js",
-    "mysql-real": "node mysql-real-server.cjs",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test-mysql": "node src/test-mysql-full.js",
-    "test-conn": "node src/test-connection.js"
+    "start": "node mysql-real-backend.cjs",
+    "dev": "nodemon mysql-real-backend.cjs",
+    "mysql-real": "node mysql-real-backend.cjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "quit-smoking",
