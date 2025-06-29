@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import "../styles/JourneyStepper.css";
+import React, { useState, useEffect } from 'react';
+import '../styles/JourneyStepper.css';
 
 export default function JourneyStepper() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -11,7 +11,7 @@ export default function JourneyStepper() {
     cigarettesPerDay: 10,
     packPrice: 25000,
     smokingYears: 5,
-    reasonToQuit: "sức khỏe",
+    reasonToQuit: 'sức khỏe',
     selectedPlan: null, // Kế hoạch được chọn
   });
 
@@ -24,19 +24,19 @@ export default function JourneyStepper() {
 
   // Phục hồi kế hoạch từ localStorage khi component được gắn vào
   useEffect(() => {
-    const storedCompletionData = localStorage.getItem("quitPlanCompletion");
-    const storedActivePlan = localStorage.getItem("activePlan");
+    const storedCompletionData = localStorage.getItem('quitPlanCompletion');
+    const storedActivePlan = localStorage.getItem('activePlan');
 
     if (storedCompletionData) {
       const completionData = JSON.parse(storedCompletionData);
-      console.log("Khôi phục kế hoạch từ localStorage:", completionData);
+      console.log('Khôi phục kế hoạch từ localStorage:', completionData);
       setFormData(completionData.formData);
       setIsCompleted(true);
       setShowCompletionScreen(true);
       setCurrentStep(4);
     } else if (storedActivePlan) {
       const activePlan = JSON.parse(storedActivePlan);
-      console.log("Khôi phục active plan từ localStorage:", activePlan);
+      console.log('Khôi phục active plan từ localStorage:', activePlan);
       setFormData((prevData) => ({
         ...prevData,
         selectedPlan: activePlan.id,
@@ -60,9 +60,8 @@ export default function JourneyStepper() {
       // Add animation effect for the progress bar when going back
       animateProgressBar(currentStep - 1);
     }
-  };
-  const handleBackToSummary = () => {
-    setCurrentStep(4); // Always go to step 4 (confirmation step)
+  };  const handleBackToSummary = () => {
+    setCurrentStep(4);  // Always go to step 4 (confirmation step)
     setShowCompletionScreen(true);
   };
 
@@ -71,22 +70,22 @@ export default function JourneyStepper() {
     setIsEditing(true);
     setShowCompletionScreen(false);
     setCurrentStep(stepToEdit);
-
+    
     // Nếu chỉnh sửa kế hoạch (step 2), luôn reset về màn hình chọn kế hoạch
     if (stepToEdit === 2) {
       // Lưu thông tin về plan hiện tại trước khi reset
       const currentPlan = formData.selectedPlan;
-      console.log("Đang chỉnh sửa kế hoạch, kế hoạch hiện tại:", currentPlan);
-
+      console.log('Đang chỉnh sửa kế hoạch, kế hoạch hiện tại:', currentPlan);
+      
       // Reset selectedPlan để người dùng có thể chọn lại
-      setFormData((prevData) => ({
+      setFormData(prevData => ({
         ...prevData,
-        selectedPlan: null,
+        selectedPlan: null
       }));
-
-      console.log("Đã reset kế hoạch để người dùng chọn lại");
+      
+      console.log('Đã reset kế hoạch để người dùng chọn lại');
     }
-
+    
     // Hiệu ứng animation cho progress bar khi quay lại
     animateProgressBar(stepToEdit);
   };
@@ -95,7 +94,7 @@ export default function JourneyStepper() {
   const handleSaveEdit = () => {
     // Lấy kế hoạch đầy đủ dựa vào ID đã chọn
     let completeSelectedPlan = null;
-
+    
     if (formData.selectedPlan) {
       let plans = [];
       if (formData.cigarettesPerDay < 10) {
@@ -105,57 +104,51 @@ export default function JourneyStepper() {
       } else {
         plans = generateHeavySmokerPlans();
       }
-
+      
       // Tìm kế hoạch đầy đủ bằng ID
-      const selectedPlanId =
-        typeof formData.selectedPlan === "object"
-          ? formData.selectedPlan.id
-          : formData.selectedPlan;
-
-      completeSelectedPlan = plans.find((plan) => plan.id === selectedPlanId);
-
-      console.log("Lưu kế hoạch mới được chọn:", completeSelectedPlan);
+      const selectedPlanId = typeof formData.selectedPlan === 'object' 
+        ? formData.selectedPlan.id 
+        : formData.selectedPlan;
+      
+      completeSelectedPlan = plans.find(plan => plan.id === selectedPlanId);
+      
+      console.log('Lưu kế hoạch mới được chọn:', completeSelectedPlan);
     }
-
+    
     // Đảm bảo completeSelectedPlan không null
-    if (!completeSelectedPlan && typeof formData.selectedPlan === "object") {
+    if (!completeSelectedPlan && typeof formData.selectedPlan === 'object') {
       completeSelectedPlan = formData.selectedPlan;
     }
-
+    
     // Kiểm tra xem có tìm thấy kế hoạch đầy đủ hay không
     if (!completeSelectedPlan) {
-      console.error(
-        "Không tìm thấy kế hoạch đầy đủ. Có thể người dùng chưa chọn kế hoạch."
-      );
-      alert("Vui lòng chọn một kế hoạch trước khi lưu.");
+      console.error('Không tìm thấy kế hoạch đầy đủ. Có thể người dùng chưa chọn kế hoạch.');
+      alert('Vui lòng chọn một kế hoạch trước khi lưu.');
       return;
     }
-
+    
     // Lấy dữ liệu hiện tại từ localStorage để giữ nguyên thời gian tạo ban đầu
     let originalCompletionDate = new Date().toISOString();
     try {
-      const savedData = localStorage.getItem("quitPlanCompletion");
+      const savedData = localStorage.getItem('quitPlanCompletion');
       if (savedData) {
         const parsedData = JSON.parse(savedData);
         if (parsedData && parsedData.completionDate) {
           originalCompletionDate = parsedData.completionDate;
-          console.log(
-            "Giữ nguyên thời gian tạo ban đầu:",
-            originalCompletionDate
-          );
+          console.log('Giữ nguyên thời gian tạo ban đầu:', originalCompletionDate);
         }
       }
     } catch (error) {
-      console.error("Lỗi khi đọc dữ liệu cũ:", error);
+      console.error('Lỗi khi đọc dữ liệu cũ:', error);
     }
-
+    
     // Lưu thông tin đã chỉnh sửa vào localStorage
     const completionData = {
       completionDate: originalCompletionDate, // Giữ nguyên thời gian tạo ban đầu
       userPlan: completeSelectedPlan,
       formData: {
         ...formData,
-        selectedPlan: completeSelectedPlan, // Lưu object kế hoạch đầy đủ thay vì chỉ ID
+        selectedPlan: completeSelectedPlan // Lưu object kế hoạch đầy đủ thay vì chỉ ID
       },
       lastEdited: new Date().toISOString() // Cập nhật thời gian chỉnh sửa
     };    localStorage.setItem('quitPlanCompletion', JSON.stringify(completionData));
@@ -163,18 +156,16 @@ export default function JourneyStepper() {
     // Cập nhật kế hoạch đang hoạt động
     const activePlan = {
       ...completeSelectedPlan,
-      startDate: new Date().toISOString().split("T")[0],
+      startDate: new Date().toISOString().split('T')[0],
       initialCigarettes: formData.cigarettesPerDay,
       packPrice: formData.packPrice,
       lastEdited: new Date().toISOString()
     };
-    localStorage.setItem("activePlan", JSON.stringify(activePlan));
-
+    localStorage.setItem('activePlan', JSON.stringify(activePlan));
+    
     // Hiển thị thông báo thành công
-    alert(
-      `Đã cập nhật kế hoạch thành công! Thời gian dự kiến mới: ${completeSelectedPlan.totalWeeks} tuần.`
-    );
-
+    alert(`Đã cập nhật kế hoạch thành công! Thời gian dự kiến mới: ${completeSelectedPlan.totalWeeks} tuần.`);
+    
     // Trở lại màn hình hoàn thành
     setIsEditing(false);
     setCurrentStep(4);
@@ -186,10 +177,10 @@ export default function JourneyStepper() {
     // Only update other elements if necessary
   };const handleSubmit = () => {
     // Add animation to the submit button
-    const submitButton = document.querySelector(".btn-submit");
-    submitButton.classList.add("loading");
+    const submitButton = document.querySelector('.btn-submit');
+    submitButton.classList.add('loading');
     submitButton.innerHTML = '<div class="loader"></div>';
-
+    
     // Simulate loading/processing
     setTimeout(() => {
       submitButton.classList.remove('loading');
@@ -197,31 +188,28 @@ export default function JourneyStepper() {
       document.querySelectorAll('.step-item').forEach((item) => {
         item.classList.add('completed');
       });
-
+      
       // Lấy thời gian hiện tại
       const now = new Date().toISOString();
-
+      
       // Kiểm tra xem đã có kế hoạch từ trước chưa để giữ nguyên thời gian tạo ban đầu
       let originalCompletionDate = now;
       try {
-        const savedData = localStorage.getItem("quitPlanCompletion");
+        const savedData = localStorage.getItem('quitPlanCompletion');
         if (savedData) {
           const parsedData = JSON.parse(savedData);
           if (parsedData && parsedData.completionDate) {
             originalCompletionDate = parsedData.completionDate;
-            console.log(
-              "Giữ nguyên thời gian tạo ban đầu:",
-              originalCompletionDate
-            );
+            console.log('Giữ nguyên thời gian tạo ban đầu:', originalCompletionDate);
           }
         }
       } catch (error) {
-        console.error("Lỗi khi đọc dữ liệu cũ:", error);
+        console.error('Lỗi khi đọc dữ liệu cũ:', error);
       }
-
+      
       // Lấy kế hoạch đầy đủ dựa vào ID đã chọn
       let completeSelectedPlan = null;
-
+      
       if (formData.selectedPlan) {
         let plans = [];
         if (formData.cigarettesPerDay < 10) {
@@ -231,34 +219,30 @@ export default function JourneyStepper() {
         } else {
           plans = generateHeavySmokerPlans();
         }
-
+        
         // Tìm kế hoạch đầy đủ bằng ID
-        const selectedPlanId =
-          typeof formData.selectedPlan === "object"
-            ? formData.selectedPlan.id
-            : formData.selectedPlan;
-
-        completeSelectedPlan = plans.find((plan) => plan.id === selectedPlanId);
-        console.log(
-          "Kế hoạch đầy đủ được chọn khi submit:",
-          completeSelectedPlan
-        );
+        const selectedPlanId = typeof formData.selectedPlan === 'object' 
+          ? formData.selectedPlan.id 
+          : formData.selectedPlan;
+        
+        completeSelectedPlan = plans.find(plan => plan.id === selectedPlanId);
+        console.log('Kế hoạch đầy đủ được chọn khi submit:', completeSelectedPlan);
       }
-
+      
       // Đảm bảo completeSelectedPlan không null
-      if (!completeSelectedPlan && typeof formData.selectedPlan === "object") {
+      if (!completeSelectedPlan && typeof formData.selectedPlan === 'object') {
         completeSelectedPlan = formData.selectedPlan;
       }
-
+      
       // Lưu thông tin hoàn thành vào localStorage
       const completionData = {
         completionDate: originalCompletionDate, // Sử dụng thời gian tạo ban đầu hoặc thời gian hiện tại nếu là lần đầu
         userPlan: completeSelectedPlan || formData.selectedPlan,
         formData: {
           ...formData,
-          selectedPlan: completeSelectedPlan, // Lưu object kế hoạch đầy đủ thay vì chỉ ID
+          selectedPlan: completeSelectedPlan // Lưu object kế hoạch đầy đủ thay vì chỉ ID
         },
-        lastEdited: now, // Cập nhật thời gian chỉnh sửa gần nhất
+        lastEdited: now // Cập nhật thời gian chỉnh sửa gần nhất
       };
       localStorage.setItem('quitPlanCompletion', JSON.stringify(completionData));
         // Đánh dấu là đã ghé thăm trong phiên này
@@ -267,13 +251,13 @@ export default function JourneyStepper() {
       // Lưu kế hoạch đang hoạt động với startDate
       const activePlan = {
         ...(completeSelectedPlan || formData.selectedPlan),
-        startDate: now.split("T")[0],
+        startDate: now.split('T')[0],
         initialCigarettes: formData.cigarettesPerDay,
         packPrice: formData.packPrice,
         lastEdited: now
       };
-      localStorage.setItem("activePlan", JSON.stringify(activePlan));
-
+      localStorage.setItem('activePlan', JSON.stringify(activePlan));
+      
       // Set completion state after a short delay
       setTimeout(() => {
         setIsCompleted(true);
@@ -285,12 +269,12 @@ export default function JourneyStepper() {
   const handleInputChange = (field, value) => {
     setFormData({
       ...formData,
-      [field]: value,
+      [field]: value
     });
   };
   // Kiểm tra nếu có kế hoạch cai thuốc đã lưu trong localStorage
   useEffect(() => {
-    const savedPlan = localStorage.getItem("quitPlanCompletion");
+    const savedPlan = localStorage.getItem('quitPlanCompletion');
     if (savedPlan) {
       try {
         const parsedPlan = JSON.parse(savedPlan);
@@ -300,31 +284,31 @@ export default function JourneyStepper() {
         setIsCompleted(true);
         setShowCompletionScreen(true);
         setCurrentStep(4);
-
+        
         // Kiểm tra xem có phải lần đầu ghé thăm trong phiên làm việc này không
-        const lastVisit = sessionStorage.getItem("lastVisit");
+        const lastVisit = sessionStorage.getItem('lastVisit');
         if (!lastVisit) {
           setShowWelcomeBack(true);
           // Đánh dấu là đã ghé thăm trong phiên này
-          sessionStorage.setItem("lastVisit", Date.now().toString());
-
+          sessionStorage.setItem('lastVisit', Date.now().toString());
+          
           // Tự động ẩn thông báo sau 5 giây
           setTimeout(() => {
             setShowWelcomeBack(false);
           }, 5000);
         }
-
+        
         // Đánh dấu tất cả các bước là đã hoàn thành
         setTimeout(() => {
-          document.querySelectorAll(".step-line").forEach((line) => {
-            line.classList.add("active");
+          document.querySelectorAll('.step-line').forEach((line) => {
+            line.classList.add('active');
           });
-          document.querySelectorAll(".step-item").forEach((item) => {
-            item.classList.add("completed");
+          document.querySelectorAll('.step-item').forEach((item) => {
+            item.classList.add('completed');
           });
         }, 100);
       } catch (error) {
-        console.error("Lỗi khi khôi phục kế hoạch cai thuốc:", error);
+        console.error('Lỗi khi khôi phục kế hoạch cai thuốc:', error);
       }
     }
   }, []);
@@ -339,7 +323,7 @@ export default function JourneyStepper() {
   const handleBackInStep2 = () => {
     if (formData.selectedPlan) {
       // Nếu đã chọn kế hoạch, quay lại màn hình chọn kế hoạch
-      handleInputChange("selectedPlan", null);
+      handleInputChange('selectedPlan', null);
     } else {
       // Nếu chưa chọn kế hoạch, quay lại step trước đó
       handleBack();
@@ -376,25 +360,23 @@ export default function JourneyStepper() {
         cigarettesPerDay: 10,
         packPrice: 25000,
         smokingYears: 5,
-        reasonToQuit: "sức khỏe",
+        reasonToQuit: 'sức khỏe',
         selectedPlan: null,
       });
       setCurrentStep(1);
       setIsCompleted(false);
       setShowCompletionScreen(false);
       setIsEditing(false);
-
+      
       // Reset lại trạng thái UI
       setTimeout(() => {
-        document.querySelectorAll(".step-line").forEach((line) => {
-          line.classList.remove("active");
+        document.querySelectorAll('.step-line').forEach((line) => {
+          line.classList.remove('active');
         });
-        document.querySelectorAll(".step-item").forEach((item) => {
-          item.classList.remove("completed");
+        document.querySelectorAll('.step-item').forEach((item) => {
+          item.classList.remove('completed');
         });
-        document
-          .querySelector(".step-item:first-child")
-          .classList.add("active");
+        document.querySelector('.step-item:first-child').classList.add('active');
       }, 100);
       
       // Thông báo thành công
@@ -406,9 +388,9 @@ export default function JourneyStepper() {
   const handleSharePlan = () => {
     // Đảm bảo có kế hoạch đầy đủ để chia sẻ
     let planToShare = formData.selectedPlan;
-
+    
     // Nếu selectedPlan là ID, lấy kế hoạch đầy đủ
-    if (typeof planToShare === "number" || !planToShare?.totalWeeks) {
+    if (typeof planToShare === 'number' || !planToShare?.totalWeeks) {
       let plans = [];
       if (formData.cigarettesPerDay < 10) {
         plans = generateLightSmokerPlans();
@@ -417,24 +399,17 @@ export default function JourneyStepper() {
       } else {
         plans = generateHeavySmokerPlans();
       }
-
-      const planId =
-        typeof planToShare === "object" ? planToShare.id : planToShare;
-      planToShare = plans.find((plan) => plan.id === planId) || planToShare;
+      
+      const planId = typeof planToShare === 'object' ? planToShare.id : planToShare;
+      planToShare = plans.find(plan => plan.id === planId) || planToShare;
     }
-
+    
     // Truy xuất thời gian dự kiến từ kế hoạch
-    const totalWeeks =
-      planToShare?.totalWeeks ||
-      (planToShare?.weeks ? planToShare.weeks.length : 0);
-
-    console.log(
-      "Kế hoạch sẽ chia sẻ:",
-      planToShare,
-      "với tổng tuần:",
-      totalWeeks
-    );
-
+    const totalWeeks = planToShare?.totalWeeks || 
+                      (planToShare?.weeks ? planToShare.weeks.length : 0);
+    
+    console.log('Kế hoạch sẽ chia sẻ:', planToShare, 'với tổng tuần:', totalWeeks);
+    
     // Tạo text để chia sẻ
     const planDetails = `
 🚭 KẾ HOẠCH CAI THUỐC LÁ CỦA TÔI 🚭
@@ -451,26 +426,23 @@ export default function JourneyStepper() {
 
 💪 Hãy ủng hộ hành trình cai thuốc của tôi!
     `;
-
+    
     // Kiểm tra xem trình duyệt có hỗ trợ Web Share API không
     if (navigator.share) {
-      navigator
-        .share({
-          title: "Kế hoạch cai thuốc lá của tôi",
-          text: planDetails,
-        })
-        .catch((error) => console.log("Lỗi khi chia sẻ:", error));
+      navigator.share({
+        title: 'Kế hoạch cai thuốc lá của tôi',
+        text: planDetails,
+      })
+      .catch((error) => console.log('Lỗi khi chia sẻ:', error));
     } else {
       // Fallback cho các trình duyệt không hỗ trợ Web Share API
       try {
         navigator.clipboard.writeText(planDetails);
-        alert(
-          "Đã sao chép kế hoạch vào clipboard! Bạn có thể dán và chia sẻ ngay bây giờ."
-        );
+        alert('Đã sao chép kế hoạch vào clipboard! Bạn có thể dán và chia sẻ ngay bây giờ.');
       } catch (err) {
-        console.log("Lỗi khi sao chép vào clipboard:", err);
+        console.log('Lỗi khi sao chép vào clipboard:', err);
         // Hiển thị text để người dùng có thể sao chép thủ công
-        alert("Không thể sao chép tự động. Vui lòng sao chép text thủ công.");
+        alert('Không thể sao chép tự động. Vui lòng sao chép text thủ công.');
       }
     }
   };
@@ -479,32 +451,17 @@ export default function JourneyStepper() {
   const dailySpending = (formData.cigarettesPerDay / 20) * formData.packPrice;
   const monthlySpending = dailySpending * 30;
   const yearlySpending = monthlySpending * 12;
+  const lifetimeSpending = yearlySpending * formData.smokingYears;
   // Tính toán lợi ích sức khỏe
   const healthBenefits = [
-    {
-      time: "20 phút",
-      benefit: "Huyết áp và nhịp tim giảm về mức bình thường",
-    },
-    {
-      time: "8 giờ",
-      benefit: "Mức nicotine và carbon monoxide trong máu giảm một nửa",
-    },
+    { time: "20 phút", benefit: "Huyết áp và nhịp tim giảm về mức bình thường" },
+    { time: "8 giờ", benefit: "Mức nicotine và carbon monoxide trong máu giảm một nửa" },
     { time: "24 giờ", benefit: "Carbon monoxide được loại bỏ khỏi cơ thể" },
-    {
-      time: "48 giờ",
-      benefit:
-        "Nicotine được loại bỏ khỏi cơ thể, vị giác và khứu giác bắt đầu cải thiện",
-    },
+    { time: "48 giờ", benefit: "Nicotine được loại bỏ khỏi cơ thể, vị giác và khứu giác bắt đầu cải thiện" },
     { time: "72 giờ", benefit: "Đường hô hấp thư giãn, năng lượng tăng lên" },
-    {
-      time: "2 tuần - 3 tháng",
-      benefit: "Tuần hoàn máu cải thiện, chức năng phổi tăng lên 30%",
-    },
+    { time: "2 tuần - 3 tháng", benefit: "Tuần hoàn máu cải thiện, chức năng phổi tăng lên 30%" },
     { time: "1 - 9 tháng", benefit: "Ho, nghẹt mũi, mệt mỏi và khó thở giảm" },
-    {
-      time: "1 năm",
-      benefit: "Nguy cơ mắc bệnh tim giảm 50% so với người hút thuốc",
-    },
+    { time: "1 năm", benefit: "Nguy cơ mắc bệnh tim giảm 50% so với người hút thuốc" }
   ];
 
   // Tính toán mức độ nghiện theo WHO Tobacco Cessation Guidelines
@@ -543,11 +500,11 @@ export default function JourneyStepper() {
       id: 1,
       name: "Kế hoạch nhanh",
       totalWeeks: 4,
-      weeklyReductionRate: 0.3, // Giảm 30% mỗi tuần
+      weeklyReductionRate: 0.30, // Giảm 30% mỗi tuần
       description: "Cai thuốc trong 4 tuần",
       subtitle: "Phù hợp cho người có ý chí mạnh",
       color: "#28a745",
-      weeks: [],
+      weeks: []
     };
 
     // Kế hoạch 2: 6 tuần - giảm từ từ hơn (25%)
@@ -559,18 +516,15 @@ export default function JourneyStepper() {
       description: "Cai thuốc trong 6 tuần",
       subtitle: "Phù hợp cho người muốn từ từ",
       color: "#17a2b8",
-      weeks: [],
+      weeks: []
     };
 
     // Tạo timeline cho từng kế hoạch
-    [plan1, plan2].forEach((plan) => {
+    [plan1, plan2].forEach(plan => {
       let currentAmount = cigarettesPerDay;
 
       for (let i = 1; i <= plan.totalWeeks && currentAmount > 0; i++) {
-        let weeklyReduction = Math.max(
-          1,
-          Math.round(currentAmount * plan.weeklyReductionRate)
-        );
+        let weeklyReduction = Math.max(1, Math.round(currentAmount * plan.weeklyReductionRate));
         const newAmount = Math.max(0, currentAmount - weeklyReduction);
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
@@ -595,7 +549,7 @@ export default function JourneyStepper() {
           week: i,
           amount: currentAmount,
           reduction: weeklyReduction,
-          phase: phase,
+          phase: phase
         });
       }
     });
@@ -612,11 +566,11 @@ export default function JourneyStepper() {
       id: 1,
       name: "Kế hoạch nhanh",
       totalWeeks: 6,
-      weeklyReductionRate: 0.2, // Giảm 20% mỗi tuần
+      weeklyReductionRate: 0.20, // Giảm 20% mỗi tuần
       description: "Cai thuốc trong 6 tuần",
       subtitle: "Phù hợp cho người quyết tâm cao",
       color: "#ffc107",
-      weeks: [],
+      weeks: []
     };
 
     // Kế hoạch 2: 8 tuần - giảm từ từ hơn (15%)
@@ -628,18 +582,15 @@ export default function JourneyStepper() {
       description: "Cai thuốc trong 8 tuần",
       subtitle: "Phù hợp cho cách tiếp cận ổn định",
       color: "#17a2b8",
-      weeks: [],
+      weeks: []
     };
 
     // Tạo timeline cho từng kế hoạch
-    [plan1, plan2].forEach((plan) => {
+    [plan1, plan2].forEach(plan => {
       let currentAmount = cigarettesPerDay;
 
       for (let i = 1; i <= plan.totalWeeks && currentAmount > 0; i++) {
-        let weeklyReduction = Math.max(
-          1,
-          Math.round(currentAmount * plan.weeklyReductionRate)
-        );
+        let weeklyReduction = Math.max(1, Math.round(currentAmount * plan.weeklyReductionRate));
         const newAmount = Math.max(0, currentAmount - weeklyReduction);
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
@@ -664,7 +615,7 @@ export default function JourneyStepper() {
           week: i,
           amount: currentAmount,
           reduction: weeklyReduction,
-          phase: phase,
+          phase: phase
         });
       }
     });
@@ -685,7 +636,7 @@ export default function JourneyStepper() {
       description: "Cai thuốc trong 8 tuần",
       subtitle: "Phù hợp cho người có ý chí mạnh mẽ",
       color: "#fd7e14",
-      weeks: [],
+      weeks: []
     };
 
     // Kế hoạch 2: 12 tuần - giảm từ từ hơn (10%)
@@ -693,22 +644,19 @@ export default function JourneyStepper() {
       id: 2,
       name: "Kế hoạch từ từ",
       totalWeeks: 12,
-      weeklyReductionRate: 0.1, // Giảm 10% mỗi tuần
+      weeklyReductionRate: 0.10, // Giảm 10% mỗi tuần
       description: "Cai thuốc trong 12 tuần",
       subtitle: "Phù hợp cho cách tiếp cận thận trọng",
       color: "#dc3545",
-      weeks: [],
+      weeks: []
     };
 
     // Tạo timeline cho từng kế hoạch
-    [plan1, plan2].forEach((plan) => {
+    [plan1, plan2].forEach(plan => {
       let currentAmount = cigarettesPerDay;
 
       for (let i = 1; i <= plan.totalWeeks && currentAmount > 0; i++) {
-        let weeklyReduction = Math.max(
-          1,
-          Math.round(currentAmount * plan.weeklyReductionRate)
-        );
+        let weeklyReduction = Math.max(1, Math.round(currentAmount * plan.weeklyReductionRate));
         const newAmount = Math.max(0, currentAmount - weeklyReduction);
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
@@ -733,7 +681,7 @@ export default function JourneyStepper() {
           week: i,
           amount: currentAmount,
           reduction: weeklyReduction,
-          phase: phase,
+          phase: phase
         });
       }
     });
@@ -744,36 +692,20 @@ export default function JourneyStepper() {
   // Tạo kế hoạch giảm dần dựa trên WHO Tobacco Cessation Guidelines
   const generateReductionPlan = () => {
     const dependenceLevel = calculateWHODependenceLevel();
-    console.log(
-      "Mức độ phụ thuộc:",
-      dependenceLevel,
-      "Điếu/ngày:",
-      formData.cigarettesPerDay
-    );
+    console.log('Mức độ phụ thuộc:', dependenceLevel, 'Điếu/ngày:', formData.cigarettesPerDay);
 
     // Nếu là người hút nhẹ và chưa chọn kế hoạch, trả về null để hiển thị màn hình chọn
-    if (
-      dependenceLevel === 1 &&
-      formData.cigarettesPerDay < 10 &&
-      !formData.selectedPlan
-    ) {
+    if (dependenceLevel === 1 && formData.cigarettesPerDay < 10 && !formData.selectedPlan) {
       return null;
     }
 
     // Nếu là người hút trung bình và chưa chọn kế hoạch
-    if (
-      (dependenceLevel === 2 ||
-        (formData.cigarettesPerDay >= 10 && formData.cigarettesPerDay <= 20)) &&
-      !formData.selectedPlan
-    ) {
+    if ((dependenceLevel === 2 || (formData.cigarettesPerDay >= 10 && formData.cigarettesPerDay <= 20)) && !formData.selectedPlan) {
       return null;
     }
 
     // Nếu là người hút nặng và chưa chọn kế hoạch
-    if (
-      (dependenceLevel >= 3 || formData.cigarettesPerDay > 20) &&
-      !formData.selectedPlan
-    ) {
+    if ((dependenceLevel >= 3 || formData.cigarettesPerDay > 20) && !formData.selectedPlan) {
       return null;
     }
 
@@ -790,51 +722,38 @@ export default function JourneyStepper() {
       }
 
       // Lấy ID kế hoạch dựa trên selectedPlan (có thể là object hoặc số)
-      const selectedPlanId =
-        typeof formData.selectedPlan === "object"
-          ? formData.selectedPlan.id
-          : formData.selectedPlan;
-
-      console.log(
-        "Tìm kế hoạch với ID:",
-        selectedPlanId,
-        "từ các kế hoạch:",
-        plans
-      );
-
-      const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
-
+      const selectedPlanId = typeof formData.selectedPlan === 'object' 
+        ? formData.selectedPlan.id 
+        : formData.selectedPlan;
+      
+      console.log('Tìm kế hoạch với ID:', selectedPlanId, 'từ các kế hoạch:', plans);
+      
+      const selectedPlan = plans.find(plan => plan.id === selectedPlanId);
+      
       // Kiểm tra nếu không tìm thấy kế hoạch phù hợp
       if (!selectedPlan) {
-        console.log("Không tìm thấy kế hoạch với ID:", selectedPlanId);
-
+        console.log('Không tìm thấy kế hoạch với ID:', selectedPlanId);
+        
         // Nếu selectedPlan là object, sử dụng nó
-        if (
-          typeof formData.selectedPlan === "object" &&
-          formData.selectedPlan !== null
-        ) {
-          console.log("Sử dụng kế hoạch từ formData:", formData.selectedPlan);
+        if (typeof formData.selectedPlan === 'object' && formData.selectedPlan !== null) {
+          console.log('Sử dụng kế hoạch từ formData:', formData.selectedPlan);
           return {
             weeks: formData.selectedPlan.weeks || [],
             strategy: formData.selectedPlan,
             dependenceLevel,
-            totalWeeks:
-              formData.selectedPlan.totalWeeks ||
-              (formData.selectedPlan.weeks
-                ? formData.selectedPlan.weeks.length
-                : 0),
+            totalWeeks: formData.selectedPlan.totalWeeks || (formData.selectedPlan.weeks ? formData.selectedPlan.weeks.length : 0)
           };
         }
-
+        
         return null;
       }
-
-      console.log("Đã tìm thấy kế hoạch:", selectedPlan);
+      
+      console.log('Đã tìm thấy kế hoạch:', selectedPlan);
       return {
         weeks: selectedPlan.weeks,
         strategy: selectedPlan,
         dependenceLevel,
-        totalWeeks: selectedPlan.totalWeeks,
+        totalWeeks: selectedPlan.totalWeeks
       };
     }
 
@@ -852,20 +771,15 @@ export default function JourneyStepper() {
             <i className="fas fa-check-circle"></i>
             <div className="notification-text">
               <p className="notification-title">Chào mừng bạn trở lại!</p>
-              <p className="notification-message">
-                Kế hoạch cai thuốc lá của bạn đã được khôi phục tự động.
-              </p>
+              <p className="notification-message">Kế hoạch cai thuốc lá của bạn đã được khôi phục tự động.</p>
             </div>
           </div>
-          <button
-            className="notification-close"
-            onClick={() => setShowWelcomeBack(false)}
-          >
+          <button className="notification-close" onClick={() => setShowWelcomeBack(false)}>
             <i className="fas fa-times"></i>
           </button>
         </div>
       )}
-
+      
       <div className="stepper-wrapper">
         <h1 className="stepper-title">Kế Hoạch Cai Thuốc</h1>
         {/* Stepper header */}
@@ -878,90 +792,64 @@ export default function JourneyStepper() {
                   // Add animation for progress bar and step changes
                   setCurrentStep(step.id);
 
-                    // Nếu đã hoàn thành, có thể xem lại nhưng không đổi trạng thái hoàn thành
-                    if (!isCompleted) {
-                      animateProgressBar(step.id);
-                    }
+                  // Nếu đã hoàn thành, có thể xem lại nhưng không đổi trạng thái hoàn thành
+                  if (!isCompleted) {
+                    animateProgressBar(step.id);
+                  }
 
-                    // Add visual feedback on click
-                    const circle = document.querySelector(
-                      `.step-item:nth-child(${step.id * 2 - 1}) .step-circle`
-                    );
-                    if (circle) {
-                      circle.classList.add("pulse");
-                      setTimeout(() => circle.classList.remove("pulse"), 500);
-                    }                    // Tạm thời ẩn màn hình hoàn thành để xem chi tiết các bước
-                    if (isCompleted) {
-                      setShowCompletionScreen(false);
-                    }
+                  // Add visual feedback on click
+                  const circle = document.querySelector(`.step-item:nth-child(${step.id * 2 - 1}) .step-circle`);
+                  if (circle) {
+                    circle.classList.add('pulse');
+                    setTimeout(() => circle.classList.remove('pulse'), 500);
+                  }
+
+                  // Tạm thời ẩn màn hình hoàn thành để xem chi tiết các bước
+                  if (isCompleted) {
+                    setShowCompletionScreen(false);
                   }
                 }
-              }
-            }>
+              }}
+            >
               <div className="step-circle">
                 {currentStep > step.id || isCompleted ? '✓' : step.id}
-              </div>
-              <div className="step-name">{step.name}</div>
+              </div>              <div className="step-name">{step.name}</div>
             </div>
             </React.Fragment>
           ))}
-        </div>{" "}
-        {/* Form content */}
-        <div className="stepper-content">
-          {" "}
-          {isCompleted && showCompletionScreen ? (
+        </div>        {/* Form content */}
+        <div className="stepper-content">          {isCompleted && showCompletionScreen ? (
             <div className="completion-screen">
               <div className="completion-checkmark-container">
                 <div className="completion-checkmark">✓</div>
-              </div>{" "}
-              <h2 className="completion-title">
-                Chúc mừng bạn đã tạo kế hoạch cai thuốc!
-              </h2>
-              <p className="completion-subtitle">
-                Hành trình mới của bạn bắt đầu từ hôm nay
-              </p>
+              </div>              <h2 className="completion-title">Chúc mừng bạn đã tạo kế hoạch cai thuốc!</h2>
+              <p className="completion-subtitle">Hành trình mới của bạn bắt đầu từ hôm nay</p>
+
               {/* Tóm tắt kế hoạch */}
               <div className="plan-summary-container">
                 <h3 className="summary-title">Kế hoạch của bạn</h3>
                 <div className="plan-summary-card">
-                  <div
-                    className="plan-summary-header"
-                    style={{
-                      backgroundColor:
-                        formData.selectedPlan?.color || "#2570e8",
-                    }}
-                  >
-                    <h4>
-                      {formData.selectedPlan?.name || "Kế hoạch cai thuốc"}
-                    </h4>
+                  <div className="plan-summary-header" style={{ backgroundColor: formData.selectedPlan?.color || '#2570e8' }}>
+                    <h4>{formData.selectedPlan?.name || "Kế hoạch cai thuốc"}</h4>
                     <p>{formData.selectedPlan?.description || ""}</p>
                   </div>
                   <div className="plan-summary-body">
                     <div className="plan-summary-item">
                       <span className="summary-label">Số điếu/ngày:</span>
-                      <span className="summary-value">
-                        {formData.cigarettesPerDay}
-                      </span>
+                      <span className="summary-value">{formData.cigarettesPerDay}</span>
                     </div>
                     <div className="plan-summary-item">
                       <span className="summary-label">Giá mỗi gói:</span>
-                      <span className="summary-value">
-                        {formData.packPrice.toLocaleString()} VNĐ
-                      </span>
+                      <span className="summary-value">{formData.packPrice.toLocaleString()} VNĐ</span>
                     </div>
                     <div className="plan-summary-item">
                       <span className="summary-label">Số năm hút thuốc:</span>
-                      <span className="summary-value">
-                        {formData.smokingYears} năm
-                      </span>
+                      <span className="summary-value">{formData.smokingYears} năm</span>
                     </div>
                     <div className="plan-summary-item">
                       <span className="summary-label">Lý do cai thuốc:</span>
-                      <span className="summary-value">
-                        {formData.reasonToQuit}
-                      </span>
-                    </div>{" "}
-                    <div className="plan-summary-item">
+                      <span className="summary-value">{formData.reasonToQuit}</span>
+                    </div>                    <div className="plan-summary-item">
                       <span className="summary-label">Thời gian dự kiến:</span>
                       <span className="summary-value">
                         {(() => {
@@ -972,8 +860,7 @@ export default function JourneyStepper() {
                             return `${formData.selectedPlan.weeks.length} tuần`;
                           } else {
                             // Lấy thông tin kế hoạch từ localStorage nếu cần
-                            const storedPlan =
-                              localStorage.getItem("activePlan");
+                            const storedPlan = localStorage.getItem('activePlan');
                             if (storedPlan) {
                               const parsedPlan = JSON.parse(storedPlan);
                               if (parsedPlan.totalWeeks) {
@@ -982,7 +869,7 @@ export default function JourneyStepper() {
                                 return `${parsedPlan.weeks.length} tuần`;
                               }
                             }
-                            return "0 tuần"; // Fallback nếu không tìm thấy dữ liệu
+                            return '0 tuần'; // Fallback nếu không tìm thấy dữ liệu
                           }
                         })()}
                       </span>
@@ -991,37 +878,28 @@ export default function JourneyStepper() {
                       <span className="summary-label">Kế hoạch được tạo:</span>
                       <span className="summary-value">
                         {(() => {
-                          const savedPlan =
-                            localStorage.getItem("quitPlanCompletion");
+                          const savedPlan = localStorage.getItem('quitPlanCompletion');
                           if (savedPlan) {
                             const { completionDate } = JSON.parse(savedPlan);
                             const date = new Date(completionDate);
-                            return `${date.toLocaleDateString(
-                              "vi-VN"
-                            )} ${date.toLocaleTimeString("vi-VN")}`;
+                            return `${date.toLocaleDateString('vi-VN')} ${date.toLocaleTimeString('vi-VN')}`;
                           }
-                          return new Date().toLocaleString("vi-VN");
+                          return new Date().toLocaleString('vi-VN');
                         })()}
                       </span>
                     </div>
                     {(() => {
-                      const savedPlan =
-                        localStorage.getItem("quitPlanCompletion");
+                      const savedPlan = localStorage.getItem('quitPlanCompletion');
                       if (savedPlan) {
-                        const { lastEdited, completionDate } =
-                          JSON.parse(savedPlan);
+                        const { lastEdited, completionDate } = JSON.parse(savedPlan);
                         // Chỉ hiển thị thời gian cập nhật nếu khác với thời gian tạo
                         if (lastEdited && lastEdited !== completionDate) {
                           const date = new Date(lastEdited);
                           return (
                             <div className="plan-summary-item">
-                              <span className="summary-label">
-                                Cập nhật lần cuối:
-                              </span>
+                              <span className="summary-label">Cập nhật lần cuối:</span>
                               <span className="summary-value">
-                                {`${date.toLocaleDateString(
-                                  "vi-VN"
-                                )} ${date.toLocaleTimeString("vi-VN")}`}
+                                {`${date.toLocaleDateString('vi-VN')} ${date.toLocaleTimeString('vi-VN')}`}
                               </span>
                             </div>
                           );
@@ -1029,56 +907,38 @@ export default function JourneyStepper() {
                       }
                       return null;
                     })()}
-                  </div>{" "}
-                  <div className="plan-edit-options">
-                    <button
-                      className="btn-edit-plan"
-                      onClick={() => handleEditPlan(1)}
-                    >
+                  </div>                  <div className="plan-edit-options">
+                    <button className="btn-edit-plan" onClick={() => handleEditPlan(1)}>
                       <i className="fas fa-pencil-alt"></i> Chỉnh sửa thói quen
                     </button>
-                    <button
-                      className="btn-edit-plan"
-                      onClick={() => handleEditPlan(2)}
-                    >
+                    <button className="btn-edit-plan" onClick={() => handleEditPlan(2)}>
                       <i className="fas fa-list-alt"></i> Chỉnh sửa kế hoạch
                     </button>
-                    <button
-                      className="btn-edit-plan btn-clear-plan"
-                      onClick={handleClearPlan}
-                    >
+                    <button className="btn-edit-plan btn-clear-plan" onClick={handleClearPlan}>
                       <i className="fas fa-trash-alt"></i> Bắt đầu lại
                     </button>
                   </div>
                   <div className="plan-share-container">
-                    <button
-                      className="btn-share-plan"
-                      onClick={handleSharePlan}
-                    >
-                      <i className="fas fa-share-alt"></i> Chia sẻ kế hoạch của
-                      bạn
+                    <button className="btn-share-plan" onClick={handleSharePlan}>
+                      <i className="fas fa-share-alt"></i> Chia sẻ kế hoạch của bạn
                     </button>
                   </div>
                   <div className="plan-persistence-notice">
-                    <i className="fas fa-info-circle"></i>
-                    Kế hoạch của bạn đã được lưu tự động. Bạn có thể quay lại
-                    bất kỳ lúc nào mà không cần tạo lại.
+                    <i className="fas fa-info-circle"></i> 
+                    Kế hoạch của bạn đã được lưu tự động. Bạn có thể quay lại bất kỳ lúc nào mà không cần tạo lại.
                   </div>
                 </div>
               </div>
+
               <div className="completion-stats">
                 <div className="completion-stat-card">
                   <div className="stat-icon">💰</div>
-                  <div className="stat-value">
-                    {Math.round(yearlySpending).toLocaleString()} VNĐ
-                  </div>
+                  <div className="stat-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</div>
                   <div className="stat-label">Tiết kiệm mỗi năm</div>
                 </div>
                 <div className="completion-stat-card">
                   <div className="stat-icon">🚬</div>
-                  <div className="stat-value">
-                    {formData.cigarettesPerDay * 365}
-                  </div>
+                  <div className="stat-value">{formData.cigarettesPerDay * 365}</div>
                   <div className="stat-label">Điếu thuốc không hút mỗi năm</div>
                 </div>
                 <div className="completion-stat-card">
@@ -1093,7 +953,7 @@ export default function JourneyStepper() {
                         totalWeeks = formData.selectedPlan.weeks.length;
                       } else {
                         // Lấy thông tin kế hoạch từ localStorage nếu cần
-                        const storedPlan = localStorage.getItem("activePlan");
+                        const storedPlan = localStorage.getItem('activePlan');
                         if (storedPlan) {
                           const parsedPlan = JSON.parse(storedPlan);
                           if (parsedPlan.totalWeeks) {
@@ -1110,9 +970,7 @@ export default function JourneyStepper() {
                 </div>
               </div>
               <div className="completion-timeline">
-                <h3 className="timeline-title">
-                  Những lợi ích sức khỏe bạn sẽ nhận được
-                </h3>
+                <h3 className="timeline-title">Những lợi ích sức khỏe bạn sẽ nhận được</h3>
                 <div className="timeline-container">
                   {healthBenefits.slice(0, 4).map((benefit, index) => (
                     <div className="timeline-milestone" key={index}>
@@ -1139,24 +997,15 @@ export default function JourneyStepper() {
                     <span className="action-text">Tài liệu hỗ trợ</span>
                   </a>
                 </div>
-              </div>{" "}
-              <div className="completion-motivation">
+              </div>              <div className="completion-motivation">
                 <blockquote>
-                  "Hành trình ngàn dặm bắt đầu từ một bước chân. Hôm nay bạn đã
-                  bước những bước đầu tiên để hướng tới cuộc sống khỏe mạnh
-                  hơn."
+                  "Hành trình ngàn dặm bắt đầu từ một bước chân. Hôm nay bạn đã bước những bước đầu tiên để hướng tới cuộc sống khỏe mạnh hơn."
                 </blockquote>
               </div>
               <div className="back-to-plan">
-                <p>
-                  Bạn có thể chỉnh sửa kế hoạch bất cứ lúc nào bằng cách nhấn
-                  vào nút chỉnh sửa tương ứng với từng phần.
-                </p>
+                <p>Bạn có thể chỉnh sửa kế hoạch bất cứ lúc nào bằng cách nhấn vào nút chỉnh sửa tương ứng với từng phần.</p>
                 <div className="edit-plan-buttons">
-                  <button
-                    className="btn-edit-all"
-                    onClick={() => handleEditPlan(1)}
-                  >
+                  <button className="btn-edit-all" onClick={() => handleEditPlan(1)}>
                     <i className="fas fa-edit"></i> Chỉnh sửa toàn bộ kế hoạch
                   </button>
                 </div>
@@ -1168,17 +1017,11 @@ export default function JourneyStepper() {
                 <div className="step-form">
                   <div className="form-header">
                     <div className="form-icon">📋</div>
-                    <h2 className="form-title">
-                      Thông tin thói quen hút thuốc
-                    </h2>
+                    <h2 className="form-title">Thông tin thói quen hút thuốc</h2>
                   </div>
-                  <p className="form-description">
-                    Vui lòng nhập thông tin thực tế để kế hoạch chính xác hơn.
-                  </p>
+                  <p className="form-description">Vui lòng nhập thông tin thực tế để kế hoạch chính xác hơn.</p>
                   <div className="form-group">
-                    <label className="form-label">
-                      Bạn hút bao nhiêu điếu mỗi ngày?
-                    </label>
+                    <label className="form-label">Bạn hút bao nhiêu điếu mỗi ngày?</label>
                     <div className="input-group">
                       <div className="input-icon">🚬</div>
                       <input
@@ -1186,19 +1029,13 @@ export default function JourneyStepper() {
                         className="form-input"
                         placeholder="10 điếu/ngày"
                         value={formData.cigarettesPerDay}
-                        onChange={(e) =>
-                          handleNumberInput("cigarettesPerDay", e)
-                        }
+                        onChange={(e) => handleNumberInput('cigarettesPerDay', e)}
                       />
                     </div>
-                    <small className="input-tip">
-                      Số lượng điếu thuốc trung bình bạn hút mỗi ngày
-                    </small>
+                    <small className="input-tip">Số lượng điếu thuốc trung bình bạn hút mỗi ngày</small>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">
-                      Một bao thuốc giá trung bình?
-                    </label>
+                    <label className="form-label">Một bao thuốc giá trung bình?</label>
                     <div className="input-group">
                       <div className="input-icon">💰</div>
                       <input
@@ -1206,17 +1043,13 @@ export default function JourneyStepper() {
                         className="form-input"
                         placeholder="25000 VNĐ"
                         value={formData.packPrice}
-                        onChange={(e) => handleNumberInput("packPrice", e)}
+                        onChange={(e) => handleNumberInput('packPrice', e)}
                       />
                     </div>
-                    <small className="input-tip">
-                      Giá trung bình một bao thuốc bạn thường mua (VNĐ)
-                    </small>
+                    <small className="input-tip">Giá trung bình một bao thuốc bạn thường mua (VNĐ)</small>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">
-                      Bạn đã hút thuốc bao lâu?
-                    </label>
+                    <label className="form-label">Bạn đã hút thuốc bao lâu?</label>
                     <div className="input-group">
                       <div className="input-icon">🗓️</div>
                       <input
@@ -1224,47 +1057,34 @@ export default function JourneyStepper() {
                         className="form-input"
                         placeholder="5 năm"
                         value={formData.smokingYears}
-                        onChange={(e) => handleNumberInput("smokingYears", e)}
+                        onChange={(e) => handleNumberInput('smokingYears', e)}
                       />
                     </div>
                     <small className="input-tip">Số năm bạn đã hút thuốc</small>
                   </div>
                   <div className="stats-summary">
                     <div className="stats-card">
-                      <div className="stats-value">
-                        {Math.round(dailySpending).toLocaleString()} VNĐ
-                      </div>
+                      <div className="stats-value">{Math.round(dailySpending).toLocaleString()} VNĐ</div>
                       <div className="stats-label">Chi phí mỗi ngày</div>
                     </div>
                     <div className="stats-card">
-                      <div className="stats-value">
-                        {Math.round(monthlySpending).toLocaleString()} VNĐ
-                      </div>
+                      <div className="stats-value">{Math.round(monthlySpending).toLocaleString()} VNĐ</div>
                       <div className="stats-label">Chi phí mỗi tháng</div>
                     </div>
                     <div className="stats-card highlight">
-                      <div className="stats-value">
-                        {Math.round(yearlySpending).toLocaleString()} VNĐ
-                      </div>
+                      <div className="stats-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</div>
                       <div className="stats-label">Chi phí mỗi năm</div>
                     </div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">
-                      Lý do bạn muốn cai thuốc
-                    </label>
+                    <label className="form-label">Lý do bạn muốn cai thuốc</label>
                     <div className="reasons-container">
-                      <div
-                        className="reason-option"
-                        onClick={() =>
-                          handleInputChange("reasonToQuit", "sức khỏe")
-                        }
-                      >
+                      <div className="reason-option" onClick={() => handleInputChange('reasonToQuit', 'sức khỏe')}>
                         <input
                           type="radio"
                           name="reasonToQuit"
-                          checked={formData.reasonToQuit === "sức khỏe"}
-                          onChange={() => {}}
+                          checked={formData.reasonToQuit === 'sức khỏe'}
+                          onChange={() => { }}
                         />
                         <div className="reason-content">
                           <div className="reason-icon">❤️</div>
@@ -1272,17 +1092,12 @@ export default function JourneyStepper() {
                         </div>
                       </div>
 
-                      <div
-                        className="reason-option"
-                        onClick={() =>
-                          handleInputChange("reasonToQuit", "gia đình")
-                        }
-                      >
+                      <div className="reason-option" onClick={() => handleInputChange('reasonToQuit', 'gia đình')}>
                         <input
                           type="radio"
                           name="reasonToQuit"
-                          checked={formData.reasonToQuit === "gia đình"}
-                          onChange={() => {}}
+                          checked={formData.reasonToQuit === 'gia đình'}
+                          onChange={() => { }}
                         />
                         <div className="reason-content">
                           <div className="reason-icon">👨‍👩‍👧‍👦</div>
@@ -1290,17 +1105,12 @@ export default function JourneyStepper() {
                         </div>
                       </div>
 
-                      <div
-                        className="reason-option"
-                        onClick={() =>
-                          handleInputChange("reasonToQuit", "tiết kiệm")
-                        }
-                      >
+                      <div className="reason-option" onClick={() => handleInputChange('reasonToQuit', 'tiết kiệm')}>
                         <input
                           type="radio"
                           name="reasonToQuit"
-                          checked={formData.reasonToQuit === "tiết kiệm"}
-                          onChange={() => {}}
+                          checked={formData.reasonToQuit === 'tiết kiệm'}
+                          onChange={() => { }}
                         />
                         <div className="reason-content">
                           <div className="reason-icon">💵</div>
@@ -1308,17 +1118,12 @@ export default function JourneyStepper() {
                         </div>
                       </div>
 
-                      <div
-                        className="reason-option"
-                        onClick={() =>
-                          handleInputChange("reasonToQuit", "thử thách")
-                        }
-                      >
+                      <div className="reason-option" onClick={() => handleInputChange('reasonToQuit', 'thử thách')}>
                         <input
                           type="radio"
                           name="reasonToQuit"
-                          checked={formData.reasonToQuit === "thử thách"}
-                          onChange={() => {}}
+                          checked={formData.reasonToQuit === 'thử thách'}
+                          onChange={() => { }}
                         />
                         <div className="reason-content">
                           <div className="reason-icon">🏆</div>
@@ -1328,20 +1133,15 @@ export default function JourneyStepper() {
                     </div>
                   </div>
 
-                  <div className="form-actions">
-                    {" "}
-                    {isCompleted ? (
-                      <button
-                        className="btn-back-to-summary"
-                        onClick={handleBackToSummary}
-                      >
-                        Xem tổng quan kế hoạch
-                      </button>
-                    ) : (
-                      <button className="btn-next" onClick={handleContinue}>
-                        Tiếp tục <span className="btn-arrow">→</span>
-                      </button>
-                    )}
+                  <div className="form-actions">                {isCompleted ? (
+                    <button className="btn-back-to-summary" onClick={handleBackToSummary}>
+                      Xem tổng quan kế hoạch
+                    </button>
+                  ) : (
+                    <button className="btn-next" onClick={handleContinue}>
+                      Tiếp tục <span className="btn-arrow">→</span>
+                    </button>
+                  )}
                   </div>
                 </div>
               )}
@@ -1355,28 +1155,21 @@ export default function JourneyStepper() {
                         <h2 className="form-title">Chọn kế hoạch cai thuốc</h2>
                       </div>
                       <p className="form-description">
-                        Dựa trên tình trạng hút thuốc của bạn (
-                        <strong>{formData.cigarettesPerDay} điếu/ngày</strong>),
-                        chúng tôi có 2 kế hoạch khoa học phù hợp để bạn lựa
-                        chọn:
+                        Dựa trên tình trạng hút thuốc của bạn (<strong>{formData.cigarettesPerDay} điếu/ngày</strong>),
+                        chúng tôi có 2 kế hoạch khoa học phù hợp để bạn lựa chọn:
                       </p>
+
                       <div className="smoking-level-info">
                         <div className="level-badge">
-                          {formData.cigarettesPerDay < 10 ? (
-                            <span className="level-light">
-                              Mức độ nhẹ (&lt; 10 điếu/ngày)
-                            </span>
-                          ) : formData.cigarettesPerDay <= 20 ? (
-                            <span className="level-moderate">
-                              Mức độ trung bình (10-20 điếu/ngày)
-                            </span>
-                          ) : (
-                            <span className="level-heavy">
-                              Mức độ nặng (&gt; 20 điếu/ngày)
-                            </span>
-                          )}
+                          {formData.cigarettesPerDay < 10 ?
+                            <span className="level-light">Mức độ nhẹ (&lt; 10 điếu/ngày)</span> :
+                            formData.cigarettesPerDay <= 20 ?
+                              <span className="level-moderate">Mức độ trung bình (10-20 điếu/ngày)</span> :
+                              <span className="level-heavy">Mức độ nặng (&gt; 20 điếu/ngày)</span>
+                          }
                         </div>
                       </div>
+
                       <div className="plan-options">
                         {(() => {
                           let plans = [];
@@ -1393,95 +1186,62 @@ export default function JourneyStepper() {
                               key={plan.id}
                               className={`plan-option ${
                                 // Đảm bảo so sánh ID đúng cho cả trường hợp selectedPlan là object hoặc ID
-                                (
-                                  typeof formData.selectedPlan === "object"
-                                    ? formData.selectedPlan?.id === plan.id
-                                    : formData.selectedPlan === plan.id
-                                )
-                                  ? "selected"
-                                  : ""
+                                (typeof formData.selectedPlan === 'object' 
+                                  ? formData.selectedPlan?.id === plan.id 
+                                  : formData.selectedPlan === plan.id) 
+                                  ? 'selected' : ''
                               }`}
                               onClick={() => {
-                                console.log("Đã chọn kế hoạch mới:", plan);
-                                handleInputChange("selectedPlan", plan.id);
-
+                                console.log('Đã chọn kế hoạch mới:', plan);
+                                handleInputChange('selectedPlan', plan.id);
+                                
                                 // Nếu đang ở chế độ chỉnh sửa, hiển thị thông báo
                                 if (isEditing) {
-                                  console.log(
-                                    "Thời gian dự kiến mới:",
-                                    plan.totalWeeks,
-                                    "tuần"
-                                  );
+                                  console.log('Thời gian dự kiến mới:', plan.totalWeeks, 'tuần');
                                 }
                               }}
                             >
                               <div className="plan-header">
-                                <div
-                                  className="plan-icon"
-                                  style={{ backgroundColor: plan.color }}
-                                >
-                                  {plan.id === 1 ? "⚡" : "🐌"}
+                                <div className="plan-icon" style={{ backgroundColor: plan.color }}>
+                                  {plan.id === 1 ? '⚡' : '🐌'}
                                 </div>
                                 <div className="plan-info">
                                   <h3 className="plan-name">{plan.name}</h3>
-                                  <p className="plan-subtitle">
-                                    {plan.subtitle}
-                                  </p>
+                                  <p className="plan-subtitle">{plan.subtitle}</p>
                                 </div>
                                 <div className="plan-duration">
-                                  <span className="duration-number">
-                                    {plan.totalWeeks}
-                                  </span>
+                                  <span className="duration-number">{plan.totalWeeks}</span>
                                   <span className="duration-text">tuần</span>
                                 </div>
                               </div>
 
                               <div className="plan-details">
-                                <p>
-                                  <strong>Mô tả:</strong> {plan.description}
-                                </p>
-                                <p>
-                                  <strong>Giảm mỗi tuần:</strong>{" "}
-                                  {Math.round(plan.weeklyReductionRate * 100)}%
-                                  so với tuần trước
-                                </p>
+                                <p><strong>Mô tả:</strong> {plan.description}</p>
+                                <p><strong>Giảm mỗi tuần:</strong> {Math.round(plan.weeklyReductionRate * 100)}% so với tuần trước</p>
 
                                 <div className="plan-preview">
                                   <h4>Lịch trình:</h4>
                                   <div className="preview-timeline">
-                                    {plan.weeks
-                                      .slice(0, 3)
-                                      .map((week, weekIndex) => (
-                                        <div
-                                          key={weekIndex}
-                                          className="preview-week"
-                                        >
-                                          <span>
-                                            Tuần {week.week}: {week.amount} điếu
-                                          </span>
-                                        </div>
-                                      ))}
-                                    {plan.weeks.length > 3 && (
-                                      <div className="preview-more">...</div>
-                                    )}
+                                    {plan.weeks.slice(0, 3).map((week, weekIndex) => (
+                                      <div key={weekIndex} className="preview-week">
+                                        <span>Tuần {week.week}: {week.amount} điếu</span>
+                                      </div>
+                                    ))}
+                                    {plan.weeks.length > 3 && <div className="preview-more">...</div>}
                                   </div>
                                 </div>
                               </div>
                             </div>
                           ));
                         })()}
-                      </div>{" "}
-                      <div className="form-actions">
+                      </div>                      <div className="form-actions">
                         {isEditing ? (
                           <>
-                            <button
-                              className="btn-back"
-                              onClick={() => {
-                                setIsEditing(false);
-                                setShowCompletionScreen(true);
-                                setCurrentStep(4);
-                              }}
-                            >
+                            <button className="btn-back" onClick={() => {
+                              setIsEditing(false);
+                              setShowCompletionScreen(true);
+                              setCurrentStep(4);
+                            }}>
                               <span className="btn-arrow">←</span> Hủy chỉnh sửa
                             </button>
                             <button
@@ -1494,10 +1254,7 @@ export default function JourneyStepper() {
                           </>
                         ) : (
                           <>
-                            <button
-                              className="btn-back"
-                              onClick={handleBackInStep2}
-                            >
+                            <button className="btn-back" onClick={handleBackInStep2}>
                               <span className="btn-arrow">←</span> Quay lại
                             </button>
                             <button
@@ -1516,51 +1273,32 @@ export default function JourneyStepper() {
                     <>
                       <div className="form-header">
                         <div className="form-icon">📈</div>
-                        <h2 className="form-title">
-                          Kế hoạch giảm dần đã chọn
-                        </h2>
+                        <h2 className="form-title">Kế hoạch giảm dần đã chọn</h2>
                       </div>
                       <p className="form-description">
-                        Dưới đây là lịch trình giảm dần số điếu thuốc bạn hút
-                        mỗi ngày.
+                        Dưới đây là lịch trình giảm dần số điếu thuốc bạn hút mỗi ngày.
                       </p>
+
                       {reductionPlan && (
                         <>
                           <div className="plan-description">
-                            <p>
-                              Dựa trên thông tin bạn cung cấp, chúng tôi đã tạo
-                              kế hoạch cai thuốc khoa học trong{" "}
-                              <strong>{reductionPlan.totalWeeks} tuần</strong>{" "}
-                              cho bạn. Hiện tại bạn hút khoảng{" "}
-                              <strong>
-                                {formData.cigarettesPerDay} điếu mỗi ngày
-                              </strong>
-                              .
-                            </p>
+                            <p>Dựa trên thông tin bạn cung cấp, chúng tôi đã tạo kế hoạch cai thuốc khoa học trong <strong>{reductionPlan.totalWeeks} tuần</strong> cho bạn.
+                              Hiện tại bạn hút khoảng <strong>{formData.cigarettesPerDay} điếu mỗi ngày</strong>.</p>
                           </div>
 
                           <div className="phase-legend">
                             <h4>Các giai đoạn cai thuốc:</h4>
                             <div className="legend-items">
                               <div className="legend-item">
-                                <span
-                                  className="legend-color"
-                                  style={{ backgroundColor: "#17a2b8" }}
-                                ></span>
+                                <span className="legend-color" style={{ backgroundColor: '#17a2b8' }}></span>
                                 <span>Thích nghi</span>
                               </div>
                               <div className="legend-item">
-                                <span
-                                  className="legend-color"
-                                  style={{ backgroundColor: "#28a745" }}
-                                ></span>
+                                <span className="legend-color" style={{ backgroundColor: '#28a745' }}></span>
                                 <span>Ổn định</span>
                               </div>
                               <div className="legend-item">
-                                <span
-                                  className="legend-color"
-                                  style={{ backgroundColor: "#ffc107" }}
-                                ></span>
+                                <span className="legend-color" style={{ backgroundColor: '#ffc107' }}></span>
                                 <span>Hoàn thiện</span>
                               </div>
                             </div>
@@ -1574,43 +1312,31 @@ export default function JourneyStepper() {
                               <div>Giai đoạn</div>
                             </div>
 
-                            {reductionPlan.weeks &&
-                              reductionPlan.weeks.map((week, index) => (
-                                <div className="timeline-item" key={index}>
-                                  <div className="timeline-week">
-                                    Tuần {week.week}
-                                  </div>
-                                  <div className="timeline-amount">
-                                    {week.amount} điếu
-                                  </div>
-                                  <div className="timeline-reduction">
-                                    -{week.reduction}
-                                  </div>
-                                  <div
-                                    className="timeline-phase"
-                                    style={{
-                                      backgroundColor:
-                                        week.phase === "Thích nghi"
-                                          ? "#17a2b8"
-                                          : week.phase === "Ổn định"
-                                          ? "#28a745"
-                                          : "#ffc107",
-                                      color: "white",
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    {week.phase}
-                                  </div>
+                            {reductionPlan.weeks && reductionPlan.weeks.map((week, index) => (
+                              <div className="timeline-item" key={index}>
+                                <div className="timeline-week">Tuần {week.week}</div>
+                                <div className="timeline-amount">{week.amount} điếu</div>
+                                <div className="timeline-reduction">-{week.reduction}</div>
+                                <div
+                                  className="timeline-phase"
+                                  style={{
+                                    backgroundColor: week.phase === 'Thích nghi' ? '#17a2b8' :
+                                      week.phase === 'Ổn định' ? '#28a745' : '#ffc107',
+                                    color: 'white',
+                                    fontWeight: 'bold'
+                                  }}
+                                >
+                                  {week.phase}
                                 </div>
-                              ))}
+                              </div>
+                            ))}
 
                             <div className="timeline-item complete">
                               <div className="timeline-week">Mục tiêu</div>
                               <div className="timeline-amount">0 điếu</div>
-                              <div className="timeline-reduction">✅</div>{" "}
-                              <div
+                              <div className="timeline-reduction">✅</div>                              <div
                                 className="timeline-phase"
-                                style={{ backgroundColor: "#28a745" }}
+                                style={{ backgroundColor: '#28a745' }}
                               >
                                 Mục tiêu đạt được
                               </div>
@@ -1618,60 +1344,36 @@ export default function JourneyStepper() {
                           </div>
 
                           <div className="tips-container">
-                            <h3 className="tips-title">
-                              Mẹo vượt qua thời kỳ khó khăn:
-                            </h3>
+                            <h3 className="tips-title">Mẹo vượt qua thời kỳ khó khăn:</h3>
                             <ul className="tips-list">
-                              <li>
-                                Tìm thú vui thay thế như đọc sách, nghe nhạc
-                                hoặc tập thể dục
-                              </li>
+                              <li>Tìm thú vui thay thế như đọc sách, nghe nhạc hoặc tập thể dục</li>
                               <li>Tránh xa những nơi bạn thường hút thuốc</li>
-                              <li>
-                                Giữ tay bạn bận rộn với một thứ gì đó như bút,
-                                tăm hoặc kẹo cao su không đường
-                              </li>
-                              <li>
-                                Uống nhiều nước để giúp cơ thể đào thải độc tố
-                                nhanh hơn
-                              </li>
+                              <li>Giữ tay bạn bận rộn với một thứ gì đó như bút, tăm hoặc kẹo cao su không đường</li>
+                              <li>Uống nhiều nước để giúp cơ thể đào thải độc tố nhanh hơn</li>
                               <li>Tìm sự hỗ trợ từ bạn bè và gia đình</li>
                             </ul>
                           </div>
                         </>
-                      )}{" "}
-                      <div className="form-actions">
+                      )}                      <div className="form-actions">
                         {isEditing ? (
                           <>
-                            <button
-                              className="btn-back"
-                              onClick={() => {
-                                setIsEditing(false);
-                                setShowCompletionScreen(true);
-                                setCurrentStep(4);
-                              }}
-                            >
+                            <button className="btn-back" onClick={() => {
+                              setIsEditing(false);
+                              setShowCompletionScreen(true);
+                              setCurrentStep(4);
+                            }}>
                               <span className="btn-arrow">←</span> Hủy chỉnh sửa
                             </button>
-                            <button
-                              className="btn-next"
-                              onClick={handleContinue}
-                            >
+                            <button className="btn-next" onClick={handleContinue}>
                               Tiếp tục <span className="btn-arrow">→</span>
                             </button>
                           </>
                         ) : (
                           <>
-                            <button
-                              className="btn-back"
-                              onClick={handleBackInStep2}
-                            >
+                            <button className="btn-back" onClick={handleBackInStep2}>
                               <span className="btn-arrow">←</span> Quay lại
                             </button>
-                            <button
-                              className="btn-next"
-                              onClick={handleContinue}
-                            >
+                            <button className="btn-next" onClick={handleContinue}>
                               Tiếp tục <span className="btn-arrow">→</span>
                             </button>
                           </>
@@ -1687,10 +1389,7 @@ export default function JourneyStepper() {
                     <div className="form-icon">🌟</div>
                     <h2 className="form-title">Lợi ích khi cai thuốc</h2>
                   </div>
-                  <p className="form-description">
-                    Những lợi ích tuyệt vời bạn sẽ nhận được khi cai thuốc thành
-                    công
-                  </p>
+                  <p className="form-description">Những lợi ích tuyệt vời bạn sẽ nhận được khi cai thuốc thành công</p>
                   <div className="benefits-categories">
                     <div className="benefit-category">
                       <div className="category-header">
@@ -1699,29 +1398,16 @@ export default function JourneyStepper() {
                       </div>
                       <div className="savings-calculator">
                         <div className="savings-item">
-                          <span className="savings-label">
-                            Tiết kiệm mỗi tháng:
-                          </span>
-                          <span className="savings-value">
-                            {Math.round(monthlySpending).toLocaleString()} VNĐ
-                          </span>
+                          <span className="savings-label">Tiết kiệm mỗi tháng:</span>
+                          <span className="savings-value">{Math.round(monthlySpending).toLocaleString()} VNĐ</span>
                         </div>
                         <div className="savings-item">
-                          <span className="savings-label">
-                            Tiết kiệm mỗi năm:
-                          </span>
-                          <span className="savings-value">
-                            {Math.round(yearlySpending).toLocaleString()} VNĐ
-                          </span>
+                          <span className="savings-label">Tiết kiệm mỗi năm:</span>
+                          <span className="savings-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</span>
                         </div>
                         <div className="savings-item total">
-                          <span className="savings-label">
-                            Tiết kiệm trong 10 năm:
-                          </span>
-                          <span className="savings-value">
-                            {Math.round(yearlySpending * 10).toLocaleString()}{" "}
-                            VNĐ
-                          </span>
+                          <span className="savings-label">Tiết kiệm trong 10 năm:</span>
+                          <span className="savings-value">{Math.round(yearlySpending * 10).toLocaleString()} VNĐ</span>
                         </div>
                       </div>
                       <div className="savings-suggestion">
@@ -1743,9 +1429,7 @@ export default function JourneyStepper() {
                           <div className="health-item" key={index}>
                             <div className="health-time">{benefit.time}</div>
                             <div className="health-connector"></div>
-                            <div className="health-benefit">
-                              {benefit.benefit}
-                            </div>
+                            <div className="health-benefit">{benefit.benefit}</div>
                           </div>
                         ))}
                       </div>
@@ -1774,9 +1458,7 @@ export default function JourneyStepper() {
                           <div className="benefit-icon">👕</div>
                           <div className="benefit-text">
                             <h4>Không còn mùi thuốc lá</h4>
-                            <p>
-                              Quần áo, tóc và hơi thở không còn mùi khó chịu
-                            </p>
+                            <p>Quần áo, tóc và hơi thở không còn mùi khó chịu</p>
                           </div>
                         </div>
                         <div className="benefit-item">
@@ -1788,18 +1470,14 @@ export default function JourneyStepper() {
                         </div>
                       </div>
                     </div>
-                  </div>{" "}
-                  <div className="form-actions">
+                  </div>                  <div className="form-actions">
                     {isEditing ? (
                       <>
-                        <button
-                          className="btn-back"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setShowCompletionScreen(true);
-                            setCurrentStep(4);
-                          }}
-                        >
+                        <button className="btn-back" onClick={() => {
+                          setIsEditing(false);
+                          setShowCompletionScreen(true);
+                          setCurrentStep(4);
+                        }}>
                           <span className="btn-arrow">←</span> Hủy chỉnh sửa
                         </button>
                         <button className="btn-next" onClick={handleContinue}>
@@ -1825,44 +1503,29 @@ export default function JourneyStepper() {
                     <div className="form-icon">✅</div>
                     <h2 className="form-title">Xác nhận kế hoạch</h2>
                   </div>
-                  <p className="form-description">
-                    Xem lại và xác nhận kế hoạch cai thuốc của bạn
-                  </p>
+                  <p className="form-description">Xem lại và xác nhận kế hoạch cai thuốc của bạn</p>
+
                   <div className="summary-container">
-                    <h3 className="summary-title">
-                      Tóm tắt kế hoạch cai thuốc của bạn
-                    </h3>
+                    <h3 className="summary-title">Tóm tắt kế hoạch cai thuốc của bạn</h3>
 
                     <div className="summary-section">
                       <h4 className="section-title">Thông tin hiện tại</h4>
                       <div className="summary-grid">
                         <div className="summary-item">
-                          <div className="summary-label">
-                            Số điếu hút mỗi ngày
-                          </div>
-                          <div className="summary-value">
-                            {formData.cigarettesPerDay} điếu
-                          </div>
+                          <div className="summary-label">Số điếu hút mỗi ngày</div>
+                          <div className="summary-value">{formData.cigarettesPerDay} điếu</div>
                         </div>
                         <div className="summary-item">
                           <div className="summary-label">Chi phí mỗi ngày</div>
-                          <div className="summary-value">
-                            {Math.round(dailySpending).toLocaleString()} VNĐ
-                          </div>
+                          <div className="summary-value">{Math.round(dailySpending).toLocaleString()} VNĐ</div>
                         </div>
                         <div className="summary-item">
                           <div className="summary-label">Chi phí mỗi năm</div>
-                          <div className="summary-value">
-                            {Math.round(yearlySpending).toLocaleString()} VNĐ
-                          </div>
+                          <div className="summary-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</div>
                         </div>
                         <div className="summary-item">
-                          <div className="summary-label">
-                            Thời gian đã hút thuốc
-                          </div>
-                          <div className="summary-value">
-                            {formData.smokingYears} năm
-                          </div>
+                          <div className="summary-label">Thời gian đã hút thuốc</div>
+                          <div className="summary-value">{formData.smokingYears} năm</div>
                         </div>
                       </div>
                     </div>
@@ -1870,18 +1533,12 @@ export default function JourneyStepper() {
                       <h4 className="section-title">Mục tiêu của bạn</h4>
                       <div className="summary-grid">
                         <div className="summary-item">
-                          <div className="summary-label">
-                            Thời gian cai thuốc
-                          </div>
-                          <div className="summary-value">
-                            {formData.targetTimeframe} tháng
-                          </div>
+                          <div className="summary-label">Thời gian cai thuốc</div>
+                          <div className="summary-value">{formData.targetTimeframe} tháng</div>
                         </div>
                         <div className="summary-item">
                           <div className="summary-label">Lý do cai thuốc</div>
-                          <div className="summary-value reason">
-                            Vì {formData.reasonToQuit}
-                          </div>
+                          <div className="summary-value reason">Vì {formData.reasonToQuit}</div>
                         </div>
                       </div>
                     </div>
@@ -1889,12 +1546,8 @@ export default function JourneyStepper() {
                     <div className="commitment-section">
                       <h4>Cam kết của bạn</h4>
                       <div className="commitment-text">
-                        <p>
-                          Tôi cam kết sẽ tuân theo kế hoạch cai thuốc này và nỗ
-                          lực để đạt được mục tiêu sống khỏe mạnh hơn. Mỗi ngày
-                          tôi sẽ theo dõi tiến độ và không bỏ cuộc dù có khó
-                          khăn.
-                        </p>
+                        <p>Tôi cam kết sẽ tuân theo kế hoạch cai thuốc này và nỗ lực để đạt được mục tiêu sống khỏe mạnh hơn.
+                          Mỗi ngày tôi sẽ theo dõi tiến độ và không bỏ cuộc dù có khó khăn.</p>
                       </div>
 
                       <div className="reminder-section">
@@ -1920,13 +1573,8 @@ export default function JourneyStepper() {
                     </div>
                     <div className="congratulations-message">
                       <div className="congrats-icon">🎉</div>
-                      <div className="congrats-text">
-                        {" "}
-                        <h3>Chúc mừng bạn đã lập kế hoạch cai thuốc!</h3>
-                        <p>
-                          Hãy kiên trì thực hiện, chúng tôi sẽ luôn bên cạnh hỗ
-                          trợ bạn trong suốt hành trình này.
-                        </p>
+                      <div className="congrats-text">                        <h3>Chúc mừng bạn đã lập kế hoạch cai thuốc!</h3>
+                        <p>Hãy kiên trì thực hiện, chúng tôi sẽ luôn bên cạnh hỗ trợ bạn trong suốt hành trình này.</p>
                       </div>
                     </div>
                     <div className="support-options">
@@ -1935,66 +1583,49 @@ export default function JourneyStepper() {
                         <div className="support-item">
                           <div className="support-icon">👥</div>
                           <div className="support-title">Nhóm hỗ trợ</div>
-                          <div className="support-desc">
-                            Tham gia cộng đồng cùng mục tiêu
-                          </div>
+                          <div className="support-desc">Tham gia cộng đồng cùng mục tiêu</div>
                         </div>
                         <div className="support-item">
                           <div className="support-icon">📱</div>
                           <div className="support-title">Ứng dụng di động</div>
-                          <div className="support-desc">
-                            Theo dõi tiến độ mọi lúc mọi nơi
-                          </div>
+                          <div className="support-desc">Theo dõi tiến độ mọi lúc mọi nơi</div>
                         </div>
                         <div className="support-item">
                           <div className="support-icon">📞</div>
                           <div className="support-title">Hotline tư vấn</div>
-                          <div className="support-desc">
-                            Gọi ngay khi cần giúp đỡ
-                          </div>
+                          <div className="support-desc">Gọi ngay khi cần giúp đỡ</div>
                         </div>
                       </div>
                     </div>
-                  </div>{" "}
-                  <div className="form-actions">
-                    {isEditing ? (
-                      <>
-                        <button
-                          className="btn-back"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setShowCompletionScreen(true);
-                            setCurrentStep(4);
-                          }}
-                        >
-                          <span className="btn-arrow">←</span> Hủy chỉnh sửa
+                  </div>                  <div className="form-actions">
+                  {isEditing ? (
+                    <>
+                      <button className="btn-back" onClick={() => {
+                        setIsEditing(false);
+                        setShowCompletionScreen(true);
+                        setCurrentStep(4);
+                      }}>
+                        <span className="btn-arrow">←</span> Hủy chỉnh sửa
+                      </button>
+                      <button className="btn-save-edit" onClick={handleSaveEdit}>
+                        Lưu thay đổi
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn-back" onClick={handleBack}>
+                        <span className="btn-arrow">←</span> Quay lại
+                      </button>                      {isCompleted ? (
+                        <button className="btn-back-to-summary" onClick={handleBackToSummary}>
+                          Xem tổng quan kế hoạch
                         </button>
-                        <button
-                          className="btn-save-edit"
-                          onClick={handleSaveEdit}
-                        >
-                          Lưu thay đổi
+                      ) : (
+                        <button className="btn-submit" onClick={handleSubmit}>
+                          Lập kế hoạch cai thuốc
                         </button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="btn-back" onClick={handleBack}>
-                          <span className="btn-arrow">←</span> Quay lại
-                        </button>{" "}
-                        {isCompleted ? (
-                          <button
-                            className="btn-back-to-summary"
-                            onClick={handleBackToSummary}
-                          >
-                            Xem tổng quan kế hoạch
-                          </button>
-                        ) : (
-                          <button className="btn-submit" onClick={handleSubmit}>
-                            Lập kế hoạch cai thuốc
-                          </button>
-                        )}
-                      </>
-                    )}
+                      )}
+                    </>
+                  )}
                   </div>
                 </div>
               )}

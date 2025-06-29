@@ -3,18 +3,18 @@ import { Chart as ChartJS } from 'chart.js/auto';
 import { Line } from 'react-chartjs-2';
 import '../styles/QuitProgressChart.css';
 
+console.log("📊 QuitProgressChart.jsx FILE LOADED");
+
 const QuitProgressChart = ({
     userPlan = null,
     actualProgress = [],
     timeFilter = '30 ngày',
     height = 300
 }) => {
-    // Xóa console.log không cần thiết trong production
-    // console.log("🚀 QuitProgressChart KHỞI TẠO với props:", { userPlan, actualProgress, timeFilter, height });
+    console.log("🚀 QuitProgressChart KHỞI TẠO với props:", { userPlan, actualProgress, timeFilter, height });
     
     const [chartData, setChartData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     // Tạo dữ liệu mẫu nếu không có kế hoạch thực tế
     const generateSampleData = () => {
@@ -43,52 +43,42 @@ const QuitProgressChart = ({
     
     // Tạo dữ liệu kế hoạch theo ngày dựa trên tuần
     const generateDailyPlanData = (plan) => {
+        if (!plan || !plan.weeks || !Array.isArray(plan.weeks) || plan.weeks.length === 0) return [];
         const dailyPlan = [];
         
-        // Check if plan exists with proper structure
-        if (!plan || !plan.weeks || !Array.isArray(plan.weeks) || plan.weeks.length === 0) {
-            console.warn("Invalid or missing plan data, using empty array");
+        // Check if plan exists
+        if (!plan) {
+            // Return an empty array if plan is null or undefined
             return dailyPlan;
         }
         
-        // Ensure we have a valid start date
-        let startDate;
-        try {
-            startDate = new Date(plan.startDate);
-            // Check if startDate is a valid date
-            if (isNaN(startDate.getTime())) {
-                console.warn("Invalid plan startDate, using current date");
-                startDate = new Date(); // Fallback to current date
-            }
-        } catch (e) {
-            console.warn("Error parsing startDate, using current date", e);
-            startDate = new Date(); // Fallback to current date
-        }
+        const startDate = new Date(plan.startDate || new Date());
         
-        // Process each week
-        plan.weeks.forEach((week, weekIndex) => {
-            // Ensure week has required properties
-            const weekAmount = typeof week.amount === 'number' ? week.amount : 
-                               typeof week.amount === 'string' ? parseFloat(week.amount) : 0;
-            
-            const weekNumber = week.week || (weekIndex + 1);
-            const weekPhase = week.phase || 'Mặc định';
-            
-            // Mỗi tuần có 7 ngày
-            for (let day = 0; day < 7; day++) {
-                const date = new Date(startDate);
-                date.setDate(date.getDate() + (weekIndex * 7) + day);
-                
-                dailyPlan.push({
-                    date: date.toISOString().split('T')[0],
-                    targetCigarettes: isNaN(weekAmount) ? 0 : weekAmount,
-                    week: weekNumber,
-                    phase: weekPhase
-                });
-            }
-        });
-          
-        return dailyPlan;
+        if (plan.weeks && Array.isArray(plan.weeks)) {
+            plan.weeks.forEach((week, weekIndex) => {
+                // Mỗi tuần có 7 ngày
+                for (let day = 0; day < 7; day++) {
+                    const date = new Date(startDate);
+                    date.setDate(date.getDate() + (weekIndex * 7) + day);
+                    
+                    dailyPlan.push({
+                        date: date.toISOString().split('T')[0],
+                        targetCigarettes: week.amount,
+                        week: week.week,
+                        phase: week.phase
+                    });
+                }
+            });
+        } else {
+            // If there's no weeks data, create a fallback with at least one data point
+            dailyPlan.push({
+                date: startDate.toISOString().split('T')[0],
+                targetCigarettes: 0,
+                week: 1,
+                phase: "Hoàn thành"
+            });
+        }
+          return dailyPlan;
     };
       // Filter data based on timeFilter
     const filterDataByTime = (data, filter) => {
@@ -309,127 +299,6 @@ const QuitProgressChart = ({
         setIsLoading(false);
     }, [userPlan, actualProgress, timeFilter]);
     
-    // Format date để hiển thị trên chart
-    const formatDateForDisplay = (dateString) => {
-        try {
-            const options = { day: '2-digit', month: '2-digit' };
-            return new Date(dateString).toLocaleDateString('vi-VN', options);
-        } catch (error) {
-            console.error("Error formatting date:", dateString, error);
-            return dateString;
-        }
-    };
-    
-    // Chuẩn bị dữ liệu cho biểu đồ
-    const prepareChartData = () => {
-        try {
-            let planToUse = userPlan;
-            let actualToUse = Array.isArray(actualProgress) ? actualProgress : [];
-
-            // Sử dụng dữ liệu mẫu nếu không có dữ liệu thực
-            if (!planToUse) {
-                console.warn("Không có kế hoạch, sử dụng dữ liệu mẫu");
-                const sampleData = generateSampleData();
-                planToUse = sampleData.plan;
-                
-                // Chỉ sử dụng actual mẫu nếu không có dữ liệu actual thực tế
-                if (actualToUse.length === 0) {
-                    actualToUse = sampleData.actual;
-                }
-            }
-
-            // Tạo dữ liệu kế hoạch theo ngày
-            const dailyPlan = generateDailyPlanData(planToUse);
-
-            // Lọc dữ liệu theo bộ lọc thời gian
-            const filteredPlanData = filterDataByTime(dailyPlan, timeFilter);
-            
-            // Chuẩn bị labels (ngày) và dữ liệu đích (targetData)
-            const labels = [];
-            const targetData = [];
-            
-            // Thêm các ngày và dữ liệu đích vào arrays
-            filteredPlanData.forEach((planItem) => {
-                const formattedDate = formatDateForDisplay(planItem.date);
-                labels.push(formattedDate);
-                targetData.push(planItem.targetCigarettes);
-            });
-
-            // Chuẩn bị dữ liệu thực tế
-            const actualData = [];
-            
-            // Map dữ liệu thực tế vào các ngày trong kế hoạch
-            filteredPlanData.forEach(planItem => {
-                const dateStr = planItem.date;
-                
-                // Tìm giá trị thực tế cho ngày này
-                const actualItem = actualToUse.find(item => {
-                    // Đảm bảo ngày được format đúng chuẩn YYYY-MM-DD
-                    const itemDateStr = typeof item.date === 'string' ? item.date : 
-                                        item.date instanceof Date ? item.date.toISOString().split('T')[0] : null;
-                    
-                    return itemDateStr === dateStr;
-                });
-                
-                // Thêm giá trị thực tế nếu có, null nếu không
-                if (actualItem) {
-                    const actualValue = actualItem.actualCigarettes;
-                    actualData.push(actualValue !== undefined ? actualValue : null);
-                } else {
-                    // Không có dữ liệu thực tế, push null để không hiển thị điểm nào
-                    actualData.push(null);
-                }
-            });
-
-            // Dữ liệu đã chuẩn bị sẵn sàng cho chart.js
-            return {
-                labels,
-                datasets: [
-                    {
-                        label: 'Kế hoạch',
-                        data: targetData,
-                        borderColor: '#4285f4',
-                        backgroundColor: 'rgba(66, 133, 244, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Thực tế',
-                        data: actualData,
-                        borderColor: '#34a853',
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#34a853',
-                        pointRadius: 4,
-                        tension: 0.2
-                    }
-                ],
-                // Thêm metadata để debug nếu cần
-                meta: {
-                    planDataPoints: targetData.length,
-                    actualDataPoints: actualData.filter(d => d !== null).length,
-                    nonNullActualData: actualData.filter(d => d !== null)
-                }
-            };
-        } catch (error) {
-            console.error("Error preparing chart data:", error);
-            setError("Lỗi khi chuẩn bị dữ liệu biểu đồ");
-            
-            // Return a minimal valid chart data object in case of error
-            return {
-                labels: ['Lỗi'],
-                datasets: [
-                    {
-                        label: 'Kế hoạch',
-                        data: [0],
-                        borderColor: '#4285f4'
-                    }
-                ]
-            };
-        }
-    };
-
     const options = {
         responsive: true,
         maintainAspectRatio: false,
