@@ -325,3 +325,236 @@ export const getUserDashboard = async (req, res) => {
     });
   }
 };
+
+// @desc    Lấy profile của user hiện tại
+// @route   GET /api/users/profile
+// @access  Private
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    res.json({
+      success: true,
+      data: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thông tin profile'
+    });
+  }
+};
+
+// @desc    Cập nhật profile của user hiện tại
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateUserProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    const { 
+      Name, 
+      Age, 
+      Gender, 
+      Phone, 
+      Address,
+      CigarettesPerDay,
+      CostPerPack,
+      CigarettesPerPack
+    } = req.body;
+
+    // Cập nhật thông tin
+    const updateData = {};
+    if (Name) updateData.Name = Name.trim();
+    if (Age) updateData.Age = parseInt(Age);
+    if (Gender) updateData.Gender = Gender;
+    if (Phone) updateData.Phone = Phone;
+    if (Address) updateData.Address = Address;
+    if (CigarettesPerDay !== undefined) updateData.CigarettesPerDay = parseInt(CigarettesPerDay);
+    if (CostPerPack !== undefined) updateData.CostPerPack = parseFloat(CostPerPack);
+    if (CigarettesPerPack !== undefined) updateData.CigarettesPerPack = parseInt(CigarettesPerPack);
+
+    await user.update(updateData);
+
+    res.json({
+      success: true,
+      message: 'Cập nhật profile thành công',
+      data: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Update user profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi cập nhật profile'
+    });
+  }
+};
+
+// @desc    Upload avatar của user
+// @route   POST /api/users/avatar
+// @access  Private
+export const uploadAvatar = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn file ảnh'
+      });
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    
+    await user.update({ AvatarUrl: avatarUrl });
+
+    res.json({
+      success: true,
+      message: 'Upload avatar thành công',
+      data: {
+        avatarUrl: avatarUrl
+      }
+    });
+
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi upload avatar'
+    });
+  }
+};
+
+// @desc    Lấy thông tin smoking status của user
+// @route   GET /api/users/smoking-status
+// @access  Private
+export const getUserSmokingStatus = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    const smokingStatus = {
+      startDate: user.StartDate,
+      daysWithoutSmoking: user.DaysWithoutSmoking,
+      cigarettesPerDay: user.CigarettesPerDay,
+      costPerPack: user.CostPerPack,
+      cigarettesPerPack: user.CigarettesPerPack,
+      moneySaved: user.MoneySaved,
+      isActive: user.IsActive
+    };
+
+    res.json({
+      success: true,
+      data: smokingStatus
+    });
+
+  } catch (error) {
+    console.error('Get smoking status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thông tin smoking status'
+    });
+  }
+};
+
+// @desc    Cập nhật smoking status của user
+// @route   PUT /api/users/smoking-status
+// @access  Private
+export const updateUserSmokingStatus = async (req, res) => {
+  try {
+    const user = req.user;
+    const { 
+      cigarettesPerDay, 
+      costPerPack, 
+      cigarettesPerPack,
+      startDate 
+    } = req.body;
+
+    const updateData = {};
+    
+    if (cigarettesPerDay !== undefined) {
+      updateData.CigarettesPerDay = parseInt(cigarettesPerDay);
+    }
+    
+    if (costPerPack !== undefined) {
+      updateData.CostPerPack = parseFloat(costPerPack);
+    }
+    
+    if (cigarettesPerPack !== undefined) {
+      updateData.CigarettesPerPack = parseInt(cigarettesPerPack);
+    }
+    
+    if (startDate) {
+      updateData.StartDate = new Date(startDate);
+    }
+
+    await user.update(updateData);
+
+    res.json({
+      success: true,
+      message: 'Cập nhật smoking status thành công',
+      data: {
+        startDate: user.StartDate,
+        daysWithoutSmoking: user.DaysWithoutSmoking,
+        cigarettesPerDay: user.CigarettesPerDay,
+        costPerPack: user.CostPerPack,
+        cigarettesPerPack: user.CigarettesPerPack,
+        moneySaved: user.MoneySaved
+      }
+    });
+
+  } catch (error) {
+    console.error('Update smoking status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi cập nhật smoking status'
+    });
+  }
+};
+
+// @desc    Xóa tài khoản user
+// @route   DELETE /api/users/account
+// @access  Private
+export const deleteUserAccount = async (req, res) => {
+  try {
+    const user = req.user;
+    const { password } = req.body;
+
+    // Kiểm tra password xác nhận
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng nhập mật khẩu để xác nhận xóa tài khoản'
+      });
+    }
+
+    // Verify password
+    const isPasswordCorrect = await user.matchPassword(password);
+    
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: 'Mật khẩu không đúng'
+      });
+    }
+
+    // Soft delete - set IsActive = false
+    await user.update({ 
+      IsActive: false,
+      DeletedAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Xóa tài khoản thành công'
+    });
+
+  } catch (error) {
+    console.error('Delete user account error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi xóa tài khoản'
+    });
+  }
+};

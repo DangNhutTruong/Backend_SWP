@@ -1,27 +1,41 @@
--- Tạo database quit_smoking_app
-CREATE DATABASE IF NOT EXISTS quit_smoking_app;
+-- Tạo database SmokingCessationSupportPlatform
+CREATE DATABASE IF NOT EXISTS SmokingCessationSupportPlatform;
 
 -- Sử dụng database này
-USE quit_smoking_app;
+USE SmokingCessationSupportPlatform;
 
--- Tạo bảng users (người dùng)
-CREATE TABLE IF NOT EXISTS users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  cigarettes_per_day INT NOT NULL,
-  cost_per_pack FLOAT NOT NULL,
-  cigarettes_per_pack INT NOT NULL DEFAULT 20,
-  start_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  days_without_smoking INT DEFAULT 0,
-  current_streak INT DEFAULT 0,
-  longest_streak INT DEFAULT 0,
-  membership JSON DEFAULT NULL,
-  quit_plan JSON DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_email (email)
+-- Tạo bảng User (người dùng) - Updated to match Sequelize model
+CREATE TABLE IF NOT EXISTS User (
+  UserID INT AUTO_INCREMENT PRIMARY KEY,
+  Name VARCHAR(100) NOT NULL,
+  Email VARCHAR(100) NOT NULL UNIQUE,
+  Password VARCHAR(255) NOT NULL,
+  Age INT NULL,
+  Gender ENUM('Male', 'Female', 'Other') NULL,
+  Phone VARCHAR(20) NULL,
+  Address TEXT NULL,
+  RoleID INT NOT NULL DEFAULT 3,
+  RoleName VARCHAR(50) NOT NULL DEFAULT 'Smoker',
+  Membership ENUM('free', 'basic', 'premium', 'pro') NOT NULL DEFAULT 'free',
+  StartDate DATETIME NULL,
+  DaysWithoutSmoking INT NOT NULL DEFAULT 0,
+  CigarettesPerDay INT NULL,
+  CostPerPack DECIMAL(10,2) NULL,
+  CigarettesPerPack INT NULL DEFAULT 20,
+  MoneySaved DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  LastLogin DATETIME NULL,
+  LoginCount INT NOT NULL DEFAULT 0,
+  IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+  EmailVerified BOOLEAN NOT NULL DEFAULT FALSE,
+  EmailVerificationToken VARCHAR(255) NULL,
+  PasswordResetToken VARCHAR(255) NULL,
+  PasswordResetExpires DATETIME NULL,
+  AvatarUrl VARCHAR(255) NULL,
+  CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (Email),
+  INDEX idx_role (RoleID),
+  INDEX idx_membership (Membership)
 );
 
 -- Tạo bảng daily_checkins (check-in hàng ngày)
@@ -43,7 +57,7 @@ CREATE TABLE IF NOT EXISTS daily_checkins (
   achievements JSON DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES User(UserID) ON DELETE CASCADE,
   UNIQUE KEY idx_user_date (user_id, date)
 );
 
@@ -62,7 +76,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   feedback JSON DEFAULT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES User(UserID) ON DELETE CASCADE,
   INDEX idx_date (date),
   INDEX idx_status (status)
 );

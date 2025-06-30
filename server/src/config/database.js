@@ -4,9 +4,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'quit_smoking_db',
+  process.env.DB_NAME || 'SmokingCessationSupportPlatform',
   process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
+  process.env.DB_PASSWORD || '12345',
   {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,
@@ -18,7 +18,11 @@ const sequelize = new Sequelize(
       acquire: 30000,
       idle: 10000
     },
-    timezone: '+07:00'
+    timezone: '+07:00',
+    dialectOptions: {
+      charset: 'utf8mb4',
+      collate: 'utf8mb4_unicode_ci'
+    }
   }
 );
 

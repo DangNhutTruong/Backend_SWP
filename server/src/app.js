@@ -64,6 +64,15 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    if (req.method === 'POST' && req.path.includes('/auth/')) {
+        console.log('Auth request body:', { ...req.body, password: '***' });
+    }
+    next();
+});
+
 // Test database connection
 await testConnection();
 // Ensure all required tables exist on startup

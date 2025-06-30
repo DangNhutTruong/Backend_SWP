@@ -129,7 +129,7 @@ export const AuthProvider = ({ children }) => {
           id: result.userId || result.user?.id,
           name: result.user?.name || email,
           email: email,
-          role: result.user?.role || 'user',
+          role: result.user?.role || "user",
           createdAt: new Date().toISOString(),
         };
 
@@ -151,10 +151,10 @@ export const AuthProvider = ({ children }) => {
           const coachUser = { ...coachWithoutPassword, role: "coach" };
           setUser(coachUser);
           setLoading(false);
-          
+
           // Redirect coach đến dashboard
           window.location.href = "/coach";
-          
+
           return { success: true, user: coachUser };
         }
       } catch {

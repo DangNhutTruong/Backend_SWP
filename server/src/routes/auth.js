@@ -12,6 +12,12 @@ import {
   verifyEmail
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
+import { handleValidationErrors } from '../middleware/validation.js';
+import { 
+  registerValidation, 
+  loginValidation, 
+  changePasswordValidation 
+} from '../middleware/validators.js';
 import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
@@ -38,8 +44,8 @@ const registerLimiter = rateLimit({
 });
 
 // Public routes
-router.post('/register', registerLimiter, registerUser);
-router.post('/login', authLimiter, loginUser);
+router.post('/register', registerValidation, handleValidationErrors, registerUser);
+router.post('/login', loginValidation, handleValidationErrors, loginUser);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.get('/verify-email/:token', verifyEmail);
@@ -47,7 +53,7 @@ router.get('/verify-email/:token', verifyEmail);
 // Protected routes (cần authentication)
 router.get('/me', protect, getCurrentUser);
 router.put('/profile', protect, updateProfile);
-router.put('/change-password', protect, changePassword);
+router.put('/change-password', protect, changePasswordValidation, handleValidationErrors, changePassword);
 router.post('/logout', protect, logoutUser);
 router.delete('/delete-account', protect, deleteAccount);
 

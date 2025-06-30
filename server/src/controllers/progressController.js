@@ -1,5 +1,4 @@
-import Progress from '../models/Progress.js';
-import QuitPlan from '../models/QuitPlan.js';
+import { DailyCheckin } from '../models/index.js';
 import { Op } from 'sequelize';
 
 // Get all progress entries for a user
@@ -523,6 +522,228 @@ export const getMonthlySummary = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi máy chủ khi lấy tổng kết tháng'
+    });
+  }
+};
+
+// @desc    Checkin daily progress
+// @route   POST /api/progress/checkin
+// @access  Private
+export const checkinProgress = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { 
+      date = new Date().toISOString().split('T')[0],
+      cigarettesSmoked = 0,
+      mood,
+      notes,
+      triggers,
+      cravingLevel = 0,
+      stressLevel = 0
+    } = req.body;
+
+    // Check if checkin already exists for this date
+    let progress = await Progress.findOne({
+      where: { 
+        UserID: userId, 
+        Date: new Date(date) 
+      }
+    });
+
+    if (progress) {
+      // Update existing checkin
+      await progress.update({
+        CigarettesSmoked: cigarettesSmoked,
+        Mood: mood,
+        Notes: notes,
+        Triggers: triggers,
+        CravingLevel: cravingLevel,
+        StressLevel: stressLevel
+      });
+    } else {
+      // Create new checkin
+      progress = await Progress.create({
+        UserID: userId,
+        Date: new Date(date),
+        CigarettesSmoked: cigarettesSmoked,
+        Mood: mood,
+        Notes: notes,
+        Triggers: triggers,
+        CravingLevel: cravingLevel,
+        StressLevel: stressLevel
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Checkin thành công',
+      data: progress
+    });
+
+  } catch (error) {
+    console.error('Checkin progress error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi checkin progress'
+    });
+  }
+};
+
+// @desc    Get user progress by specific date
+// @route   GET /api/progress/user/:date
+// @access  Private
+export const getUserProgressByDate = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { date } = req.params;
+
+    const progress = await Progress.findOne({
+      where: { 
+        UserID: userId, 
+        Date: new Date(date) 
+      }
+    });
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dữ liệu cho ngày này'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: progress
+    });
+
+  } catch (error) {
+    console.error('Get progress by date error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy progress theo ngày'
+    });
+  }
+};
+
+// @desc    Update checkin by date
+// @route   PUT /api/progress/checkin/:date
+// @access  Private
+export const updateCheckinByDate = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { date } = req.params;
+    const updateData = req.body;
+
+    const progress = await Progress.findOne({
+      where: { 
+        UserID: userId, 
+        Date: new Date(date) 
+      }
+    });
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dữ liệu checkin cho ngày này'
+      });
+    }
+
+    await progress.update(updateData);
+
+    res.json({
+      success: true,
+      message: 'Cập nhật checkin thành công',
+      data: progress
+    });
+
+  } catch (error) {
+    console.error('Update checkin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi cập nhật checkin'
+    });
+  }
+};
+
+// @desc    Delete checkin by date
+// @route   DELETE /api/progress/checkin/:date
+// @access  Private
+export const deleteCheckinByDate = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { date } = req.params;
+
+    const progress = await Progress.findOne({
+      where: { 
+        UserID: userId, 
+        Date: new Date(date) 
+      }
+    });
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dữ liệu checkin cho ngày này'
+      });
+    }
+
+    await progress.destroy();
+
+    res.json({
+      success: true,
+      message: 'Xóa checkin thành công'
+    });
+
+  } catch (error) {
+    console.error('Delete checkin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi xóa checkin'
+    });
+  }
+};
+
+// @desc    Get progress chart data
+// @route   GET /api/progress/chart-data
+// @access  Private
+export const getProgressChartData = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { days = 30 } = req.query;
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const progressData = await Progress.findAll({
+      where: {
+        UserID: userId,
+        Date: {
+          [Op.between]: [startDate, endDate]
+        }
+      },
+      order: [['Date', 'ASC']]
+    });
+
+    // Format data for charts
+    const chartData = progressData.map(p => ({
+      date: p.Date,
+      cigarettesSmoked: p.CigarettesSmoked,
+      mood: p.Mood,
+      cravingLevel: p.CravingLevel,
+      stressLevel: p.StressLevel
+    }));
+
+    res.json({
+      success: true,
+      data: chartData
+    });
+
+  } catch (error) {
+    console.error('Get chart data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy dữ liệu biểu đồ'
     });
   }
 };
