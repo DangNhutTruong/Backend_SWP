@@ -1,23 +1,14 @@
-import User from './User.js';
-import DailyCheckin from './DailyCheckinMySQL_updated.js';
-import Appointment from './AppointmentMySQL_updated.js';
-import Coach from './Coach.js';
-import MembershipPlan from './MembershipPlan.js';
+import User from './UserReal.js';
+import PackageReal from './PackageReal.js';
 
 // Export all models
 export {
   User,
-  DailyCheckin,
-  Appointment,
-  Coach,
-  MembershipPlan
+  PackageReal as Package
 };
 
 // Export default object with all models
 export default {
   User,
-  DailyCheckin,
-  Appointment,
-  Coach,
-  MembershipPlan
+  Package: PackageReal
 };

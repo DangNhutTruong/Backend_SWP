@@ -30,10 +30,14 @@ const sequelize = new Sequelize(
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('MySQL Database connected successfully');
+    console.log('✅ MySQL Database connected successfully!');
+    console.log(`📊 Database: ${process.env.DB_NAME || 'SmokingCessationSupportPlatform'}`);
+    console.log(`🏠 Host: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306}`);
+    console.log(`👤 User: ${process.env.DB_USER || 'root'}`);
   } catch (error) {
-    console.warn('Unable to connect to MySQL database:', error.message);
-    console.log('Server will continue running without database connection');
+    console.error('❌ Unable to connect to MySQL database:', error.message);
+    console.log('🔄 Server will continue running without database connection');
+    console.log('💡 Please check your MySQL connection settings in .env file');
   }
 };
 
