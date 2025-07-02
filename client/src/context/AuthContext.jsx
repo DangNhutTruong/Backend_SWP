@@ -80,11 +80,13 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (result.success) {
-        // Lưu user info vào state
+        // Lưu user info vào state, ưu tiên username từ backend
+        const backendUser = result.data?.user || result.user;
         const userInfo = {
-          id: result.userId,
-          name: userData.name,
+          id: result.userId || backendUser?.id,
+          name: backendUser?.username || backendUser?.name || userData.name,
           email: userData.email,
+          role: backendUser?.role || "user",
           createdAt: new Date().toISOString(),
         };
 
@@ -124,12 +126,13 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (result.success) {
-        // Lưu user info vào state
+        // Lưu user info vào state, ưu tiên username từ backend
+        const backendUser = result.data?.user || result.user;
         const userInfo = {
-          id: result.userId || result.user?.id,
-          name: result.user?.username || result.user?.name || email,
+          id: result.userId || backendUser?.id,
+          name: backendUser?.username || backendUser?.name || email,
           email: email,
-          role: result.user?.role || "user",
+          role: backendUser?.role || "user",
           createdAt: new Date().toISOString(),
         };
 
