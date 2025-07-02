@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 // Generate random token
 export const generateToken = (length = 32) => {
@@ -15,21 +16,69 @@ export const generatePasswordResetToken = () => {
   return generateToken(32);
 };
 
-// Simulate sending email (placeholder)
+// Create Gmail transporter
+const createTransporter = () => {
+  return nodemailer.createTransporter({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER, // Your Gmail address
+      pass: process.env.EMAIL_PASS  // Your Gmail app password
+    }
+  });
+};
+
+// Send email function (real email)
 export const sendEmail = async (to, subject, text, html) => {
-  console.log('📧 Sending email to:', to);
-  console.log('📧 Subject:', subject);
-  console.log('📧 Content:', text);
-  
-  // In production, you would use services like:
-  // - SendGrid
-  // - AWS SES
-  // - Nodemailer with SMTP
-  
-  return {
-    success: true,
-    message: 'Email sent successfully (simulated)'
-  };
+  try {
+    console.log('📧 Sending email to:', to);
+    console.log('📧 Subject:', subject);
+    
+    // Check if in development mode
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    
+    if (isDevelopment && (!process.env.EMAIL_USER || !process.env.EMAIL_PASS)) {
+      console.log('⚠️ EMAIL_USER or EMAIL_PASS not set, simulating email...');
+      console.log('📧 Email content:', text);
+      return {
+        success: true,
+        message: 'Email simulated (missing Gmail credentials)',
+        isDevelopment: true
+      };
+    }
+    
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: `"NoSmoke App" <${process.env.EMAIL_USER}>`,
+      to: to,
+      subject: subject,
+      text: text,
+      html: html
+    };
+    
+    const result = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully:', result.messageId);
+    
+    return {
+      success: true,
+      message: 'Email sent successfully',
+      messageId: result.messageId
+    };
+    
+  } catch (error) {
+    console.error('❌ Email send error:', error);
+    
+    // Fallback to simulation in case of error
+    console.log('📧 Falling back to simulated email...');
+    console.log('📧 Email content:', text);
+    
+    return {
+      success: false,
+      message: 'Failed to send email, but simulated',
+      error: error.message,
+      isSimulated: true
+    };
+  }
 };
 
 // Send verification email

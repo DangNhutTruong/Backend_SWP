@@ -49,7 +49,13 @@ export default function Register() {
       const result = await register(userData);
       
       if (result.success) {
-        navigate('/profile');
+        // Redirect to email verification page with email
+        navigate('/verify-email', { 
+          state: { 
+            email: email,
+            message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
+          }
+        });
       } else {
         setError(result.error || 'Đăng ký không thành công');
       }

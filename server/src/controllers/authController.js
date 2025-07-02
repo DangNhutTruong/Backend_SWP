@@ -14,8 +14,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 export const register = async (req, res) => {
   try {
     console.log('🔍 Starting registration process...');
-    const { username, email, password, full_name, phone, gender, date_of_birth, role } = req.body;
-    console.log('📝 Registration data:', { username, email, full_name });
+    const { username, name, email, password, full_name, phone, gender, date_of_birth, role } = req.body;
+    console.log('📝 Registration data received:', { username, name, email, full_name });
 
     // Check if user already exists
     console.log('🔍 Checking if user exists...');
@@ -40,8 +40,18 @@ export const register = async (req, res) => {
 
     // Create user
     console.log('👤 Creating user...');
+    
+    // Determine username priority: username > name > full_name > email prefix
+    let finalUsername = username || name || full_name;
+    if (!finalUsername || finalUsername.trim() === '') {
+      // Extract name from email if no username provided
+      finalUsername = email.split('@')[0];
+    }
+    
+    console.log('📝 Final username will be:', finalUsername);
+    
     const user = await User.create({
-      username: username || full_name || 'user',
+      username: finalUsername,
       email: email,
       password: password_hash  // Store hashed password
     });
@@ -362,9 +372,17 @@ export const forgotPassword = async (req, res) => {
     // Send password reset email
     await sendPasswordResetEmail(user, resetToken);
 
+    // In development, return token for testing
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
     res.json({
       success: true,
-      message: 'If the email exists, a password reset link has been sent'
+      message: 'If the email exists, a password reset link has been sent',
+      // Only show token in development mode for testing
+      ...(isDevelopment && { 
+        devToken: resetToken,
+        devMessage: 'Development mode: Use this token to reset password' 
+      })
     });
 
   } catch (error) {

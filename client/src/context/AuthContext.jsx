@@ -234,6 +234,86 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: err.message };
     }
   };
+  // Hàm verify email
+  const verifyEmail = async (email, token) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log(`🔐 Verifying email ${email} với token: ${token}`);
+      
+      const response = await fetch("http://localhost:5000/api/auth/verify-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, token }),
+      });
+
+      const result = await response.json();
+      console.log('🔐 Verify response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Xác thực email thất bại");
+      }
+
+      if (result.success) {
+        // Update user verification status if logged in
+        if (user) {
+          const updatedUser = { ...user, emailVerified: true };
+          setUser(updatedUser);
+        }
+        
+        setLoading(false);
+        return { success: true, message: result.message };
+      } else {
+        throw new Error(result.message || "Xác thực email thất bại");
+      }
+    } catch (err) {
+      console.error('🔐 Verify error:', err);
+      setError(err.message);
+      setLoading(false);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Hàm resend verification email
+  const resendVerificationCode = async (email) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log(`📧 Gửi lại mã xác thực cho email: ${email}`);
+      
+      const response = await fetch("http://localhost:5000/api/auth/verify-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }), // Chỉ gửi email để resend
+      });
+
+      const result = await response.json();
+      console.log('📧 Resend response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "Gửi lại mã xác thực thất bại");
+      }
+
+      if (result.success) {
+        setLoading(false);
+        return { success: true, message: result.message };
+      } else {
+        throw new Error(result.message || "Gửi lại mã xác thực thất bại");
+      }
+    } catch (err) {
+      console.error('📧 Resend error:', err);
+      setError(err.message);
+      setLoading(false);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Giá trị context
   const value = {
     user,
@@ -242,6 +322,8 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     register,
+    verifyEmail,
+    resendVerificationCode,
     updateUser,
     refreshMembership,
     setUser,
