@@ -81,9 +81,9 @@ export const getQuitPlanById = async (req, res) => {
     const smoker_id = req.user.id;
 
     const plan = await QuitSmokingPlan.findOne({
-      where: { 
-        id, 
-        smoker_id 
+      where: {
+        id,
+        smoker_id
       },
       include: [{
         model: Progress,
@@ -121,9 +121,9 @@ export const updateQuitPlan = async (req, res) => {
     const smoker_id = req.user.id;
 
     const plan = await QuitSmokingPlan.findOne({
-      where: { 
-        id, 
-        smoker_id 
+      where: {
+        id,
+        smoker_id
       }
     });
 
@@ -164,9 +164,9 @@ export const deleteQuitPlan = async (req, res) => {
     const smoker_id = req.user.id;
 
     const plan = await QuitSmokingPlan.findOne({
-      where: { 
-        id, 
-        smoker_id 
+      where: {
+        id,
+        smoker_id
       }
     });
 

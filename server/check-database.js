@@ -6,7 +6,7 @@ const checkDatabase = async () => {
     // Test connection
     await sequelize.authenticate();
     console.log('✅ Connected to database successfully!');
-    
+
     // Get list of tables
     const [results] = await sequelize.query('SHOW TABLES');
     console.log('\n📋 Existing tables:');
@@ -14,10 +14,10 @@ const checkDatabase = async () => {
       const tableName = Object.values(row)[0];
       console.log(`  - ${tableName}`);
     });
-    
+
     // Check structure of some key tables
     const tables = ['user', 'packages', 'quitplan', 'progress'];
-    
+
     for (const table of tables) {
       console.log(`\n🔍 Structure of table '${table}':`);
       try {
@@ -29,7 +29,7 @@ const checkDatabase = async () => {
         console.log(`  ❌ Table '${table}' not found or error: ${error.message}`);
       }
     }
-    
+
   } catch (error) {
     console.error('❌ Database error:', error.message);
   } finally {

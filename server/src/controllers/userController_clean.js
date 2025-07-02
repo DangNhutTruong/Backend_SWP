@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -36,7 +36,7 @@ export const getUserProfile = async (req, res) => {
 export const updateUserProfile = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -75,7 +75,7 @@ export const updateUserProfile = async (req, res) => {
 export const uploadAvatar = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -174,7 +174,7 @@ export const updateUserSmokingStatus = async (req, res) => {
 export const deleteUserAccount = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,

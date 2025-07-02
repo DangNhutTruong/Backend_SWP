@@ -9,9 +9,9 @@ export const createAppointment = async (req, res) => {
 
     // Verify coach exists
     const coach = await User.findOne({
-      where: { 
-        id: coach_id, 
-        role: 'coach' 
+      where: {
+        id: coach_id,
+        role: 'coach'
       }
     });
 

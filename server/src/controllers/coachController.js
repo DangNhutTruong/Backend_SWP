@@ -35,9 +35,9 @@ export const getCoachById = async (req, res) => {
     const { id } = req.params;
 
     const coach = await User.findOne({
-      where: { 
-        id, 
-        role: 'coach' 
+      where: {
+        id,
+        role: 'coach'
       },
       attributes: { exclude: ['password_hash'] }
     });
@@ -55,7 +55,7 @@ export const getCoachById = async (req, res) => {
     });
 
     const completedAppointments = await Appointment.count({
-      where: { 
+      where: {
         coach_id: id,
         status: 'completed'
       }
@@ -98,9 +98,9 @@ export const getCoachAvailability = async (req, res) => {
 
     // Verify coach exists
     const coach = await User.findOne({
-      where: { 
-        id, 
-        role: 'coach' 
+      where: {
+        id,
+        role: 'coach'
       }
     });
 
@@ -133,11 +133,11 @@ export const getCoachAvailability = async (req, res) => {
       '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'
     ];
 
-    const bookedTimes = appointments.map(apt => 
+    const bookedTimes = appointments.map(apt =>
       new Date(apt.appointment_time).toTimeString().substring(0, 5)
     );
 
-    const availableSlots = workingHours.filter(time => 
+    const availableSlots = workingHours.filter(time =>
       !bookedTimes.includes(time)
     );
 
@@ -167,9 +167,9 @@ export const getCoachReviews = async (req, res) => {
 
     // Verify coach exists
     const coach = await User.findOne({
-      where: { 
-        id, 
-        role: 'coach' 
+      where: {
+        id,
+        role: 'coach'
       }
     });
 
@@ -215,9 +215,9 @@ export const submitFeedback = async (req, res) => {
 
     // Verify coach exists
     const coach = await User.findOne({
-      where: { 
-        id, 
-        role: 'coach' 
+      where: {
+        id,
+        role: 'coach'
       }
     });
 
