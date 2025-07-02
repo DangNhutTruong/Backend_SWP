@@ -2,40 +2,58 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const QuitSmokingPlan = sequelize.define('QuitSmokingPlan', {
-  id: {
+  PlanID: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  smoker_id: {
+  UserID: {
     type: DataTypes.INTEGER,
     allowNull: false
   },
-  plan_name: {
-    type: DataTypes.STRING(100),
-    allowNull: true
+  Title: {
+    type: DataTypes.STRING(200),
+    allowNull: false
   },
-  plan_details: {
+  Reason: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  StartDate: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  ExpectedQuitDate: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  Description: {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  start_date: {
-    type: DataTypes.DATEONLY,
+  Milestones: {
+    type: DataTypes.JSON,
     allowNull: true
   },
-  end_date: {
-    type: DataTypes.DATEONLY,
-    allowNull: true
+  Status: {
+    type: DataTypes.ENUM('active', 'paused', 'completed', 'cancelled'),
+    allowNull: false,
+    defaultValue: 'active'
   },
-  status: {
-    type: DataTypes.ENUM('ongoing', 'completed', 'failed'),
-    defaultValue: 'ongoing'
+  Progress: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+  CompletedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
-  tableName: 'quit_smoking_plan',
+  tableName: 'quitplan',
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: false
+  createdAt: 'CreatedAt',
+  updatedAt: 'UpdatedAt'
 });
 
 export default QuitSmokingPlan;

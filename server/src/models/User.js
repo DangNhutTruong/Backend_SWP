@@ -2,54 +2,115 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const User = sequelize.define('User', {
-  id: {
+  UserID: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  username: {
-    type: DataTypes.STRING(50),
+  Name: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
+  Email: {
+    type: DataTypes.STRING(100),
     allowNull: false,
     unique: true
   },
-  password_hash: {
+  Password: {
     type: DataTypes.STRING(255),
     allowNull: false
   },
-  email: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-    unique: true
-  },
-  full_name: {
-    type: DataTypes.STRING(100),
+  Age: {
+    type: DataTypes.INTEGER,
     allowNull: true
   },
-  phone: {
+  Gender: {
+    type: DataTypes.ENUM('Male', 'Female', 'Other'),
+    allowNull: true
+  },
+  Phone: {
     type: DataTypes.STRING(20),
     allowNull: true
   },
-  gender: {
-    type: DataTypes.ENUM('male', 'female', 'other'),
+  Address: {
+    type: DataTypes.TEXT,
     allowNull: true
   },
-  date_of_birth: {
-    type: DataTypes.DATEONLY,
+  RoleID: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  RoleName: {
+    type: DataTypes.STRING(50),
+    allowNull: false
+  },
+  Membership: {
+    type: DataTypes.ENUM('free', 'basic', 'premium', 'pro'),
+    allowNull: false,
+    defaultValue: 'free'
+  },
+  StartDate: {
+    type: DataTypes.DATE,
     allowNull: true
   },
-  avatar_url: {
+  DaysWithoutSmoking: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+  CigarettesPerDay: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  CostPerPack: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  CigarettesPerPack: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  MoneySaved: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00
+  },
+  LastLogin: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  LoginCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+  IsActive: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true
+  },
+  EmailVerified: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
+  EmailVerificationToken: {
     type: DataTypes.STRING(255),
     allowNull: true
   },
-  role: {
-    type: DataTypes.ENUM('coach', 'smoker'),
-    allowNull: false
+  PasswordResetToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  PasswordResetExpires: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'user',
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  createdAt: 'CreatedAt',
+  updatedAt: 'UpdatedAt'
 });
 
 export default User;

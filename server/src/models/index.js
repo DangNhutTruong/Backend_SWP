@@ -12,12 +12,6 @@ import SmokingStatus from './SmokingStatus.js';
 import Progress from './Progress.js';
 import CommunityPost from './CommunityPost.js';
 import Share from './Share.js';
-import Payment from './Payment.js';
-import Notification from './Notification.js';
-import UserSettings from './UserSettings.js';
-import BlogLike from './BlogLike.js';
-import CommunityLike from './CommunityLike.js';
-import CommunityComment from './CommunityComment.js';
 
 // Define relationships
 // User relationships
@@ -52,30 +46,6 @@ CommunityPost.belongsTo(User, { foreignKey: 'author_id', as: 'author' });
 User.hasMany(Share, { foreignKey: 'smoker_id', as: 'shares' });
 Share.belongsTo(User, { foreignKey: 'smoker_id', as: 'smoker' });
 
-User.hasMany(Payment, { foreignKey: 'user_id', as: 'payments' });
-Payment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-Payment.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
-
-User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
-Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-User.hasOne(UserSettings, { foreignKey: 'user_id', as: 'settings' });
-UserSettings.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-User.hasMany(BlogLike, { foreignKey: 'user_id', as: 'blogLikes' });
-BlogLike.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-BlogLike.belongsTo(BlogPost, { foreignKey: 'blog_post_id', as: 'blogPost' });
-
-User.hasMany(CommunityLike, { foreignKey: 'user_id', as: 'communityLikes' });
-CommunityLike.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-CommunityLike.belongsTo(CommunityPost, { foreignKey: 'community_post_id', as: 'communityPost' });
-
-User.hasMany(CommunityComment, { foreignKey: 'user_id', as: 'communityComments' });
-CommunityComment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-CommunityComment.belongsTo(CommunityPost, { foreignKey: 'community_post_id', as: 'communityPost' });
-CommunityComment.belongsTo(CommunityComment, { foreignKey: 'parent_comment_id', as: 'parentComment' });
-CommunityComment.hasMany(CommunityComment, { foreignKey: 'parent_comment_id', as: 'replies' });
-
 // Package relationships
 Package.hasMany(Register, { foreignKey: 'package_id', as: 'registers' });
 Register.belongsTo(Package, { foreignKey: 'package_id', as: 'package' });
@@ -109,13 +79,7 @@ export {
   SmokingStatus,
   Progress,
   CommunityPost,
-  Share,
-  Payment,
-  Notification,
-  UserSettings,
-  BlogLike,
-  CommunityLike,
-  CommunityComment
+  Share
 };
 
 export default {
@@ -132,11 +96,5 @@ export default {
   SmokingStatus,
   Progress,
   CommunityPost,
-  Share,
-  Payment,
-  Notification,
-  UserSettings,
-  BlogLike,
-  CommunityLike,
-  CommunityComment
+  Share
 };

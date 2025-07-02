@@ -11,13 +11,12 @@ import achievementRoutes from './routes/achievements.js';
 import packageRoutes from './routes/packages.js';
 import coachRoutes from './routes/coaches.js';
 import appointmentRoutes from './routes/appointments.js';
-import paymentRoutes from './routes/payments.js';
-import notificationRoutes from './routes/notifications.js';
-import settingsRoutes from './routes/settings.js';
-import testRoutes from './routes/test.js';
 // import blogRoutes from './routes/blogs.js';
 // import communityRoutes from './routes/community.js';
+// import paymentRoutes from './routes/payments.js';
+// import notificationRoutes from './routes/notifications.js';
 // import smokingStatusRoutes from './routes/smoking-status.js';
+// import settingsRoutes from './routes/settings.js';
 // import dashboardRoutes from './routes/dashboard.js';
 import path from 'path';
 
@@ -99,13 +98,13 @@ app.use('/api/achievements', achievementRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/coaches', coachRoutes);
 app.use('/api/appointments', appointmentRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/test', testRoutes);
+// app.use('/api/appointments', appointmentRoutes);
 // app.use('/api/blog', blogRoutes);
 // app.use('/api/community', communityRoutes);
+// app.use('/api/payments', paymentRoutes);
+// app.use('/api/notifications', notificationRoutes);
 // app.use('/api/smoking-status', smokingStatusRoutes);
+// app.use('/api/settings', settingsRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler

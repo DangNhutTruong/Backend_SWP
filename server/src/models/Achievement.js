@@ -2,25 +2,29 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const Achievement = sequelize.define('Achievement', {
-  id: {
+  AchievementID: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  name: {
+  Title: {
     type: DataTypes.STRING(100),
     allowNull: false
   },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true
+  Description: {
+    type: DataTypes.TEXT('long'),
+    allowNull: false
   },
-  icon_url: {
-    type: DataTypes.STRING(255),
-    allowNull: true
+  Criteria: {
+    type: DataTypes.TEXT('long'),
+    allowNull: false
+  },
+  CreatedByUserID: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   }
 }, {
-  tableName: 'achievement',
+  tableName: 'Achievement',
   timestamps: false
 });
 

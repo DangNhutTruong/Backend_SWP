@@ -25,7 +25,6 @@ import CoachDashboard from "./page/coach/CoachDashboard.jsx"; // Import CoachDas
 import CoachBookings from "./page/coach/CoachBookings.jsx"; // Import CoachBookings
 import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
-import ErrorBoundary from "./components/ErrorBoundary.jsx"; // Import ErrorBoundary
 import "./style.css";
 import JourneyStepper from "./components/JourneyStepper.jsx";
 import Notification from "./page/Notification.jsx"; // Import component Notification
@@ -33,8 +32,6 @@ import SettingsPage from "./page/Settings.jsx"; // Import component Settings
 import Pay from "./page/Pay.jsx";
 import PaymentSuccess from "./page/PaymentSuccess.jsx";
 import MembershipTest from "./components/MembershipTest.jsx";
-import BackendConnectionDemo from "./components/BackendConnectionDemo.jsx"; // Import Backend Connection Demo
-import EndToEndTester from "./components/EndToEndTester.jsx"; // Import End-to-End Tester
 /**
  * App - Component chính của ứng dụng
  *
@@ -128,14 +125,6 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <ConnectionTestPage />
-      </Layout>
-    ),
-  },
-  {
-    path: "/e2e-test",
-    element: (
-      <Layout>
-        <EndToEndTester />
       </Layout>
     ),
   },
@@ -325,32 +314,24 @@ const router = createBrowserRouter([
       </Layout>
     ),
   },
-  {
-    path: "/backend-demo",
-    element: (
-      <Layout>
-        <BackendConnectionDemo />
-      </Layout>
-    ),
-  },
   // Coach Routes
   {
     path: "/coach",
     element: (
-      <RoleBasedRoute allowedRoles={["coach"]}>
+      <RoleBasedRoute allowedRoles={['coach']}>
         <CoachLayout />
       </RoleBasedRoute>
     ),
     children: [
       {
         index: true,
-        element: <CoachDashboard />,
+        element: <CoachDashboard />
       },
       {
         path: "bookings",
-        element: <CoachBookings />,
-      },
-    ],
+        element: <CoachBookings />
+      }
+    ]
   },
   {
     path: "/access-denied",
@@ -398,12 +379,10 @@ const SimpleBackToTop = () => {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <MembershipProvider>
-          <RouterProvider router={router} />
-        </MembershipProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    <AuthProvider>
+      <MembershipProvider>
+        <RouterProvider router={router} />
+      </MembershipProvider>
+    </AuthProvider>
   );
 }
