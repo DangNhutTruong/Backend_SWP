@@ -8,6 +8,8 @@ import {
   forgotPassword,
   resetPassword
 } from '../controllers/authController.js';
+import { registerValidation, loginValidation } from '../middleware/validators.js';
+import { handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
 

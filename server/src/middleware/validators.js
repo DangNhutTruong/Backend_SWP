@@ -11,11 +11,10 @@ export const registerValidation = [
     
   body('email')
     .trim()
-    .isEmail()
-    .withMessage('Email không hợp lệ')
-    .normalizeEmail()
     .isLength({ max: 100 })
-    .withMessage('Email không được vượt quá 100 ký tự'),
+    .withMessage('Email không được vượt quá 100 ký tự')
+    .isEmail()
+    .withMessage('Email không hợp lệ'),
     
   body('password')
     .isLength({ min: 6, max: 128 })

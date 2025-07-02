@@ -1,7 +1,7 @@
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '../../.env' });
+dotenv.config();
 
 // Use Railway DATABASE_URL if available, otherwise fallback to individual configs
 const sequelize = process.env.DATABASE_URL 

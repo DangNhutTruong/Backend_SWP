@@ -12,14 +12,14 @@ export const register = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({
       where: {
-        $or: [{ email }, { username }]
+        Email: email
       }
     });
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User with this email or username already exists'
+        message: 'User with this email already exists'
       });
     }
 
@@ -28,14 +28,9 @@ export const register = async (req, res) => {
 
     // Create user
     const user = await User.create({
-      username,
-      email,
-      password_hash,
-      full_name,
-      phone,
-      gender,
-      date_of_birth,
-      role: role || 'smoker'
+      Name: name,
+      Email: email,
+      Password: password_hash
     });
 
     // Generate tokens
