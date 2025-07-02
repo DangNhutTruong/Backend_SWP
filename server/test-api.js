@@ -9,7 +9,7 @@ const testAPI = async () => {
 
     // Test health endpoint
     console.log('1. Testing health endpoint...');
-    const healthResponse = await fetch(`${baseURL}/api/health`);
+    const healthResponse = await fetch(`${baseURL}/health`);
     const healthData = await healthResponse.json();
     console.log('✅ Health:', healthData);
 

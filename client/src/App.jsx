@@ -32,6 +32,7 @@ import SettingsPage from "./page/Settings.jsx"; // Import component Settings
 import Pay from "./page/Pay.jsx";
 import PaymentSuccess from "./page/PaymentSuccess.jsx";
 import MembershipTest from "./components/MembershipTest.jsx";
+import BackendConnectionDemo from "./components/BackendConnectionDemo.jsx"; // Import Backend Connection Demo
 /**
  * App - Component chính của ứng dụng
  *
@@ -314,24 +315,32 @@ const router = createBrowserRouter([
       </Layout>
     ),
   },
+  {
+    path: "/backend-demo",
+    element: (
+      <Layout>
+        <BackendConnectionDemo />
+      </Layout>
+    ),
+  },
   // Coach Routes
   {
     path: "/coach",
     element: (
-      <RoleBasedRoute allowedRoles={['coach']}>
+      <RoleBasedRoute allowedRoles={["coach"]}>
         <CoachLayout />
       </RoleBasedRoute>
     ),
     children: [
       {
         index: true,
-        element: <CoachDashboard />
+        element: <CoachDashboard />,
       },
       {
         path: "bookings",
-        element: <CoachBookings />
-      }
-    ]
+        element: <CoachBookings />,
+      },
+    ],
   },
   {
     path: "/access-denied",
