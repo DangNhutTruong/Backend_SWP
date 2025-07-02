@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoSmoke Authentication API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .api-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        h3 {
+            color: #2c5282;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 5px;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #2c5282;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #c6f6d5;
+            border: 1px solid #38a169;
+            color: #22543d;
+        }
+        .error {
+            background-color: #fed7d7;
+            border: 1px solid #e53e3e;
+            color: #742a2a;
+        }
+        .info {
+            background-color: #bee3f8;
+            border: 1px solid #3182ce;
+            color: #2a4365;
+        }
+        .tokens {
+            background-color: #faf089;
+            border: 1px solid #d69e2e;
+            color: #744210;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 NoSmoke Authentication API Test</h1>
+    
+    <div class="container">
+        <!-- 1. Register -->
+        <div class="api-section">
+            <h3>1️⃣ Register</h3>
+            <input type="text" id="regUsername" placeholder="Username" value="testuser">
+            <input type="email" id="regEmail" placeholder="Email" value="test@nosmoke.com">
+            <input type="password" id="regPassword" placeholder="Password" value="password123">
+            <button onclick="testRegister()">Register</button>
+            <div id="regResult" class="result"></div>
+        </div>
+
+        <!-- 2. Login -->
+        <div class="api-section">
+            <h3>2️⃣ Login</h3>
+            <input type="email" id="loginEmail" placeholder="Email" value="test@nosmoke.com">
+            <input type="password" id="loginPassword" placeholder="Password" value="password123">
+            <button onclick="testLogin()">Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+
+        <!-- 3. Refresh Token -->
+        <div class="api-section">
+            <h3>3️⃣ Refresh Token</h3>
+            <textarea id="refreshTokenInput" placeholder="Refresh Token (auto-filled from login)" rows="3"></textarea>
+            <button onclick="testRefreshToken()">Refresh Token</button>
+            <div id="refreshResult" class="result"></div>
+        </div>
+
+        <!-- 4. Verify Email (Resend) -->
+        <div class="api-section">
+            <h3>4️⃣ Verify Email (Resend)</h3>
+            <input type="email" id="verifyEmail" placeholder="Email" value="test@nosmoke.com">
+            <button onclick="testVerifyEmailResend()">Resend Verification</button>
+            <div id="verifyResendResult" class="result"></div>
+        </div>
+
+        <!-- 5. Verify Email (With Token) -->
+        <div class="api-section">
+            <h3>4️⃣ Verify Email (Token)</h3>
+            <textarea id="verifyToken" placeholder="Verification Token" rows="2"></textarea>
+            <button onclick="testVerifyEmailToken()">Verify with Token</button>
+            <div id="verifyTokenResult" class="result"></div>
+        </div>
+
+        <!-- 6. Forgot Password -->
+        <div class="api-section">
+            <h3>5️⃣ Forgot Password</h3>
+            <input type="email" id="forgotEmail" placeholder="Email" value="test@nosmoke.com">
+            <button onclick="testForgotPassword()">Send Reset Link</button>
+            <div id="forgotResult" class="result"></div>
+        </div>
+
+        <!-- 7. Reset Password -->
+        <div class="api-section">
+            <h3>6️⃣ Reset Password</h3>
+            <textarea id="resetToken" placeholder="Reset Token" rows="2"></textarea>
+            <input type="password" id="newPassword" placeholder="New Password" value="newpassword123">
+            <button onclick="testResetPassword()">Reset Password</button>
+            <div id="resetResult" class="result"></div>
+        </div>
+
+        <!-- 8. Logout -->
+        <div class="api-section">
+            <h3>7️⃣ Logout</h3>
+            <button onclick="testLogout()">Logout</button>
+            <div id="logoutResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api/auth';
+        let currentTokens = {};
+
+        // Helper function to make API calls
+        async function apiCall(endpoint, data) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                return { success: response.ok, data: result, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Display result in UI
+        function displayResult(elementId, result) {
+            const element = document.getElementById(elementId);
+            element.className = 'result ' + (result.success ? 'success' : 'error');
+            
+            if (result.success) {
+                element.textContent = JSON.stringify(result.data, null, 2);
+                
+                // Auto-fill tokens for other tests
+                if (result.data.data && result.data.data.refreshToken) {
+                    currentTokens.refresh = result.data.data.refreshToken;
+                    currentTokens.access = result.data.data.token;
+                    document.getElementById('refreshTokenInput').value = currentTokens.refresh;
+                }
+            } else {
+                element.textContent = result.error || JSON.stringify(result.data, null, 2);
+            }
+        }
+
+        // 1. Test Register
+        async function testRegister() {
+            const data = {
+                username: document.getElementById('regUsername').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value
+            };
+            
+            const result = await apiCall('/register', data);
+            displayResult('regResult', result);
+            
+            // Auto-fill login form
+            if (result.success) {
+                document.getElementById('loginEmail').value = data.email;
+                document.getElementById('loginPassword').value = data.password;
+            }
+        }
+
+        // 2. Test Login
+        async function testLogin() {
+            const data = {
+                email: document.getElementById('loginEmail').value,
+                password: document.getElementById('loginPassword').value
+            };
+            
+            const result = await apiCall('/login', data);
+            displayResult('loginResult', result);
+        }
+
+        // 3. Test Refresh Token
+        async function testRefreshToken() {
+            const refreshToken = document.getElementById('refreshTokenInput').value;
+            
+            if (!refreshToken) {
+                displayResult('refreshResult', { success: false, error: 'Please login first to get refresh token' });
+                return;
+            }
+            
+            const result = await apiCall('/refresh-token', { refreshToken });
+            displayResult('refreshResult', result);
+        }
+
+        // 4. Test Verify Email (Resend)
+        async function testVerifyEmailResend() {
+            const email = document.getElementById('verifyEmail').value;
+            const result = await apiCall('/verify-email', { email });
+            displayResult('verifyResendResult', result);
+        }
+
+        // 4. Test Verify Email (Token)
+        async function testVerifyEmailToken() {
+            const token = document.getElementById('verifyToken').value;
+            
+            if (!token) {
+                displayResult('verifyTokenResult', { success: false, error: 'Please enter verification token' });
+                return;
+            }
+            
+            const result = await apiCall('/verify-email', { token });
+            displayResult('verifyTokenResult', result);
+        }
+
+        // 5. Test Forgot Password
+        async function testForgotPassword() {
+            const email = document.getElementById('forgotEmail').value;
+            const result = await apiCall('/forgot-password', { email });
+            displayResult('forgotResult', result);
+        }
+
+        // 6. Test Reset Password
+        async function testResetPassword() {
+            const token = document.getElementById('resetToken').value;
+            const newPassword = document.getElementById('newPassword').value;
+            
+            if (!token) {
+                displayResult('resetResult', { success: false, error: 'Please enter reset token' });
+                return;
+            }
+            
+            const result = await apiCall('/reset-password', { token, newPassword });
+            displayResult('resetResult', result);
+        }
+
+        // 7. Test Logout
+        async function testLogout() {
+            const result = await apiCall('/logout', {});
+            displayResult('logoutResult', result);
+        }
+
+        // Auto-generate unique email on page load
+        window.onload = function() {
+            const timestamp = Date.now();
+            const email = `test${timestamp}@nosmoke.com`;
+            const username = `testuser${timestamp}`;
+            
+            document.getElementById('regEmail').value = email;
+            document.getElementById('regUsername').value = username;
+            document.getElementById('loginEmail').value = email;
+            document.getElementById('verifyEmail').value = email;
+            document.getElementById('forgotEmail').value = email;
+        };
+    </script>
+</body>
+</html>
