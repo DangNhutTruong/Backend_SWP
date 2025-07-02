@@ -1,174 +1,147 @@
-import Payment from '../models/Payment.js';
-import Package from '../models/Package.js';
-import User from '../models/User.js';
+import { Payment, User, Package } from '../models/index.js';
+import { Op } from 'sequelize';
 
-// Create payment
+// POST /api/payments/create
 export const createPayment = async (req, res) => {
   try {
-    const { packageId, paymentMethod, amount } = req.body;
-    const userId = req.user.UserID;
+    const { package_id, payment_method, amount } = req.body;
+    const user_id = req.user.id;
 
-    // Validate required fields
-    if (!packageId || !paymentMethod || !amount) {
-      return res.status(400).json({
-        success: false,
-        message: 'Thiếu thông tin bắt buộc: packageId, paymentMethod, amount'
-      });
-    }
-
-    // Check if package exists
-    const packageData = await Package.findByPk(packageId);
-    if (!packageData) {
+    // Validate package exists
+    const packageInfo = await Package.findByPk(package_id);
+    if (!packageInfo) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy gói dịch vụ'
+        message: 'Package not found'
       });
     }
 
     // Create payment record
     const payment = await Payment.create({
-      UserID: userId,
-      PackageID: packageId,
-      Amount: amount,
-      PaymentMethod: paymentMethod,
-      Status: 'pending',
-      TransactionID: `TXN_${Date.now()}_${userId}`,
-      PaymentDate: new Date()
+      user_id,
+      package_id,
+      amount: amount || packageInfo.price,
+      payment_method,
+      transaction_id: `TXN_${Date.now()}_${user_id}`,
+      status: 'pending'
     });
-
-    // TODO: Integrate with real payment gateway
-    // For now, simulate payment processing
-    setTimeout(async () => {
-      try {
-        await payment.update({ Status: 'completed' });
-        console.log(`Payment ${payment.PaymentID} completed successfully`);
-      } catch (error) {
-        console.error('Error updating payment status:', error);
-      }
-    }, 5000);
 
     res.status(201).json({
       success: true,
-      data: payment,
-      message: 'Tạo thanh toán thành công'
+      message: 'Payment created successfully',
+      data: payment
     });
-
   } catch (error) {
-    console.error('Error creating payment:', error);
+    console.error('Create payment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi tạo thanh toán'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Verify payment
+// POST /api/payments/verify
 export const verifyPayment = async (req, res) => {
   try {
-    const { transactionId, signature } = req.body;
-
-    if (!transactionId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Thiếu transaction ID'
-      });
-    }
+    const { transaction_id, status } = req.body;
 
     const payment = await Payment.findOne({
-      where: { TransactionID: transactionId },
-      include: [Package]
+      where: { transaction_id },
+      include: [
+        { model: User, as: 'user' },
+        { model: Package, as: 'package' }
+      ]
     });
 
     if (!payment) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy giao dịch'
+        message: 'Payment not found'
       });
     }
 
-    // TODO: Verify signature with payment gateway
-    // For now, mark as verified if signature exists
-    if (signature) {
-      await payment.update({ 
-        Status: 'completed',
-        CompletedAt: new Date()
-      });
-
-      res.json({
-        success: true,
-        data: payment,
-        message: 'Xác thực thanh toán thành công'
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: 'Chữ ký không hợp lệ'
-      });
+    // Update payment status
+    payment.status = status;
+    if (status === 'completed') {
+      payment.completed_at = new Date();
     }
+    await payment.save();
 
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      data: payment
+    });
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    console.error('Verify payment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi xác thực thanh toán'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Get user payment history
+// GET /api/payments/user/history
 export const getUserPaymentHistory = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-    const { page = 1, limit = 10 } = req.query;
+    const user_id = req.user.id;
+    const { page = 1, limit = 10, status } = req.query;
 
-    const offset = (page - 1) * limit;
+    const whereClause = { user_id };
+    if (status) {
+      whereClause.status = status;
+    }
 
-    const { count, rows: payments } = await Payment.findAndCountAll({
-      where: { UserID: userId },
-      include: [Package],
-      order: [['PaymentDate', 'DESC']],
+    const payments = await Payment.findAndCountAll({
+      where: whereClause,
+      include: [
+        { model: Package, as: 'package' }
+      ],
+      order: [['payment_date', 'DESC']],
       limit: parseInt(limit),
-      offset: offset
+      offset: (parseInt(page) - 1) * parseInt(limit)
     });
 
     res.json({
       success: true,
-      data: payments,
+      data: payments.rows,
       pagination: {
-        total: count,
+        total: payments.count,
         page: parseInt(page),
         limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit)
+        totalPages: Math.ceil(payments.count / parseInt(limit))
       }
     });
-
   } catch (error) {
-    console.error('Error getting payment history:', error);
+    console.error('Get payment history error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy lịch sử thanh toán'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Get payment by ID
+// GET /api/payments/:id
 export const getPaymentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     const payment = await Payment.findOne({
-      where: { 
-        PaymentID: id,
-        UserID: userId 
-      },
-      include: [Package]
+      where: { id, user_id },
+      include: [
+        { model: User, as: 'user' },
+        { model: Package, as: 'package' }
+      ]
     });
 
     if (!payment) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy giao dịch'
+        message: 'Payment not found'
       });
     }
 
@@ -176,69 +149,49 @@ export const getPaymentById = async (req, res) => {
       success: true,
       data: payment
     });
-
   } catch (error) {
-    console.error('Error getting payment by ID:', error);
+    console.error('Get payment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy thông tin giao dịch'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Request refund
-export const requestRefund = async (req, res) => {
+// POST /api/payments/:id/refund
+export const refundPayment = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     const payment = await Payment.findOne({
-      where: { 
-        PaymentID: id,
-        UserID: userId 
-      }
+      where: { id, user_id, status: 'completed' }
     });
 
     if (!payment) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy giao dịch'
+        message: 'Payment not found or cannot be refunded'
       });
     }
 
-    if (payment.Status !== 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'Chỉ có thể hoàn tiền cho giao dịch đã hoàn thành'
-      });
-    }
-
-    if (payment.Status === 'refunded') {
-      return res.status(400).json({
-        success: false,
-        message: 'Giao dịch này đã được hoàn tiền'
-      });
-    }
-
-    // Update payment status to refund requested
-    await payment.update({
-      Status: 'refund_requested',
-      RefundReason: reason || 'Yêu cầu hoàn tiền',
-      RefundRequestedAt: new Date()
-    });
+    // Update payment status to refunded
+    payment.status = 'refunded';
+    await payment.save();
 
     res.json({
       success: true,
-      data: payment,
-      message: 'Yêu cầu hoàn tiền đã được gửi'
+      message: 'Payment refunded successfully',
+      data: payment
     });
-
   } catch (error) {
-    console.error('Error requesting refund:', error);
+    console.error('Refund payment error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi yêu cầu hoàn tiền'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };

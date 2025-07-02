@@ -1,10 +1,10 @@
 import { Sequelize } from 'sequelize';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: '../../.env' });
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'SmokingCessationSupportPlatform',
+  process.env.DB_NAME || 'smokingcessationsupportplatform',
   process.env.DB_USER || 'root',
   process.env.DB_PASSWORD || '12345',
   {
@@ -20,8 +20,7 @@ const sequelize = new Sequelize(
     },
     timezone: '+07:00',
     dialectOptions: {
-      charset: 'utf8mb4',
-      collate: 'utf8mb4_unicode_ci'
+      charset: 'utf8mb4'
     }
   }
 );
@@ -31,7 +30,7 @@ const testConnection = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ MySQL Database connected successfully!');
-    console.log(`📊 Database: ${process.env.DB_NAME || 'SmokingCessationSupportPlatform'}`);
+    console.log(`📊 Database: ${process.env.DB_NAME || 'smokingcessationsupportplatform'}`);
     console.log(`🏠 Host: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306}`);
     console.log(`👤 User: ${process.env.DB_USER || 'root'}`);
   } catch (error) {

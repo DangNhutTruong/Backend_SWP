@@ -1,370 +1,290 @@
-import User from '../models/User.js';
+import { User, Appointment, Feedback } from '../models/index.js';
 import { Op } from 'sequelize';
+import sequelize from '../config/database.js';
 
-// Get all coaches
+// GET /api/coaches
 export const getAllCoaches = async (req, res) => {
   try {
-    const { page = 1, limit = 10, specialization, experience, rating } = req.query;
+    const { limit = 10, offset = 0 } = req.query;
 
-    let whereCondition = {
-      RoleID: 2, // Coach role
-      [Op.or]: [
-        { RoleName: 'Coach' },
-        { RoleName: 'coach' }
-      ]
-    };
-
-    // Apply filters
-    if (specialization) {
-      whereCondition.Specialization = {
-        [Op.like]: `%${specialization}%`
-      };
-    }
-
-    if (experience) {
-      whereCondition.Experience = {
-        [Op.gte]: parseInt(experience)
-      };
-    }
-
-    if (rating) {
-      whereCondition.Rating = {
-        [Op.gte]: parseFloat(rating)
-      };
-    }
-
-    const offset = (page - 1) * limit;
-
-    const { count, rows: coaches } = await User.findAndCountAll({
-      where: whereCondition,
-      attributes: {
-        exclude: ['Password'] // Exclude sensitive data
-      },
+    const coaches = await User.findAll({
+      where: { role: 'coach' },
+      attributes: { exclude: ['password_hash'] },
       limit: parseInt(limit),
-      offset: offset,
-      order: [['Rating', 'DESC'], ['Experience', 'DESC']]
+      offset: parseInt(offset),
+      order: [['created_at', 'DESC']]
     });
 
     res.json({
       success: true,
-      data: coaches,
-      pagination: {
-        total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit)
-      }
+      data: coaches
     });
-
   } catch (error) {
-    console.error('Error getting coaches:', error);
+    console.error('Get coaches error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy danh sách coach'
+      message: 'Failed to get coaches',
+      error: error.message
     });
   }
 };
 
-// Get coach by ID
+// GET /api/coaches/:id
 export const getCoachById = async (req, res) => {
   try {
     const { id } = req.params;
 
     const coach = await User.findOne({
-      where: {
-        UserID: id,
-        RoleID: 2
+      where: { 
+        id, 
+        role: 'coach' 
       },
-      attributes: {
-        exclude: ['Password']
-      }
+      attributes: { exclude: ['password_hash'] }
     });
 
     if (!coach) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy coach'
+        message: 'Coach not found'
       });
     }
 
-    res.json({
-      success: true,
-      data: coach
+    // Get coach statistics
+    const totalAppointments = await Appointment.count({
+      where: { coach_id: id }
     });
 
-  } catch (error) {
-    console.error('Error getting coach by ID:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy thông tin coach'
-    });
-  }
-};
-
-// Update coach profile (only coach can update their own profile)
-export const updateCoachProfile = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.UserID;
-    const userRole = req.user.RoleID;
-
-    // Check if user can update this coach profile
-    if (userRole !== 1 && userId !== parseInt(id)) { // Not admin and not the coach themselves
-      return res.status(403).json({
-        success: false,
-        message: 'Không có quyền cập nhật thông tin coach này'
-      });
-    }
-
-    const {
-      name,
-      email,
-      phone,
-      address,
-      specialization,
-      experience,
-      bio,
-      certifications,
-      hourlyRate,
-      availableHours
-    } = req.body;
-
-    const coach = await User.findOne({
-      where: {
-        UserID: id,
-        RoleID: 2
+    const completedAppointments = await Appointment.count({
+      where: { 
+        coach_id: id,
+        status: 'completed'
       }
     });
 
-    if (!coach) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy coach'
-      });
-    }
-
-    // Prepare update data
-    const updateData = {};
-    
-    if (name !== undefined) updateData.Name = name;
-    if (email !== undefined) updateData.Email = email;
-    if (phone !== undefined) updateData.Phone = phone;
-    if (address !== undefined) updateData.Address = address;
-    if (specialization !== undefined) updateData.Specialization = specialization;
-    if (experience !== undefined) updateData.Experience = parseInt(experience);
-    if (bio !== undefined) updateData.Bio = bio;
-    if (certifications !== undefined) updateData.Certifications = JSON.stringify(certifications);
-    if (hourlyRate !== undefined) updateData.HourlyRate = parseFloat(hourlyRate);
-    if (availableHours !== undefined) updateData.AvailableHours = JSON.stringify(availableHours);
-
-    await coach.update(updateData);
-
-    // Return updated coach without password
-    const updatedCoach = await User.findByPk(id, {
-      attributes: {
-        exclude: ['Password']
-      }
-    });
-
-    res.json({
-      success: true,
-      data: updatedCoach,
-      message: 'Cập nhật thông tin coach thành công'
-    });
-
-  } catch (error) {
-    console.error('Error updating coach profile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi cập nhật thông tin coach'
-    });
-  }
-};
-
-// Get coach availability
-export const getCoachAvailability = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { date } = req.query;
-
-    const coach = await User.findOne({
-      where: {
-        UserID: id,
-        RoleID: 2
-      },
-      attributes: ['UserID', 'Name', 'AvailableHours']
-    });
-
-    if (!coach) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy coach'
-      });
-    }
-
-    // Parse available hours
-    let availableHours = [];
-    if (coach.AvailableHours) {
-      try {
-        availableHours = typeof coach.AvailableHours === 'string' 
-          ? JSON.parse(coach.AvailableHours) 
-          : coach.AvailableHours;
-      } catch (e) {
-        availableHours = [];
-      }
-    }
-
-    // If specific date requested, filter by that date
-    if (date) {
-      const requestedDate = new Date(date);
-      const dayOfWeek = requestedDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      
-      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      const dayName = dayNames[dayOfWeek];
-      
-      const dayAvailability = availableHours.find(ah => ah.day === dayName);
-      
-      res.json({
-        success: true,
-        data: {
-          coachId: coach.UserID,
-          coachName: coach.Name,
-          date: date,
-          dayOfWeek: dayName,
-          availability: dayAvailability || { day: dayName, slots: [] }
-        }
-      });
-    } else {
-      res.json({
-        success: true,
-        data: {
-          coachId: coach.UserID,
-          coachName: coach.Name,
-          weeklyAvailability: availableHours
-        }
-      });
-    }
-
-  } catch (error) {
-    console.error('Error getting coach availability:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy lịch rảnh của coach'
-    });
-  }
-};
-
-// Update coach availability
-export const updateCoachAvailability = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.UserID;
-    const userRole = req.user.RoleID;
-    const { availableHours } = req.body;
-
-    // Check if user can update this coach's availability
-    if (userRole !== 1 && userId !== parseInt(id)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Không có quyền cập nhật lịch rảnh của coach này'
-      });
-    }
-
-    const coach = await User.findOne({
-      where: {
-        UserID: id,
-        RoleID: 2
-      }
-    });
-
-    if (!coach) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy coach'
-      });
-    }
-
-    await coach.update({
-      AvailableHours: JSON.stringify(availableHours)
+    const averageRating = await Feedback.findOne({
+      where: { coach_id: id },
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('rating')), 'avgRating']
+      ],
+      raw: true
     });
 
     res.json({
       success: true,
       data: {
-        coachId: coach.UserID,
-        availableHours: availableHours
-      },
-      message: 'Cập nhật lịch rảnh thành công'
+        ...coach.toJSON(),
+        stats: {
+          totalAppointments,
+          completedAppointments,
+          averageRating: parseFloat(averageRating?.avgRating || 0).toFixed(1)
+        }
+      }
     });
-
   } catch (error) {
-    console.error('Error updating coach availability:', error);
+    console.error('Get coach error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi cập nhật lịch rảnh'
+      message: 'Failed to get coach',
+      error: error.message
     });
   }
 };
 
-// Get coach statistics
-export const getCoachStats = async (req, res) => {
+// GET /api/coaches/:id/availability
+export const getCoachAvailability = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.UserID;
-    const userRole = req.user.RoleID;
+    const { date } = req.query;
 
-    // Check if user can view this coach's stats
-    if (userRole !== 1 && userId !== parseInt(id)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Không có quyền xem thống kê của coach này'
-      });
-    }
-
+    // Verify coach exists
     const coach = await User.findOne({
-      where: {
-        UserID: id,
-        RoleID: 2
-      },
-      attributes: ['UserID', 'Name', 'TotalClients', 'Rating', 'ReviewCount', 'CreatedAt']
+      where: { 
+        id, 
+        role: 'coach' 
+      }
     });
 
     if (!coach) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy coach'
+        message: 'Coach not found'
       });
     }
 
-    // Calculate experience in months
-    const joinDate = new Date(coach.CreatedAt);
-    const now = new Date();
-    const experienceMonths = Math.floor((now - joinDate) / (1000 * 60 * 60 * 24 * 30));
+    // Get appointments for the specified date
+    const appointments = await Appointment.findAll({
+      where: {
+        coach_id: id,
+        appointment_time: {
+          [Op.gte]: new Date(date + ' 00:00:00'),
+          [Op.lt]: new Date(date + ' 23:59:59')
+        },
+        status: {
+          [Op.in]: ['pending', 'confirmed']
+        }
+      },
+      attributes: ['appointment_time', 'duration_minutes'],
+      order: [['appointment_time', 'ASC']]
+    });
 
-    const stats = {
-      coachId: coach.UserID,
-      coachName: coach.Name,
-      totalClients: coach.TotalClients || 0,
-      rating: coach.Rating || 0,
-      reviewCount: coach.ReviewCount || 0,
-      experienceMonths: experienceMonths,
-      joinDate: coach.CreatedAt,
-      // Placeholder for additional stats - would need to query related tables
-      totalAppointments: 0,
-      completedAppointments: 0,
-      successRate: 0
-    };
+    // Generate available time slots (this is a simplified version)
+    // In a real app, you would have coach's working hours and preferences
+    const workingHours = [
+      '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'
+    ];
+
+    const bookedTimes = appointments.map(apt => 
+      new Date(apt.appointment_time).toTimeString().substring(0, 5)
+    );
+
+    const availableSlots = workingHours.filter(time => 
+      !bookedTimes.includes(time)
+    );
 
     res.json({
       success: true,
-      data: stats
+      data: {
+        date,
+        availableSlots,
+        bookedSlots: bookedTimes
+      }
     });
-
   } catch (error) {
-    console.error('Error getting coach stats:', error);
+    console.error('Get coach availability error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy thống kê coach'
+      message: 'Failed to get coach availability',
+      error: error.message
+    });
+  }
+};
+
+// GET /api/coaches/:id/reviews
+export const getCoachReviews = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 10, offset = 0 } = req.query;
+
+    // Verify coach exists
+    const coach = await User.findOne({
+      where: { 
+        id, 
+        role: 'coach' 
+      }
+    });
+
+    if (!coach) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found'
+      });
+    }
+
+    const reviews = await Feedback.findAll({
+      where: { coach_id: id },
+      include: [{
+        model: User,
+        as: 'smoker',
+        attributes: ['id', 'username', 'full_name', 'avatar_url']
+      }],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json({
+      success: true,
+      data: reviews
+    });
+  } catch (error) {
+    console.error('Get coach reviews error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get coach reviews',
+      error: error.message
+    });
+  }
+};
+
+// POST /api/coaches/:id/feedback
+export const submitFeedback = async (req, res) => {
+  try {
+    const { id } = req.params; // coach_id
+    const { rating, content } = req.body;
+    const smoker_id = req.user.id;
+
+    // Verify coach exists
+    const coach = await User.findOne({
+      where: { 
+        id, 
+        role: 'coach' 
+      }
+    });
+
+    if (!coach) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coach not found'
+      });
+    }
+
+    // Check if user has had an appointment with this coach
+    const hasAppointment = await Appointment.findOne({
+      where: {
+        coach_id: id,
+        smoker_id,
+        status: 'completed'
+      }
+    });
+
+    if (!hasAppointment) {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only leave feedback for coaches you have had completed appointments with'
+      });
+    }
+
+    // Check if feedback already exists
+    const existingFeedback = await Feedback.findOne({
+      where: {
+        coach_id: id,
+        smoker_id
+      }
+    });
+
+    if (existingFeedback) {
+      // Update existing feedback
+      await existingFeedback.update({
+        rating,
+        content
+      });
+
+      res.json({
+        success: true,
+        message: 'Feedback updated successfully',
+        data: existingFeedback
+      });
+    } else {
+      // Create new feedback
+      const feedback = await Feedback.create({
+        coach_id: id,
+        smoker_id,
+        rating,
+        content
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Feedback submitted successfully',
+        data: feedback
+      });
+    }
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit feedback',
+      error: error.message
     });
   }
 };

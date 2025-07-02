@@ -1,195 +1,48 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import User from './User.js';
-import Package from './Package.js';
 
 const Payment = sequelize.define('Payment', {
-  PaymentID: {
+  id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    autoIncrement: true,
+    autoIncrement: true
+  },
+  user_id: {
+    type: DataTypes.INTEGER,
     allowNull: false
   },
-  UserID: {
+  package_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: User,
-      key: 'UserID'
-    },
-    onDelete: 'CASCADE'
+    allowNull: false
   },
-  PackageID: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Package,
-      key: 'PackageID'
-    },
-    onDelete: 'RESTRICT'
-  },
-  Amount: {
+  amount: {
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
-    validate: {
-      min: 0
-    }
+    allowNull: false
   },
-  Currency: {
-    type: DataTypes.STRING(3),
-    allowNull: false,
-    defaultValue: 'VND'
+  payment_method: {
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
-  Status: {
-    type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded'),
-    allowNull: false,
-    defaultValue: 'pending'
-  },
-  PaymentMethod: {
-    type: DataTypes.ENUM('credit_card', 'debit_card', 'bank_transfer', 'e_wallet', 'cash', 'crypto'),
-    allowNull: false,
-    defaultValue: 'credit_card'
-  },
-  PaymentGateway: {
+  transaction_id: {
     type: DataTypes.STRING(100),
     allowNull: true,
-    comment: 'Payment gateway used (VNPay, Stripe, PayPal, etc.)'
+    unique: true
   },
-  TransactionID: {
-    type: DataTypes.STRING(255),
-    allowNull: true,
-    unique: true,
-    comment: 'External transaction ID from payment gateway'
+  status: {
+    type: DataTypes.ENUM('pending', 'completed', 'failed', 'refunded'),
+    defaultValue: 'pending'
   },
-  GatewayResponse: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    get() {
-      const rawValue = this.getDataValue('GatewayResponse');
-      return rawValue ? JSON.parse(rawValue) : {};
-    },
-    set(value) {
-      this.setDataValue('GatewayResponse', JSON.stringify(value || {}));
-    }
+  payment_date: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   },
-  OrderCode: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-    unique: true,
-    comment: 'Internal order reference code'
-  },
-  Description: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  PaidAt: {
+  completed_at: {
     type: DataTypes.DATE,
     allowNull: true
-  },
-  ExpiresAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    comment: 'Payment link expiration time'
-  },
-  RefundAmount: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-    validate: {
-      min: 0
-    }
-  },
-  RefundReason: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  RefundedAt: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  FailureReason: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  RetryCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    validate: {
-      min: 0
-    }
-  },
-  MetaData: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    get() {
-      const rawValue = this.getDataValue('MetaData');
-      return rawValue ? JSON.parse(rawValue) : {};
-    },
-    set(value) {
-      this.setDataValue('MetaData', JSON.stringify(value || {}));
-    }
   }
 }, {
-  tableName: 'payments',
-  timestamps: true,
-  createdAt: 'CreatedAt',
-  updatedAt: 'UpdatedAt',
-  indexes: [
-    {
-      name: 'idx_payments_user',
-      fields: ['UserID']
-    },
-    {
-      name: 'idx_payments_package',
-      fields: ['PackageID']
-    },
-    {
-      name: 'idx_payments_status',
-      fields: ['Status']
-    },
-    {
-      name: 'idx_payments_method',
-      fields: ['PaymentMethod']
-    },
-    {
-      name: 'idx_payments_gateway',
-      fields: ['PaymentGateway']
-    },
-    {
-      name: 'idx_payments_transaction',
-      fields: ['TransactionID']
-    },
-    {
-      name: 'idx_payments_order',
-      fields: ['OrderCode']
-    },
-    {
-      name: 'idx_payments_created',
-      fields: ['CreatedAt']
-    }
-  ]
-});
-
-// Associations
-Payment.belongsTo(User, {
-  foreignKey: 'UserID',
-  as: 'user'
-});
-
-Payment.belongsTo(Package, {
-  foreignKey: 'PackageID',
-  as: 'package'
-});
-
-User.hasMany(Payment, {
-  foreignKey: 'UserID',
-  as: 'payments'
-});
-
-Package.hasMany(Payment, {
-  foreignKey: 'PackageID',
-  as: 'payments'
+  tableName: 'payment',
+  timestamps: false
 });
 
 export default Payment;

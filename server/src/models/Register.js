@@ -1,13 +1,13 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
-const BlogPost = sequelize.define('blog_post', {
+const Register = sequelize.define('register', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  author_id: {
+  user_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
@@ -15,29 +15,29 @@ const BlogPost = sequelize.define('blog_post', {
       key: 'id'
     }
   },
-  title: {
-    type: DataTypes.STRING(255),
-    allowNull: false
+  package_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'package',
+      key: 'id'
+    }
   },
-  content: {
-    type: DataTypes.TEXT,
-    allowNull: false
+  registered_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   },
-  thumbnail_url: {
-    type: DataTypes.STRING(255),
+  expired_at: {
+    type: DataTypes.DATE,
     allowNull: true
   },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
-  updated_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+  status: {
+    type: DataTypes.ENUM('active', 'expired', 'cancelled'),
+    defaultValue: 'active'
   }
 }, {
-  tableName: 'blog_post',
+  tableName: 'register',
   timestamps: false
 });
 
-export default BlogPost;
+export default Register;

@@ -1,77 +1,38 @@
-import Package from '../models/Package.js';
+import { Package, Register } from '../models/index.js';
 import { Op } from 'sequelize';
 
-// Get all packages
-export const getPackages = async (req, res) => {
+// GET /api/packages
+export const getAllPackages = async (req, res) => {
   try {
-    const {
-      type,
-      category,
-      status = 'active',
-      featured,
-      popular,
-      sortBy = 'SortOrder',
-      sortOrder = 'ASC'
-    } = req.query;
-
-    const whereConditions = {};
-
-    // Apply filters
-    if (status) {
-      whereConditions.Status = status;
-    }
-
-    if (type) {
-      whereConditions.Type = type;
-    }
-
-    if (category) {
-      whereConditions.Category = category;
-    }
-
-    if (featured !== undefined) {
-      whereConditions.IsFeatured = featured === 'true';
-    }
-
-    if (popular !== undefined) {
-      whereConditions.IsPopular = popular === 'true';
-    }
-
     const packages = await Package.findAll({
-      where: whereConditions,
-      order: [[sortBy, sortOrder.toUpperCase()]]
+      order: [['price', 'ASC']]
     });
 
     res.json({
       success: true,
       data: packages
     });
-
   } catch (error) {
-    console.error('Error getting packages:', error);
+    console.error('Get packages error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy danh sách gói dịch vụ'
+      message: 'Failed to get packages',
+      error: error.message
     });
   }
 };
 
-// Get a specific package by ID
-export const getPackage = async (req, res) => {
+// GET /api/packages/:id
+export const getPackageById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const packageData = await Package.findOne({
-      where: {
-        PackageID: id,
-        Status: 'active'
-      }
-    });
+    const packageData = await Package.findByPk(id);
 
     if (!packageData) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy gói dịch vụ'
+        message: 'Package not found'
       });
     }
 
@@ -79,271 +40,153 @@ export const getPackage = async (req, res) => {
       success: true,
       data: packageData
     });
-
   } catch (error) {
-    console.error('Error getting package:', error);
+    console.error('Get package error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy thông tin gói dịch vụ'
+      message: 'Failed to get package',
+      error: error.message
     });
   }
 };
 
-// Create a new package (Admin only)
-export const createPackage = async (req, res) => {
+// POST /api/packages/purchase
+export const purchasePackage = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      shortDescription,
-      price,
-      originalPrice,
-      currency,
-      duration,
-      durationType,
-      features,
-      type,
-      category,
-      maxUsers,
-      maxCoachSessions,
-      maxSupportTickets,
-      accessLevel,
-      trialDays,
-      sortOrder,
-      metaData
-    } = req.body;
+    const { package_id } = req.body;
+    const user_id = req.user.id;
 
-    // Validate required fields
-    if (!name || price === undefined || !duration) {
-      return res.status(400).json({
+    // Check if package exists
+    const packageData = await Package.findByPk(package_id);
+
+    if (!packageData) {
+      return res.status(404).json({
         success: false,
-        message: 'Tên gói, giá và thời hạn là bắt buộc'
+        message: 'Package not found'
       });
     }
 
-    const packageData = await Package.create({
-      Name: name,
-      Description: description,
-      ShortDescription: shortDescription,
-      Price: price,
-      OriginalPrice: originalPrice,
-      Currency: currency || 'VND',
-      Duration: duration,
-      DurationType: durationType || 'days',
-      Features: features || [],
-      Type: type || 'basic',
-      Category: category || 'coaching',
-      MaxUsers: maxUsers,
-      MaxCoachSessions: maxCoachSessions,
-      MaxSupportTickets: maxSupportTickets,
-      AccessLevel: accessLevel || 1,
-      TrialDays: trialDays || 0,
-      SortOrder: sortOrder || 0,
-      MetaData: metaData || {}
+    // Check if user already has an active registration for this package
+    const existingRegistration = await Register.findOne({
+      where: {
+        user_id,
+        package_id,
+        status: 'active',
+        expired_at: {
+          [Op.gt]: new Date()
+        }
+      }
+    });
+
+    if (existingRegistration) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active registration for this package'
+      });
+    }
+
+    // Calculate expiration date
+    const registered_at = new Date();
+    const expired_at = new Date();
+    expired_at.setMonth(expired_at.getMonth() + packageData.duration_months);
+
+    // Create registration
+    const registration = await Register.create({
+      user_id,
+      package_id,
+      registered_at,
+      expired_at,
+      status: 'active'
+    });
+
+    // Include package details in response
+    const registrationWithPackage = await Register.findByPk(registration.id, {
+      include: [{
+        model: Package,
+        as: 'package'
+      }]
     });
 
     res.status(201).json({
       success: true,
-      data: packageData,
-      message: 'Tạo gói dịch vụ thành công'
+      message: 'Package purchased successfully',
+      data: registrationWithPackage
     });
-
   } catch (error) {
-    console.error('Error creating package:', error);
+    console.error('Purchase package error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi tạo gói dịch vụ'
+      message: 'Failed to purchase package',
+      error: error.message
     });
   }
 };
 
-// Update a package (Admin only)
-export const updatePackage = async (req, res) => {
+// GET /api/packages/user/current
+export const getCurrentUserPackage = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updateData = req.body;
+    const user_id = req.user.id;
 
-    const packageData = await Package.findByPk(id);
+    const currentRegistration = await Register.findOne({
+      where: {
+        user_id,
+        status: 'active',
+        expired_at: {
+          [Op.gt]: new Date()
+        }
+      },
+      include: [{
+        model: Package,
+        as: 'package'
+      }],
+      order: [['registered_at', 'DESC']]
+    });
 
-    if (!packageData) {
+    if (!currentRegistration) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy gói dịch vụ'
-      });
-    }
-
-    await packageData.update(updateData);
-
-    res.json({
-      success: true,
-      data: packageData,
-      message: 'Cập nhật gói dịch vụ thành công'
-    });
-
-  } catch (error) {
-    console.error('Error updating package:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi cập nhật gói dịch vụ'
-    });
-  }
-};
-
-// Delete a package (Admin only)
-export const deletePackage = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const packageData = await Package.findByPk(id);
-
-    if (!packageData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy gói dịch vụ'
-      });
-    }
-
-    // Soft delete by setting status to archived
-    await packageData.update({ Status: 'archived' });
-
-    res.json({
-      success: true,
-      message: 'Xóa gói dịch vụ thành công'
-    });
-
-  } catch (error) {
-    console.error('Error deleting package:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi xóa gói dịch vụ'
-    });
-  }
-};
-
-// Get featured packages
-export const getFeaturedPackages = async (req, res) => {
-  try {
-    const packages = await Package.findAll({
-      where: {
-        IsFeatured: true,
-        Status: 'active'
-      },
-      order: [['SortOrder', 'ASC'], ['Price', 'ASC']]
-    });
-
-    res.json({
-      success: true,
-      data: packages
-    });
-
-  } catch (error) {
-    console.error('Error getting featured packages:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy gói dịch vụ nổi bật'
-    });
-  }
-};
-
-// Get popular packages
-export const getPopularPackages = async (req, res) => {
-  try {
-    const packages = await Package.findAll({
-      where: {
-        IsPopular: true,
-        Status: 'active'
-      },
-      order: [['SortOrder', 'ASC'], ['Price', 'ASC']]
-    });
-
-    res.json({
-      success: true,
-      data: packages
-    });
-
-  } catch (error) {
-    console.error('Error getting popular packages:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy gói dịch vụ phổ biến'
-    });
-  }
-};
-
-// Get package categories
-export const getPackageCategories = async (req, res) => {
-  try {
-    const categories = await Package.findAll({
-      attributes: ['Category'],
-      where: { Status: 'active' },
-      group: ['Category'],
-      raw: true
-    });
-
-    const categoryList = categories.map(cat => cat.Category).filter(Boolean);
-
-    res.json({
-      success: true,
-      data: categoryList
-    });
-
-  } catch (error) {
-    console.error('Error getting package categories:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy danh mục gói dịch vụ'
-    });
-  }
-};
-
-// Compare packages
-export const comparePackages = async (req, res) => {
-  try {
-    const { ids } = req.query;
-
-    if (!ids) {
-      return res.status(400).json({
-        success: false,
-        message: 'Vui lòng cung cấp danh sách ID gói dịch vụ để so sánh'
-      });
-    }
-
-    const packageIds = ids.split(',').map(id => parseInt(id.trim()));
-
-    if (packageIds.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cần ít nhất 2 gói dịch vụ để so sánh'
-      });
-    }
-
-    const packages = await Package.findAll({
-      where: {
-        PackageID: {
-          [Op.in]: packageIds
-        },
-        Status: 'active'
-      },
-      order: [['Price', 'ASC']]
-    });
-
-    if (packages.length < 2) {
-      return res.status(404).json({
-        success: false,
-        message: 'Không tìm thấy đủ gói dịch vụ để so sánh'
+        message: 'No active package found'
       });
     }
 
     res.json({
       success: true,
-      data: packages
+      data: currentRegistration
     });
-
   } catch (error) {
-    console.error('Error comparing packages:', error);
+    console.error('Get current package error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi so sánh gói dịch vụ'
+      message: 'Failed to get current package',
+      error: error.message
+    });
+  }
+};
+
+// GET /api/packages/user/history
+export const getUserPackageHistory = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+
+    const registrations = await Register.findAll({
+      where: { user_id },
+      include: [{
+        model: Package,
+        as: 'package'
+      }],
+      order: [['registered_at', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: registrations
+    });
+  } catch (error) {
+    console.error('Get package history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get package history',
+      error: error.message
     });
   }
 };

@@ -1,83 +1,71 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import { User } from '../models/index.js';
 
-// Tạo JWT token
-export const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'your-secret-key', {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
-  });
-};
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Middleware bảo vệ routes cần authentication
-export const protect = async (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
-    let token;
-
-    // Lấy token từ header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Không có token, quyền truy cập bị từ chối'
-      });
+      return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-
-    // Tìm user trong database
-    const user = await User.findOne({
-      where: { 
-        UserID: decoded.id,
-        IsActive: true 
-      }
-    });
-
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findByPk(decoded.id);
+    
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Token không hợp lệ hoặc user không tồn tại'
-      });
+      return res.status(401).json({ error: 'Invalid token.' });
     }
 
-    // Thêm user vào request object
     req.user = user;
     next();
-
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(401).json({
-      success: false,
-      message: 'Token không hợp lệ',
-      error: error.message
-    });
+    res.status(401).json({ error: 'Invalid token.' });
   }
 };
 
-// Middleware kiểm tra role
-export const authorize = (...roles) => {
+export const authorize = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Chưa đăng nhập'
-      });
+      return res.status(401).json({ error: 'Access denied. Not authenticated.' });
     }
 
-    if (!roles.includes(req.user.RoleName)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Không có quyền truy cập tính năng này'
-      });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
     }
 
     next();
   };
 };
 
-// Alias for protect function  
-export const authenticateToken = protect;
-export const authenticate = protect;
+export const generateToken = (user) => {
+  return jwt.sign(
+    { 
+      id: user.id, 
+      username: user.username, 
+      email: user.email, 
+      role: user.role 
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+};
+
+export const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { id: user.id },
+    JWT_SECRET + '_refresh',
+    { expiresIn: '7d' }
+  );
+};
+
+export const hashPassword = async (password) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(password, salt);
+};
+
+export const comparePassword = async (password, hashedPassword) => {
+  return await bcrypt.compare(password, hashedPassword);
+};

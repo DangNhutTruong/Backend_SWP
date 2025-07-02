@@ -2,71 +2,49 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const UserSettings = sequelize.define('UserSettings', {
-  SettingID: {
+  id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  UserID: {
+  user_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
     unique: true
   },
-  Language: {
-    type: DataTypes.STRING(10),
-    allowNull: false,
-    defaultValue: 'vi'
+  email_notifications: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
-  Theme: {
-    type: DataTypes.ENUM('light', 'dark', 'auto'),
-    allowNull: false,
-    defaultValue: 'light'
+  push_notifications: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
-  Currency: {
-    type: DataTypes.STRING(10),
-    allowNull: false,
-    defaultValue: 'VND'
+  sms_notifications: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
-  TimeZone: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-    defaultValue: 'Asia/Ho_Chi_Minh'
-  },
-  DateFormat: {
-    type: DataTypes.STRING(20),
-    allowNull: false,
-    defaultValue: 'DD/MM/YYYY'
-  },
-  PrivacyProfile: {
+  privacy_level: {
     type: DataTypes.ENUM('public', 'friends', 'private'),
-    allowNull: false,
-    defaultValue: 'friends'
-  },
-  PrivacyProgress: {
-    type: DataTypes.ENUM('public', 'friends', 'private'),
-    allowNull: false,
-    defaultValue: 'friends'
-  },
-  PrivacyAchievements: {
-    type: DataTypes.ENUM('public', 'friends', 'private'),
-    allowNull: false,
     defaultValue: 'public'
   },
-  DataRetention: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 365 // days
+  language: {
+    type: DataTypes.STRING(10),
+    defaultValue: 'vi'
   },
-  TwoFactorAuth: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false
+  timezone: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'Asia/Ho_Chi_Minh'
+  },
+  theme: {
+    type: DataTypes.ENUM('light', 'dark', 'auto'),
+    defaultValue: 'light'
   }
 }, {
-  tableName: 'UserSettings',
+  tableName: 'user_settings',
   timestamps: true,
-  createdAt: 'CreatedAt',
-  updatedAt: 'UpdatedAt'
+  createdAt: 'created_at',
+  updatedAt: 'updated_at'
 });
 
 export default UserSettings;

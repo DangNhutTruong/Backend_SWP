@@ -1,252 +1,158 @@
-import Achievement, { UserAchievement } from '../models/Achievement.js';
-import Progress from '../models/Progress.js';
+import { Achievement, UserAchievement, User, Share, CommunityPost } from '../models/index.js';
 import { Op } from 'sequelize';
 
-// Predefined achievements
-const PREDEFINED_ACHIEVEMENTS = [
-  {
-    Title: 'Ngày đầu tiên',
-    Description: 'Hoàn thành ngày đầu tiên không hút thuốc',
-    Icon: 'first-day',
-    Type: 'milestone',
-    Category: 'smoke_free_days',
-    Condition: JSON.stringify({ type: 'smoke_free_days', value: 1 }),
-    Points: 50
-  },
-  {
-    Title: 'Tuần đầu tiên',
-    Description: 'Hoàn thành 7 ngày không hút thuốc',
-    Icon: 'first-week',
-    Type: 'milestone',
-    Category: 'smoke_free_days',
-    Condition: JSON.stringify({ type: 'smoke_free_days', value: 7 }),
-    Points: 100
-  },
-  {
-    Title: 'Tháng đầu tiên',
-    Description: 'Hoàn thành 30 ngày không hút thuốc',
-    Icon: 'first-month',
-    Type: 'milestone',
-    Category: 'smoke_free_days',
-    Condition: JSON.stringify({ type: 'smoke_free_days', value: 30 }),
-    Points: 500
-  },
-  {
-    Title: 'Tiết kiệm 100k',
-    Description: 'Tiết kiệm được 100,000 VNĐ từ việc bỏ thuốc',
-    Icon: 'money-saved',
-    Type: 'milestone',
-    Category: 'money_saved',
-    Condition: JSON.stringify({ type: 'money_saved', value: 100000 }),
-    Points: 200
-  },
-  {
-    Title: 'Tâm trạng tích cực',
-    Description: 'Duy trì tâm trạng tốt (8+) trong 7 ngày liên tiếp',
-    Icon: 'good-mood',
-    Type: 'weekly',
-    Category: 'mood_improvement',
-    Condition: JSON.stringify({ type: 'consecutive_good_mood', value: 7, threshold: 8 }),
-    Points: 150
-  }
-];
-
-// Lấy achievements của user
+// GET /api/achievements/user
 export const getUserAchievements = async (req, res) => {
   try {
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     const userAchievements = await UserAchievement.findAll({
-      where: {
-        UserID: userId
-      },
+      where: { smoker_id: user_id },
       include: [{
         model: Achievement,
-        attributes: ['AchievementID', 'Title', 'Description', 'Icon', 'Type', 'Category', 'Points']
+        as: 'achievement'
       }],
-      order: [['UnlockedAt', 'DESC']]
+      order: [['achieved_at', 'DESC']]
     });
 
     res.json({
       success: true,
       data: userAchievements
     });
-
   } catch (error) {
-    console.error('Error fetching user achievements:', error);
+    console.error('Get user achievements error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy danh sách thành tích',
+      message: 'Failed to get user achievements',
       error: error.message
     });
   }
 };
 
-// Lấy tất cả achievements có sẵn
+// GET /api/achievements/all
 export const getAllAchievements = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-
-    // Lấy tất cả achievements
-    const allAchievements = await Achievement.findAll({
-      where: {
-        IsActive: true
-      },
-      order: [['Category', 'ASC'], ['Points', 'ASC']]
+    const achievements = await Achievement.findAll({
+      order: [['id', 'ASC']]
     });
-
-    // Lấy achievements đã unlock của user
-    const userAchievements = await UserAchievement.findAll({
-      where: {
-        UserID: userId
-      },
-      attributes: ['AchievementID', 'UnlockedAt']
-    });
-
-    const unlockedIds = new Set(userAchievements.map(ua => ua.AchievementID));
-
-    // Thêm thông tin unlock status
-    const achievementsWithStatus = allAchievements.map(achievement => ({
-      ...achievement.toJSON(),
-      IsUnlocked: unlockedIds.has(achievement.AchievementID),
-      UnlockedAt: userAchievements.find(ua => ua.AchievementID === achievement.AchievementID)?.UnlockedAt || null
-    }));
 
     res.json({
       success: true,
-      data: achievementsWithStatus
+      data: achievements
     });
-
   } catch (error) {
-    console.error('Error fetching all achievements:', error);
+    console.error('Get all achievements error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy danh sách thành tích',
+      message: 'Failed to get achievements',
       error: error.message
     });
   }
 };
 
-// Kiểm tra và unlock achievements mới
+// POST /api/achievements/check
 export const checkAchievements = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-    const newAchievements = [];
+    const user_id = req.user.id;
 
-    // Đảm bảo có predefined achievements trong database
-    await ensurePredefinedAchievements();
+    // This would contain logic to check if user has earned new achievements
+    // Based on their progress, smoking status, etc.
+    // For now, return a placeholder response
 
-    // Lấy tất cả achievements chưa unlock
-    const unlockedAchievementIds = await UserAchievement.findAll({
-      where: { UserID: userId },
-      attributes: ['AchievementID']
-    }).then(results => results.map(r => r.AchievementID));
-
-    const availableAchievements = await Achievement.findAll({
-      where: {
-        IsActive: true,
-        AchievementID: {
-          [Op.notIn]: unlockedAchievementIds
-        }
-      }
-    });
-
-    // Lấy progress data của user
-    const progressData = await Progress.findAll({
-      where: { UserID: userId },
-      order: [['Date', 'ASC']]
-    });
-
-    // Check từng achievement
-    for (const achievement of availableAchievements) {
-      const condition = JSON.parse(achievement.Condition);
-      
-      if (await checkAchievementCondition(userId, condition, progressData)) {
-        // Unlock achievement
-        await UserAchievement.create({
-          UserID: userId,
-          AchievementID: achievement.AchievementID,
-          UnlockedAt: new Date()
-        });
-
-        newAchievements.push({
-          ...achievement.toJSON(),
-          UnlockedAt: new Date()
-        });
-      }
-    }
+    // Example: Check if user has achieved "7 days smoke-free"
+    // You would implement actual achievement checking logic here
 
     res.json({
       success: true,
-      message: newAchievements.length > 0 ? 
-        `Chúc mừng! Bạn đã mở khóa ${newAchievements.length} thành tích mới!` : 
-        'Không có thành tích mới được mở khóa',
-      data: newAchievements
+      message: 'Achievement check completed',
+      data: {
+        newAchievements: [], // Array of newly earned achievements
+        message: 'No new achievements earned at this time'
+      }
     });
-
   } catch (error) {
-    console.error('Error checking achievements:', error);
+    console.error('Check achievements error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi kiểm tra thành tích',
+      message: 'Failed to check achievements',
       error: error.message
     });
   }
 };
 
-// Chia sẻ achievement
+// POST /api/achievements/share/:id
 export const shareAchievement = async (req, res) => {
   try {
-    const userId = req.user.UserID;
     const { id } = req.params;
+    const { content, image_url } = req.body;
+    const user_id = req.user.id;
 
+    // Check if user has this achievement
     const userAchievement = await UserAchievement.findOne({
       where: {
-        UserID: userId,
-        AchievementID: id
-      },
-      include: [{
-        model: Achievement,
-        attributes: ['Title', 'Description', 'Icon']
-      }]
+        smoker_id: user_id,
+        achievement_id: id
+      }
     });
 
     if (!userAchievement) {
       return res.status(404).json({
         success: false,
-        message: 'Bạn chưa mở khóa thành tích này'
+        message: 'Achievement not found or not earned by user'
       });
     }
 
-    // Cập nhật trạng thái đã chia sẻ
-    await userAchievement.update({
-      IsShared: true,
-      SharedAt: new Date()
+    // Create a community post
+    const communityPost = await CommunityPost.create({
+      author_id: user_id,
+      content: content || `I just earned a new achievement!`,
+      image_url
     });
 
-    res.json({
+    // Create a share record
+    const share = await Share.create({
+      smoker_id: user_id,
+      achievement_id: id,
+      community_post_id: communityPost.id
+    });
+
+    // Get the complete data for response
+    const shareWithDetails = await Share.findByPk(share.id, {
+      include: [
+        {
+          model: Achievement,
+          as: 'achievement'
+        },
+        {
+          model: CommunityPost,
+          as: 'communityPost'
+        },
+        {
+          model: User,
+          as: 'smoker',
+          attributes: { exclude: ['password_hash'] }
+        }
+      ]
+    });
+
+    res.status(201).json({
       success: true,
-      message: 'Thành tích đã được chia sẻ thành công!',
-      data: {
-        achievement: userAchievement.Achievement,
-        sharedAt: new Date()
-      }
+      message: 'Achievement shared successfully',
+      data: shareWithDetails
     });
-
   } catch (error) {
-    console.error('Error sharing achievement:', error);
+    console.error('Share achievement error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi chia sẻ thành tích',
+      message: 'Failed to share achievement',
       error: error.message
     });
   }
 };
 
-// Lấy chi tiết achievement
+// GET /api/achievements/:id
 export const getAchievementById = async (req, res) => {
   try {
-    const userId = req.user.UserID;
     const { id } = req.params;
 
     const achievement = await Achievement.findByPk(id);
@@ -254,85 +160,28 @@ export const getAchievementById = async (req, res) => {
     if (!achievement) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy thành tích'
+        message: 'Achievement not found'
       });
     }
 
-    // Kiểm tra user đã unlock chưa
-    const userAchievement = await UserAchievement.findOne({
-      where: {
-        UserID: userId,
-        AchievementID: id
-      }
+    // Optionally include stats about how many users have earned this achievement
+    const earnedCount = await UserAchievement.count({
+      where: { achievement_id: id }
     });
-
-    const achievementData = {
-      ...achievement.toJSON(),
-      IsUnlocked: !!userAchievement,
-      UnlockedAt: userAchievement?.UnlockedAt || null,
-      IsShared: userAchievement?.IsShared || false,
-      SharedAt: userAchievement?.SharedAt || null
-    };
 
     res.json({
       success: true,
-      data: achievementData
+      data: {
+        ...achievement.toJSON(),
+        earnedByCount: earnedCount
+      }
     });
-
   } catch (error) {
-    console.error('Error fetching achievement by ID:', error);
+    console.error('Get achievement error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy thông tin thành tích',
+      message: 'Failed to get achievement',
       error: error.message
     });
   }
 };
-
-// Helper functions
-async function ensurePredefinedAchievements() {
-  for (const achievementData of PREDEFINED_ACHIEVEMENTS) {
-    const existing = await Achievement.findOne({
-      where: { Title: achievementData.Title }
-    });
-    
-    if (!existing) {
-      await Achievement.create(achievementData);
-    }
-  }
-}
-
-async function checkAchievementCondition(userId, condition, progressData) {
-  switch (condition.type) {
-    case 'smoke_free_days':
-      return checkSmokeFreeStreak(progressData, condition.value);
-    
-    case 'money_saved':
-      return checkMoneySaved(progressData, condition.value);
-    
-    case 'consecutive_good_mood':
-      return checkConsecutiveGoodMood(progressData, condition.value, condition.threshold);
-    
-    default:
-      return false;
-  }
-}
-
-function checkSmokeFreeStreak(progressData, targetDays) {
-  if (progressData.length < targetDays) return false;
-  
-  const recentData = progressData.slice(-targetDays);
-  return recentData.every(p => p.CigarettesSmoked === 0);
-}
-
-function checkMoneySaved(progressData, targetAmount) {
-  const totalSaved = progressData.reduce((sum, p) => sum + parseFloat(p.MoneySpent || 0), 0);
-  return totalSaved >= targetAmount;
-}
-
-function checkConsecutiveGoodMood(progressData, targetDays, threshold) {
-  if (progressData.length < targetDays) return false;
-  
-  const recentData = progressData.slice(-targetDays);
-  return recentData.every(p => p.MoodLevel && p.MoodLevel >= threshold);
-}

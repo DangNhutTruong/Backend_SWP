@@ -3,7 +3,21 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { testConnection } from './config/database.js';
-import userRoutes from './routes/users_simple.js';
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import quitPlanRoutes from './routes/quit-plans.js';
+import progressRoutes from './routes/progress.js';
+import achievementRoutes from './routes/achievements.js';
+import packageRoutes from './routes/packages.js';
+import coachRoutes from './routes/coaches.js';
+import appointmentRoutes from './routes/appointments.js';
+import paymentRoutes from './routes/payments.js';
+import notificationRoutes from './routes/notifications.js';
+import settingsRoutes from './routes/settings.js';
+// import blogRoutes from './routes/blogs.js';
+// import communityRoutes from './routes/community.js';
+// import smokingStatusRoutes from './routes/smoking-status.js';
+// import dashboardRoutes from './routes/dashboard.js';
 import path from 'path';
 
 // Load environment variables --
@@ -60,8 +74,6 @@ app.use((req, res, next) => {
 
 // Test database connection
 await testConnection();
-// Ensure all required tables exist on startup
-await ensureTablesExist();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -78,7 +90,21 @@ app.get('/health', (req, res) => {
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 // API routes
-app.use('/api', userRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/quit-plans', quitPlanRoutes);
+app.use('/api/progress', progressRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/packages', packageRoutes);
+app.use('/api/coaches', coachRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
+// app.use('/api/blog', blogRoutes);
+// app.use('/api/community', communityRoutes);
+// app.use('/api/smoking-status', smokingStatusRoutes);
+// app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

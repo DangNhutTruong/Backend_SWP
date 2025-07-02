@@ -1,7 +1,7 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
-const SmokingStatus = sequelize.define('smoking_status', {
+const UserAchievement = sequelize.define('user_achievement', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -15,21 +15,21 @@ const SmokingStatus = sequelize.define('smoking_status', {
       key: 'id'
     }
   },
-  status: {
-    type: DataTypes.ENUM('smoking', 'quit', 'relapse', 'reducing'),
-    allowNull: false
-  },
-  cigarettes_per_day: {
+  achievement_id: {
     type: DataTypes.INTEGER,
-    allowNull: true
+    allowNull: false,
+    references: {
+      model: 'achievement',
+      key: 'id'
+    }
   },
-  recorded_at: {
+  achieved_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'smoking_status',
+  tableName: 'user_achievement',
   timestamps: false
 });
 
-export default SmokingStatus;
+export default UserAchievement;

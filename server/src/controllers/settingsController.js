@@ -1,234 +1,289 @@
-import UserSettings from '../models/UserSettings.js';
-import User from '../models/User.js';
-import bcrypt from 'bcryptjs';
+import { User, UserSettings } from '../models/index.js';
+import { hashPassword, comparePassword } from '../middleware/auth.js';
 
-// Get user settings
+// GET /api/settings/user
 export const getUserSettings = async (req, res) => {
   try {
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
-    let settings = await UserSettings.findOne({
-      where: { UserID: userId }
+    const user = await User.findByPk(user_id, {
+      include: [
+        { model: UserSettings, as: 'settings' }
+      ]
     });
 
-    // Create default settings if not exist
-    if (!settings) {
-      settings = await UserSettings.create({
-        UserID: userId
-      });
-    }
-
-    res.json({
-      success: true,
-      data: settings
-    });
-
-  } catch (error) {
-    console.error('Error getting user settings:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy cài đặt người dùng'
-    });
-  }
-};
-
-// Update user settings
-export const updateUserSettings = async (req, res) => {
-  try {
-    const userId = req.user.UserID;
-    const updateData = req.body;
-
-    let settings = await UserSettings.findOne({
-      where: { UserID: userId }
-    });
-
-    if (!settings) {
-      settings = await UserSettings.create({
-        UserID: userId,
-        ...updateData
-      });
-    } else {
-      await settings.update(updateData);
-    }
-
-    res.json({
-      success: true,
-      data: settings,
-      message: 'Cập nhật cài đặt thành công'
-    });
-
-  } catch (error) {
-    console.error('Error updating user settings:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi cập nhật cài đặt'
-    });
-  }
-};
-
-// Change password
-export const changePassword = async (req, res) => {
-  try {
-    const userId = req.user.UserID;
-    const { currentPassword, newPassword, confirmPassword } = req.body;
-
-    // Validate required fields
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Thiếu thông tin bắt buộc'
-      });
-    }
-
-    // Validate new password matches confirm password
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mật khẩu mới và xác nhận mật khẩu không khớp'
-      });
-    }
-
-    // Validate password strength
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mật khẩu mới phải có ít nhất 6 ký tự'
-      });
-    }
-
-    // Get user
-    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy người dùng'
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          full_name: user.full_name,
+          phone: user.phone,
+          gender: user.gender,
+          date_of_birth: user.date_of_birth,
+          avatar_url: user.avatar_url,
+          role: user.role
+        },
+        settings: user.settings || {
+          email_notifications: true,
+          push_notifications: true,
+          sms_notifications: false,
+          privacy_level: 'public',
+          language: 'vi',
+          timezone: 'Asia/Ho_Chi_Minh',
+          theme: 'light'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get user settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// PUT /api/settings/user
+export const updateUserSettings = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const {
+      email_notifications,
+      push_notifications,
+      sms_notifications,
+      privacy_level,
+      language,
+      timezone,
+      theme
+    } = req.body;
+
+    const [settings, created] = await UserSettings.findOrCreate({
+      where: { user_id },
+      defaults: {
+        user_id,
+        email_notifications: email_notifications ?? true,
+        push_notifications: push_notifications ?? true,
+        sms_notifications: sms_notifications ?? false,
+        privacy_level: privacy_level || 'public',
+        language: language || 'vi',
+        timezone: timezone || 'Asia/Ho_Chi_Minh',
+        theme: theme || 'light'
+      }
+    });
+
+    if (!created) {
+      // Update existing settings
+      if (email_notifications !== undefined) settings.email_notifications = email_notifications;
+      if (push_notifications !== undefined) settings.push_notifications = push_notifications;
+      if (sms_notifications !== undefined) settings.sms_notifications = sms_notifications;
+      if (privacy_level) settings.privacy_level = privacy_level;
+      if (language) settings.language = language;
+      if (timezone) settings.timezone = timezone;
+      if (theme) settings.theme = theme;
+      await settings.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully',
+      data: settings
+    });
+  } catch (error) {
+    console.error('Update user settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// PUT /api/settings/password
+export const updatePassword = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const { current_password, new_password, confirm_password } = req.body;
+
+    // Validate input
+    if (!current_password || !new_password || !confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'All password fields are required'
+      });
+    }
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'New passwords do not match'
+      });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long'
+      });
+    }
+
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.Password);
+    const isCurrentPasswordValid = await comparePassword(current_password, user.password_hash);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
-        message: 'Mật khẩu hiện tại không đúng'
+        message: 'Current password is incorrect'
       });
     }
 
     // Hash new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+    const new_password_hash = await hashPassword(new_password);
 
     // Update password
-    await user.update({
-      Password: hashedNewPassword
-    });
+    user.password_hash = new_password_hash;
+    await user.save();
 
     res.json({
       success: true,
-      message: 'Đổi mật khẩu thành công'
+      message: 'Password updated successfully'
     });
-
   } catch (error) {
-    console.error('Error changing password:', error);
+    console.error('Update password error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi đổi mật khẩu'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Update privacy settings
+// PUT /api/settings/privacy
 export const updatePrivacySettings = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-    const { privacyProfile, privacyProgress, privacyAchievements, dataRetention } = req.body;
+    const user_id = req.user.id;
+    const { privacy_level } = req.body;
 
-    let settings = await UserSettings.findOne({
-      where: { UserID: userId }
-    });
-
-    if (!settings) {
-      settings = await UserSettings.create({
-        UserID: userId
+    if (!['public', 'friends', 'private'].includes(privacy_level)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid privacy level'
       });
     }
 
-    const updateData = {};
-    if (privacyProfile !== undefined) updateData.PrivacyProfile = privacyProfile;
-    if (privacyProgress !== undefined) updateData.PrivacyProgress = privacyProgress;
-    if (privacyAchievements !== undefined) updateData.PrivacyAchievements = privacyAchievements;
-    if (dataRetention !== undefined) updateData.DataRetention = dataRetention;
+    const [settings, created] = await UserSettings.findOrCreate({
+      where: { user_id },
+      defaults: {
+        user_id,
+        privacy_level
+      }
+    });
 
-    await settings.update(updateData);
+    if (!created) {
+      settings.privacy_level = privacy_level;
+      await settings.save();
+    }
 
     res.json({
       success: true,
-      data: settings,
-      message: 'Cập nhật cài đặt riêng tư thành công'
+      message: 'Privacy settings updated successfully',
+      data: { privacy_level: settings.privacy_level }
     });
-
   } catch (error) {
-    console.error('Error updating privacy settings:', error);
+    console.error('Update privacy settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi cập nhật cài đặt riêng tư'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Update notification settings (references NotificationSettings)
+// PUT /api/settings/notifications
 export const updateNotificationSettings = async (req, res) => {
   try {
-    // This is handled by the notification controller
-    // Redirect to notification settings endpoint
-    res.json({
-      success: false,
-      message: 'Vui lòng sử dụng endpoint /api/notifications/settings'
+    const user_id = req.user.id;
+    const { email_notifications, push_notifications, sms_notifications } = req.body;
+
+    const [settings, created] = await UserSettings.findOrCreate({
+      where: { user_id },
+      defaults: {
+        user_id,
+        email_notifications: email_notifications ?? true,
+        push_notifications: push_notifications ?? true,
+        sms_notifications: sms_notifications ?? false
+      }
     });
 
+    if (!created) {
+      if (email_notifications !== undefined) settings.email_notifications = email_notifications;
+      if (push_notifications !== undefined) settings.push_notifications = push_notifications;
+      if (sms_notifications !== undefined) settings.sms_notifications = sms_notifications;
+      await settings.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification settings updated successfully',
+      data: {
+        email_notifications: settings.email_notifications,
+        push_notifications: settings.push_notifications,
+        sms_notifications: settings.sms_notifications
+      }
+    });
   } catch (error) {
-    console.error('Error updating notification settings:', error);
+    console.error('Update notification settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi cập nhật cài đặt thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Get app settings (global settings)
+// GET /api/settings/app
 export const getAppSettings = async (req, res) => {
   try {
+    const user_id = req.user.id;
+
+    const settings = await UserSettings.findOne({
+      where: { user_id }
+    });
+
     const appSettings = {
-      version: '1.0.0',
-      features: {
-        payments: true,
-        notifications: true,
-        chat: true,
-        appointments: true,
-        community: true,
-        achievements: true
-      },
-      supportedLanguages: ['vi', 'en'],
-      supportedCurrencies: ['VND', 'USD'],
-      supportedThemes: ['light', 'dark', 'auto'],
-      privacyOptions: ['public', 'friends', 'private'],
-      contactInfo: {
-        support: 'support@nosmoke.com',
-        phone: '+84 123 456 789'
-      },
-      termsOfService: 'https://nosmoke.com/terms',
-      privacyPolicy: 'https://nosmoke.com/privacy'
+      language: settings?.language || 'vi',
+      timezone: settings?.timezone || 'Asia/Ho_Chi_Minh',
+      theme: settings?.theme || 'light',
+      privacy_level: settings?.privacy_level || 'public'
     };
 
     res.json({
       success: true,
       data: appSettings
     });
-
   } catch (error) {
-    console.error('Error getting app settings:', error);
+    console.error('Get app settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy cài đặt ứng dụng'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };

@@ -1,196 +1,165 @@
-import Notification from '../models/Notification.js';
-import NotificationSettings from '../models/NotificationSettings.js';
-import User from '../models/User.js';
+import { Notification, User, UserSettings } from '../models/index.js';
+import { Op } from 'sequelize';
 
-// Get all notifications for user
+// GET /api/notifications
 export const getNotifications = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-    const { page = 1, limit = 20, type, unreadOnly } = req.query;
+    const user_id = req.user.id;
+    const { page = 1, limit = 20, is_read, type } = req.query;
 
-    const offset = (page - 1) * limit;
-    let whereCondition = { UserID: userId };
-
+    const whereClause = { user_id };
+    if (is_read !== undefined) {
+      whereClause.is_read = is_read === 'true';
+    }
     if (type) {
-      whereCondition.Type = type;
+      whereClause.type = type;
     }
 
-    if (unreadOnly === 'true') {
-      whereCondition.IsRead = false;
-    }
-
-    const { count, rows: notifications } = await Notification.findAndCountAll({
-      where: whereCondition,
-      order: [['CreatedAt', 'DESC']],
+    const notifications = await Notification.findAndCountAll({
+      where: whereClause,
+      order: [['created_at', 'DESC']],
       limit: parseInt(limit),
-      offset: offset
+      offset: (parseInt(page) - 1) * parseInt(limit)
     });
 
     res.json({
       success: true,
-      data: notifications,
+      data: notifications.rows,
       pagination: {
-        total: count,
+        total: notifications.count,
         page: parseInt(page),
         limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit)
+        totalPages: Math.ceil(notifications.count / parseInt(limit))
       }
     });
-
   } catch (error) {
-    console.error('Error getting notifications:', error);
+    console.error('Get notifications error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Create notification
+// POST /api/notifications
 export const createNotification = async (req, res) => {
   try {
-    const { title, message, type, actionUrl, data, userIds } = req.body;
+    const { user_id, title, message, type } = req.body;
 
-    // Validate required fields
-    if (!title || !message) {
-      return res.status(400).json({
+    // Check if target user exists
+    const user = await User.findByPk(user_id);
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: 'Thiếu thông tin bắt buộc: title, message'
+        message: 'User not found'
       });
     }
 
-    const notifications = [];
-
-    // If userIds is provided, create notifications for specific users
-    if (userIds && Array.isArray(userIds)) {
-      for (const userId of userIds) {
-        const notification = await Notification.create({
-          UserID: userId,
-          Title: title,
-          Message: message,
-          Type: type || 'info',
-          ActionUrl: actionUrl || null,
-          Data: data || null
-        });
-        notifications.push(notification);
-      }
-    } else {
-      // Create notification for the requesting user
-      const notification = await Notification.create({
-        UserID: req.user.UserID,
-        Title: title,
-        Message: message,
-        Type: type || 'info',
-        ActionUrl: actionUrl || null,
-        Data: data || null
-      });
-      notifications.push(notification);
-    }
+    const notification = await Notification.create({
+      user_id,
+      title,
+      message,
+      type: type || 'info'
+    });
 
     res.status(201).json({
       success: true,
-      data: notifications,
-      message: 'Tạo thông báo thành công'
+      message: 'Notification created successfully',
+      data: notification
     });
-
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('Create notification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi tạo thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Mark notification as read
+// PUT /api/notifications/:id/read
 export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     const notification = await Notification.findOne({
-      where: {
-        NotificationID: id,
-        UserID: userId
-      }
+      where: { id, user_id }
     });
 
     if (!notification) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy thông báo'
+        message: 'Notification not found'
       });
     }
 
-    await notification.update({
-      IsRead: true,
-      ReadAt: new Date()
-    });
+    notification.is_read = true;
+    notification.read_at = new Date();
+    await notification.save();
 
     res.json({
       success: true,
-      data: notification,
-      message: 'Đánh dấu đã đọc thành công'
+      message: 'Notification marked as read',
+      data: notification
     });
-
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    console.error('Mark notification as read error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi đánh dấu đã đọc'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Mark all notifications as read
+// PUT /api/notifications/mark-all-read
 export const markAllAsRead = async (req, res) => {
   try {
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     await Notification.update(
       { 
-        IsRead: true,
-        ReadAt: new Date()
+        is_read: true, 
+        read_at: new Date() 
       },
       { 
         where: { 
-          UserID: userId,
-          IsRead: false
-        }
+          user_id, 
+          is_read: false 
+        } 
       }
     );
 
     res.json({
       success: true,
-      message: 'Đánh dấu tất cả thông báo đã đọc thành công'
+      message: 'All notifications marked as read'
     });
-
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    console.error('Mark all notifications as read error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi đánh dấu tất cả đã đọc'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Delete notification
+// DELETE /api/notifications/:id
 export const deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
     const notification = await Notification.findOne({
-      where: {
-        NotificationID: id,
-        UserID: userId
-      }
+      where: { id, user_id }
     });
 
     if (!notification) {
       return res.status(404).json({
         success: false,
-        message: 'Không tìm thấy thông báo'
+        message: 'Notification not found'
       });
     }
 
@@ -198,78 +167,96 @@ export const deleteNotification = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Xóa thông báo thành công'
+      message: 'Notification deleted successfully'
     });
-
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    console.error('Delete notification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi xóa thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Get notification settings
+// GET /api/notifications/settings
 export const getNotificationSettings = async (req, res) => {
   try {
-    const userId = req.user.UserID;
+    const user_id = req.user.id;
 
-    let settings = await NotificationSettings.findOne({
-      where: { UserID: userId }
+    const settings = await UserSettings.findOne({
+      where: { user_id }
     });
 
-    // Create default settings if not exist
     if (!settings) {
-      settings = await NotificationSettings.create({
-        UserID: userId
+      // Return default settings if not found
+      return res.json({
+        success: true,
+        data: {
+          email_notifications: true,
+          push_notifications: true,
+          sms_notifications: false
+        }
       });
     }
 
     res.json({
       success: true,
-      data: settings
+      data: {
+        email_notifications: settings.email_notifications,
+        push_notifications: settings.push_notifications,
+        sms_notifications: settings.sms_notifications
+      }
     });
-
   } catch (error) {
-    console.error('Error getting notification settings:', error);
+    console.error('Get notification settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi lấy cài đặt thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };
 
-// Update notification settings
+// PUT /api/notifications/settings
 export const updateNotificationSettings = async (req, res) => {
   try {
-    const userId = req.user.UserID;
-    const updateData = req.body;
+    const user_id = req.user.id;
+    const { email_notifications, push_notifications, sms_notifications } = req.body;
 
-    let settings = await NotificationSettings.findOne({
-      where: { UserID: userId }
+    const [settings, created] = await UserSettings.findOrCreate({
+      where: { user_id },
+      defaults: {
+        user_id,
+        email_notifications: email_notifications ?? true,
+        push_notifications: push_notifications ?? true,
+        sms_notifications: sms_notifications ?? false
+      }
     });
 
-    if (!settings) {
-      settings = await NotificationSettings.create({
-        UserID: userId,
-        ...updateData
-      });
-    } else {
-      await settings.update(updateData);
+    if (!created) {
+      // Update existing settings
+      if (email_notifications !== undefined) settings.email_notifications = email_notifications;
+      if (push_notifications !== undefined) settings.push_notifications = push_notifications;
+      if (sms_notifications !== undefined) settings.sms_notifications = sms_notifications;
+      await settings.save();
     }
 
     res.json({
       success: true,
-      data: settings,
-      message: 'Cập nhật cài đặt thông báo thành công'
+      message: 'Notification settings updated successfully',
+      data: {
+        email_notifications: settings.email_notifications,
+        push_notifications: settings.push_notifications,
+        sms_notifications: settings.sms_notifications
+      }
     });
-
   } catch (error) {
-    console.error('Error updating notification settings:', error);
+    console.error('Update notification settings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi máy chủ khi cập nhật cài đặt thông báo'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 };

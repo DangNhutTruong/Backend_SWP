@@ -1,20 +1,17 @@
 import express from 'express';
-import { authenticate } from '../middleware/auth.js';
-import {
+import { 
   getUserSettings,
   updateUserSettings,
-  changePassword,
+  updatePassword,
   updatePrivacySettings,
   updateNotificationSettings,
   getAppSettings
 } from '../controllers/settingsController.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/settings/app (public)
-router.get('/app', getAppSettings);
-
-// All other settings routes require authentication
+// All settings routes require authentication
 router.use(authenticate);
 
 // GET /api/settings/user
@@ -24,12 +21,15 @@ router.get('/user', getUserSettings);
 router.put('/user', updateUserSettings);
 
 // PUT /api/settings/password
-router.put('/password', changePassword);
+router.put('/password', updatePassword);
 
 // PUT /api/settings/privacy
 router.put('/privacy', updatePrivacySettings);
 
 // PUT /api/settings/notifications
 router.put('/notifications', updateNotificationSettings);
+
+// GET /api/settings/app
+router.get('/app', getAppSettings);
 
 export default router;
