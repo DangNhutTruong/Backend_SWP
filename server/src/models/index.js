@@ -1,22 +1,16 @@
 import sequelize from '../config/database.js';
 import User from './User.js';
-import Package from './Package.js';
-import Register from './Register.js';
-import Appointment from './Appointment.js';
-import Feedback from './Feedback.js';
-import BlogPost from './BlogPost.js';
-import Achievement from './Achievement.js';
-import UserAchievement from './UserAchievement.js';
-import QuitSmokingPlan from './QuitSmokingPlan.js';
-import SmokingStatus from './SmokingStatus.js';
-import Progress from './Progress.js';
-import CommunityPost from './CommunityPost.js';
-import Share from './Share.js';
+// Import other models as needed
+// import Package from './Package.js';
+// import Achievement from './Achievement.js';
 
-// Define relationships
-// User relationships
-User.hasMany(Register, { foreignKey: 'user_id', as: 'registers' });
-Register.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+// For now, just export User to avoid relationship conflicts
+// Will add other models and relationships later
+
+export {
+  sequelize,
+  User
+};
 
 User.hasMany(Appointment, { foreignKey: 'coach_id', as: 'coachAppointments' });
 User.hasMany(Appointment, { foreignKey: 'smoker_id', as: 'smokerAppointments' });

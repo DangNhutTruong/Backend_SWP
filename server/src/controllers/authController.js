@@ -7,14 +7,18 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // POST /api/auth/register
 export const register = async (req, res) => {
   try {
+    console.log('🔍 Starting registration process...');
     const { username, email, password, full_name, phone, gender, date_of_birth, role } = req.body;
+    console.log('📝 Registration data:', { username, email, full_name });
 
     // Check if user already exists
+    console.log('🔍 Checking if user exists...');
     const existingUser = await User.findOne({
       where: {
-        Email: email
+        email: email
       }
     });
+    console.log('✅ User existence check completed');
 
     if (existingUser) {
       return res.status(400).json({
@@ -24,18 +28,29 @@ export const register = async (req, res) => {
     }
 
     // Hash password
+    console.log('🔐 Hashing password...');
     const password_hash = await hashPassword(password);
+    console.log('✅ Password hashed successfully');
 
     // Create user
+    console.log('👤 Creating user...');
     const user = await User.create({
-      Name: name,
-      Email: email,
-      Password: password_hash
+      username: username || full_name || 'user',
+      password_hash: password_hash,
+      email: email,
+      full_name: full_name,
+      phone: phone,
+      gender: gender,
+      date_of_birth: date_of_birth,
+      role: role || 'smoker'
     });
+    console.log('✅ User created successfully:', user.toJSON());
 
     // Generate tokens
+    console.log('🔑 Generating tokens...');
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
+    console.log('✅ Tokens generated successfully');
 
     // Return user without password
     const { password_hash: _, ...userWithoutPassword } = user.toJSON();
@@ -50,7 +65,8 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('❌ Register error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Registration failed',
