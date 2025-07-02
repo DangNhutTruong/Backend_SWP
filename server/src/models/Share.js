@@ -36,7 +36,7 @@ const Share = sequelize.define('share', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'share',
+  tableName: 'shares',
   timestamps: false
 });
 

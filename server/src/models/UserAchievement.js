@@ -28,7 +28,7 @@ const UserAchievement = sequelize.define('user_achievement', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'user_achievement',
+  tableName: 'user_achievements',
   timestamps: false
 });
 

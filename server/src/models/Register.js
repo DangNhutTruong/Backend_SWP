@@ -36,7 +36,7 @@ const Register = sequelize.define('register', {
     defaultValue: 'active'
   }
 }, {
-  tableName: 'register',
+  tableName: 'registrations',
   timestamps: false
 });
 

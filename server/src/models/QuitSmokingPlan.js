@@ -50,7 +50,7 @@ const QuitSmokingPlan = sequelize.define('QuitSmokingPlan', {
     allowNull: true
   }
 }, {
-  tableName: 'quitplan',
+  tableName: 'quit_smoking_plans',
   timestamps: true,
   createdAt: 'CreatedAt',
   updatedAt: 'UpdatedAt'

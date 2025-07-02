@@ -24,7 +24,7 @@ const Achievement = sequelize.define('Achievement', {
     allowNull: false
   }
 }, {
-  tableName: 'Achievement',
+  tableName: 'achievements',
   timestamps: false
 });
 

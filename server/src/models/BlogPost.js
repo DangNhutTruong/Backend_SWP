@@ -36,7 +36,7 @@ const BlogPost = sequelize.define('blog_post', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'blog_post',
+  tableName: 'blog_posts',
   timestamps: false
 });
 

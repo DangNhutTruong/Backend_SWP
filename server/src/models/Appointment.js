@@ -40,7 +40,7 @@ const Appointment = sequelize.define('appointment', {
     allowNull: true
   }
 }, {
-  tableName: 'appointment',
+  tableName: 'appointments',
   timestamps: false
 });
 

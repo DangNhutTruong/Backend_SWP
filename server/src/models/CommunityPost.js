@@ -28,7 +28,7 @@ const CommunityPost = sequelize.define('community_post', {
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'community_post',
+  tableName: 'community_posts',
   timestamps: false
 });
 
