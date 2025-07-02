@@ -1,4 +1,5 @@
-import { Package, Register } from '../models/index.js';
+// import { Package, Register } from '../models/index.js';
+import Package from '../models/Package.js';
 import { Op } from 'sequelize';
 
 // GET /api/packages

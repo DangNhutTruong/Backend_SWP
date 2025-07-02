@@ -1,4 +1,5 @@
-import { Appointment, User, Feedback } from '../models/index.js';
+import { User } from '../models/index.js';
+// import Appointment, Feedback later when needed
 import { Op } from 'sequelize';
 
 // POST /api/appointments

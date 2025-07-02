@@ -36,13 +36,8 @@ export const register = async (req, res) => {
     console.log('👤 Creating user...');
     const user = await User.create({
       username: username || full_name || 'user',
-      password_hash: password_hash,
       email: email,
-      full_name: full_name,
-      phone: phone,
-      gender: gender,
-      date_of_birth: date_of_birth,
-      role: role || 'smoker'
+      password: password_hash  // Store hashed password
     });
     console.log('✅ User created successfully:', user.toJSON());
 
@@ -53,7 +48,7 @@ export const register = async (req, res) => {
     console.log('✅ Tokens generated successfully');
 
     // Return user without password
-    const { password_hash: _, ...userWithoutPassword } = user.toJSON();
+    const { password: _, ...userWithoutPassword } = user.toJSON();
 
     res.status(201).json({
       success: true,
@@ -90,8 +85,21 @@ export const login = async (req, res) => {
       });
     }
 
-    // Check password
-    const isPasswordValid = await comparePassword(password, user.password_hash);
+    // Check password - support both hashed and plain text for existing users
+    let isPasswordValid = false;
+    
+    // Try hashed password first
+    try {
+      isPasswordValid = await comparePassword(password, user.password);
+    } catch (error) {
+      console.log('Hash comparison failed, trying plain text...');
+    }
+    
+    // If hash comparison failed, try plain text comparison for old users
+    if (!isPasswordValid && user.password === password) {
+      isPasswordValid = true;
+      console.log('⚠️  Plain text password matched - consider updating to hashed password');
+    }
 
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -108,7 +116,7 @@ export const login = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Return user without password
-    const { password_hash: _, ...userWithoutPassword } = user.toJSON();
+    const { password: _, ...userWithoutPassword } = user.toJSON();
 
     res.json({
       success: true,

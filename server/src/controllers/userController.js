@@ -1,4 +1,5 @@
-import { User, SmokingStatus } from '../models/index.js';
+import { User } from '../models/index.js';
+// import SmokingStatus later when needed
 import { hashPassword, comparePassword } from '../middleware/auth.js';
 
 // GET /api/users/profile

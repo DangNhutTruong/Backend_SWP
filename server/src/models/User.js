@@ -12,41 +12,17 @@ const User = sequelize.define('User', {
     allowNull: false,
     unique: true
   },
-  password_hash: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
   email: {
     type: DataTypes.STRING(100),
     allowNull: false,
     unique: true
   },
-  full_name: {
-    type: DataTypes.STRING(100),
-    allowNull: true
-  },
-  phone: {
-    type: DataTypes.STRING(20),
-    allowNull: true
-  },
-  gender: {
-    type: DataTypes.ENUM('male', 'female', 'other'),
-    allowNull: true
-  },
-  date_of_birth: {
-    type: DataTypes.DATEONLY,
-    allowNull: true
-  },
-  avatar_url: {
+  password: {
     type: DataTypes.STRING(255),
-    allowNull: true
-  },
-  role: {
-    type: DataTypes.ENUM('coach', 'smoker'),
     allowNull: false
   }
 }, {
-  tableName: 'user',
+  tableName: 'users',
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at'

@@ -1,4 +1,5 @@
-import { Achievement, UserAchievement, User, Share, CommunityPost } from '../models/index.js';
+import { User } from '../models/index.js';
+// import Achievement, UserAchievement, Share, CommunityPost later when needed
 import { Op } from 'sequelize';
 
 // GET /api/achievements/user

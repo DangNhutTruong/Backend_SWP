@@ -1,4 +1,5 @@
-import { User, Appointment, Feedback } from '../models/index.js';
+import { User } from '../models/index.js';
+// import Appointment, Feedback later when needed
 import { Op } from 'sequelize';
 import sequelize from '../config/database.js';
 

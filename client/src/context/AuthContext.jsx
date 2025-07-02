@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }) => {
         // Lưu user info vào state
         const userInfo = {
           id: result.userId || result.user?.id,
-          name: result.user?.name || email,
+          name: result.user?.username || result.user?.name || email,
           email: email,
           role: result.user?.role || "user",
           createdAt: new Date().toISOString(),

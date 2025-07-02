@@ -1,4 +1,4 @@
-import { Progress, QuitSmokingPlan } from '../models/index.js';
+// import Progress, QuitSmokingPlan later when needed
 import { Op } from 'sequelize';
 import sequelize from '../config/database.js';
 
