@@ -1,5 +1,11 @@
 import { User } from '../models/index.js';
 import { generateToken, generateRefreshToken, hashPassword, comparePassword } from '../middleware/auth.js';
+import { 
+  generateEmailVerificationToken, 
+  generatePasswordResetToken, 
+  sendVerificationEmail, 
+  sendPasswordResetEmail 
+} from '../utils/emailService.js';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -41,18 +47,35 @@ export const register = async (req, res) => {
     });
     console.log('✅ User created successfully:', user.toJSON());
 
+    // Generate email verification token
+    console.log('📧 Generating email verification token...');
+    const verificationToken = generateEmailVerificationToken();
+    await user.update({ email_verification_token: verificationToken });
+
+    // Send verification email
+    try {
+      await sendVerificationEmail(user, verificationToken);
+      console.log('✅ Verification email sent successfully');
+    } catch (emailError) {
+      console.error('⚠️ Failed to send verification email:', emailError);
+      // Don't fail registration if email fails
+    }
+
     // Generate tokens
     console.log('🔑 Generating tokens...');
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
     console.log('✅ Tokens generated successfully');
 
+    // Store refresh token
+    await user.update({ refresh_token: refreshToken });
+
     // Return user without password
     const { password: _, ...userWithoutPassword } = user.toJSON();
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'User registered successfully. Please check your email to verify your account.',
       data: {
         user: userWithoutPassword,
         token,
@@ -175,7 +198,15 @@ export const refreshToken = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid refresh token'
+        message: 'Invalid refresh token - user not found'
+      });
+    }
+
+    // Check if stored refresh token matches (optional security layer)
+    if (user.refresh_token && user.refresh_token !== refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token - token mismatch'
       });
     }
 
@@ -183,12 +214,21 @@ export const refreshToken = async (req, res) => {
     const newToken = generateToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
+    // Update stored refresh token
+    await user.update({ refresh_token: newRefreshToken });
+
     res.json({
       success: true,
       message: 'Token refreshed successfully',
       data: {
         token: newToken,
-        refreshToken: newRefreshToken
+        refreshToken: newRefreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          email_verified: user.email_verified
+        }
       }
     });
   } catch (error) {
@@ -204,12 +244,79 @@ export const refreshToken = async (req, res) => {
 // POST /api/auth/verify-email
 export const verifyEmail = async (req, res) => {
   try {
-    // This would typically involve email verification logic
-    // For now, return a placeholder response
-    res.json({
-      success: true,
-      message: 'Email verification endpoint - to be implemented'
-    });
+    const { token, email } = req.body;
+
+    if (!token && !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email or verification token is required'
+      });
+    }
+
+    // Case 1: Verify with token (user clicks email link)
+    if (token) {
+      const user = await User.findOne({
+        where: { email_verification_token: token }
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired verification token'
+        });
+      }
+
+      if (user.email_verified) {
+        return res.json({
+          success: true,
+          message: 'Email already verified'
+        });
+      }
+
+      // Mark email as verified
+      await user.update({
+        email_verified: true,
+        email_verification_token: null
+      });
+
+      return res.json({
+        success: true,
+        message: 'Email verified successfully',
+        data: { verified: true }
+      });
+    }
+
+    // Case 2: Resend verification email
+    if (email) {
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (user.email_verified) {
+        return res.json({
+          success: true,
+          message: 'Email already verified'
+        });
+      }
+
+      // Generate new verification token
+      const verificationToken = generateEmailVerificationToken();
+      await user.update({ email_verification_token: verificationToken });
+
+      // Send verification email
+      await sendVerificationEmail(user, verificationToken);
+
+      return res.json({
+        success: true,
+        message: 'Verification email sent successfully'
+      });
+    }
+
   } catch (error) {
     console.error('Verify email error:', error);
     res.status(500).json({
@@ -223,12 +330,43 @@ export const verifyEmail = async (req, res) => {
 // POST /api/auth/forgot-password
 export const forgotPassword = async (req, res) => {
   try {
-    // This would typically involve sending reset email
-    // For now, return a placeholder response
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Don't reveal if user exists for security
+      return res.json({
+        success: true,
+        message: 'If the email exists, a password reset link has been sent'
+      });
+    }
+
+    // Generate password reset token
+    const resetToken = generatePasswordResetToken();
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Save reset token
+    await user.update({
+      password_reset_token: resetToken,
+      password_reset_expires: resetExpires
+    });
+
+    // Send password reset email
+    await sendPasswordResetEmail(user, resetToken);
+
     res.json({
       success: true,
-      message: 'Forgot password endpoint - to be implemented'
+      message: 'If the email exists, a password reset link has been sent'
     });
+
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({
@@ -242,12 +380,58 @@ export const forgotPassword = async (req, res) => {
 // POST /api/auth/reset-password
 export const resetPassword = async (req, res) => {
   try {
-    // This would typically involve password reset logic
-    // For now, return a placeholder response
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token and new password are required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Find user by reset token
+    const user = await User.findOne({
+      where: { password_reset_token: token }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Check if token is expired
+    if (user.password_reset_expires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token has expired'
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password and clear reset token
+    await user.update({
+      password: hashedPassword,
+      password_reset_token: null,
+      password_reset_expires: null
+    });
+
     res.json({
       success: true,
-      message: 'Reset password endpoint - to be implemented'
+      message: 'Password reset successfully',
+      data: { passwordReset: true }
     });
+
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({
