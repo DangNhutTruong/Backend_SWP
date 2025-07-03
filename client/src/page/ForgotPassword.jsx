@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import "./ForgotPassword.css";
 
 // Base API URL - should match AuthContext
 const API_BASE_URL = "http://localhost:5000/api";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState(1); // 1: nhập email, 2: nhập mã và mật khẩu mới
-  const [resetCode, setResetCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [emailSent, setEmailSent] = useState(false); // Chỉ cần 2 trạng thái: chưa gửi và đã gửi
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +23,7 @@ export default function ForgotPassword() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const handleSendCode = async (e) => {
+  const handleSendEmail = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -47,17 +43,8 @@ export default function ForgotPassword() {
 
       const data = await response.json();
       if (data.success) {
-        setSuccess("Mã đặt lại mật khẩu đã được gửi về email của bạn");
-
-        // In development, show the token for testing
-        if (data.devToken) {
-          setSuccess(
-            `Mã đặt lại mật khẩu đã được gửi về email của bạn\n\n🔧 Development Mode - Token để test:\n${data.devToken}`
-          );
-          setResetCode(data.devToken); // Auto-fill the token
-        }
-
-        setStep(2);
+        setSuccess("Link đặt lại mật khẩu đã được gửi về email của bạn");
+        setEmailSent(true);
         setCooldown(60); // Set 60 giây cooldown
       } else {
         setError(data.message || "Có lỗi xảy ra");
@@ -70,68 +57,7 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        "http://localhost:5000/api/auth/reset-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token: resetCode, // Backend expects 'token' not 'resetCode'
-            newPassword,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess(
-          "Đặt lại mật khẩu thành công! Đang chuyển đến trang đăng nhập..."
-        );
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
-      } else {
-        setError(data.message || "Có lỗi xảy ra");
-      }
-    } catch (err) {
-      setError("Có lỗi xảy ra, vui lòng thử lại");
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  const handleBackToStep1 = () => {
-    setStep(1);
-    setResetCode("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setError("");
-    setSuccess("");
-    setCooldown(0);
-  };
-
-  const handleResendCode = async () => {
+  const handleResendEmail = async () => {
     if (cooldown > 0) return; // Không cho phép gửi lại khi còn cooldown
 
     setError("");
@@ -150,10 +76,10 @@ export default function ForgotPassword() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess("Mã mới đã được gửi về email của bạn");
+        setSuccess("Link đặt lại mật khẩu mới đã được gửi về email của bạn");
         setCooldown(60); // Set lại 60 giây cooldown
       } else {
-        setError(data.message || "Có lỗi xảy ra khi gửi lại mã");
+        setError(data.message || "Có lỗi xảy ra khi gửi lại email");
       }
     } catch (err) {
       setError("Có lỗi xảy ra, vui lòng thử lại");
@@ -164,25 +90,105 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="forgot-password-page">
-      <div className="forgot-password-container">
-        <div className="forgot-password-card">
-          <div className="forgot-password-header">
-            <h1>🔐 Quên mật khẩu</h1>{" "}
-            <p>
-              {step === 1
-                ? "Nhập email của bạn để nhận mã đặt lại mật khẩu"
-                : `Nhập mã xác nhận đã gửi về ${email} và mật khẩu mới`}
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#f5f7fa",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "450px",
+          width: "100%",
+          backgroundColor: "white",
+          borderRadius: "16px",
+          boxShadow:
+            "0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 25px rgba(0, 0, 0, 0.1)",
+          padding: "32px 24px",
+          textAlign: "center",
+        }}
+      >
+        {/* Header Icon */}
+        <div
+          style={{
+            width: "64px",
+            height: "64px",
+            backgroundColor: "#4F46E5",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 24px",
+            fontSize: "24px",
+          }}
+        >
+          📧
+        </div>
+
+        {!emailSent ? (
+          <>
+            {/* Title */}
+            <h2
+              style={{
+                fontSize: "24px",
+                fontWeight: "600",
+                color: "#1F2937",
+                margin: "0 0 8px 0",
+              }}
+            >
+              Quên mật khẩu?
+            </h2>
+
+            {/* Subtitle */}
+            <p
+              style={{
+                fontSize: "16px",
+                color: "#6B7280",
+                margin: "0 0 24px 0",
+                lineHeight: "1.5",
+              }}
+            >
+              Nhập email của bạn và chúng tôi sẽ gửi link đặt lại mật khẩu
             </p>
-          </div>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+            {/* Error Message */}
+            {error && (
+              <div
+                style={{
+                  backgroundColor: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  borderRadius: "8px",
+                  padding: "12px",
+                  margin: "0 0 20px 0",
+                  fontSize: "14px",
+                  color: "#DC2626",
+                }}
+              >
+                {error}
+              </div>
+            )}
 
-          {step === 1 ? (
-            <form onSubmit={handleSendCode} className="forgot-password-form">
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
+            {/* Form */}
+            <form onSubmit={handleSendEmail}>
+              <div style={{ marginBottom: "24px", textAlign: "left" }}>
+                <label
+                  htmlFor="email"
+                  style={{
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#374151",
+                    marginBottom: "6px",
+                  }}
+                >
+                  Email
+                </label>
                 <input
                   type="email"
                   id="email"
@@ -191,119 +197,290 @@ export default function ForgotPassword() {
                   placeholder="Nhập email của bạn"
                   required
                   disabled={isLoading}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    fontSize: "16px",
+                    border: "1px solid #D1D5DB",
+                    borderRadius: "8px",
+                    outline: "none",
+                    backgroundColor: isLoading ? "#F9FAFB" : "#FFFFFF",
+                    transition: "border-color 0.2s",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) =>
+                    !isLoading && (e.target.style.borderColor = "#4F46E5")
+                  }
+                  onBlur={(e) => (e.target.style.borderColor = "#D1D5DB")}
                 />
               </div>
 
               <button
                 type="submit"
-                className="send-code-button"
                 disabled={isLoading}
+                style={{
+                  width: "100%",
+                  padding: "12px 24px",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  color: "white",
+                  backgroundColor: isLoading ? "#9CA3AF" : "#4F46E5",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoading) {
+                    e.target.style.backgroundColor = "#4338CA";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoading) {
+                    e.target.style.backgroundColor = "#4F46E5";
+                  }
+                }}
               >
-                {isLoading ? "Đang gửi..." : "Gửi mã xác nhận"}
+                {isLoading ? "Đang gửi..." : "Gửi link đặt lại mật khẩu"}
               </button>
             </form>
-          ) : (
-            <form
-              onSubmit={handleResetPassword}
-              className="reset-password-form"
+
+            {/* Navigation Links */}
+            <div
+              style={{
+                marginTop: "24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                fontSize: "14px",
+              }}
             >
-              <div className="form-group">
-                <label htmlFor="resetCode">Mã xác nhận (6 số)</label>
-                <input
-                  type="text"
-                  id="resetCode"
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="Nhập mã 6 số"
-                  required
-                  disabled={isLoading}
-                  maxLength={6}
-                />{" "}
-                <small>Kiểm tra email của bạn để lấy mã xác nhận</small>
-                <div className="resend-code-section">
-                  <button
-                    type="button"
-                    className="resend-code-button"
-                    onClick={handleResendCode}
-                    disabled={isLoading || cooldown > 0}
-                  >
-                    {cooldown > 0 ? `Gửi lại mã (${cooldown}s)` : "Gửi lại mã"}
-                  </button>
-                </div>
-              </div>
+              <a
+                href="/login"
+                style={{
+                  color: "#6B7280",
+                  textDecoration: "none",
+                  transition: "color 0.2s",
+                  padding: "8px",
+                  borderRadius: "6px",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.color = "#4F46E5";
+                  e.target.style.backgroundColor = "#F3F4F6";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = "#6B7280";
+                  e.target.style.backgroundColor = "transparent";
+                }}
+              >
+                Nhớ lại mật khẩu? Đăng nhập
+              </a>
+              <a
+                href="/register"
+                style={{
+                  color: "#6B7280",
+                  textDecoration: "none",
+                  transition: "color 0.2s",
+                  padding: "8px",
+                  borderRadius: "6px",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.color = "#4F46E5";
+                  e.target.style.backgroundColor = "#F3F4F6";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = "#6B7280";
+                  e.target.style.backgroundColor = "transparent";
+                }}
+              >
+                Chưa có tài khoản? Đăng ký ngay
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Success Title */}
+            <h2
+              style={{
+                fontSize: "24px",
+                fontWeight: "600",
+                color: "#1F2937",
+                margin: "0 0 16px 0",
+              }}
+            >
+              Kiểm tra email của bạn!
+            </h2>
 
-              <div className="form-group">
-                <label htmlFor="newPassword">Mật khẩu mới</label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu mới"
-                  required
-                  disabled={isLoading}
-                  minLength={6}
-                />
-              </div>
+            {/* Success Message */}
+            <div
+              style={{
+                backgroundColor: "#ECFDF5",
+                border: "1px solid #A7F3D0",
+                borderRadius: "8px",
+                padding: "16px",
+                margin: "0 0 24px 0",
+                textAlign: "left",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  color: "#065F46",
+                  fontWeight: "500",
+                }}
+              >
+                {success}
+              </p>
+              <p
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: "14px",
+                  color: "#047857",
+                }}
+              >
+                Chúng tôi đã gửi link đặt lại mật khẩu đến{" "}
+                <span style={{ fontWeight: "600", color: "#065F46" }}>
+                  {email}
+                </span>
+              </p>
+              <p
+                style={{
+                  margin: "0",
+                  fontSize: "14px",
+                  color: "#047857",
+                }}
+              >
+                Vui lòng kiểm tra email và click vào link để đặt lại mật khẩu.
+              </p>
+            </div>
 
-              <div className="form-group">
-                <label htmlFor="confirmPassword">Xác nhận mật khẩu mới</label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Nhập lại mật khẩu mới"
-                  required
-                  disabled={isLoading}
-                  minLength={6}
-                />
-              </div>
+            {/* Resend Section */}
+            <div
+              style={{
+                padding: "16px",
+                backgroundColor: "#F9FAFB",
+                borderRadius: "8px",
+                border: "1px solid #E5E7EB",
+                marginBottom: "24px",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 12px 0",
+                  fontSize: "14px",
+                  color: "#6B7280",
+                }}
+              >
+                Không nhận được email?
+              </p>
+              <button
+                type="button"
+                onClick={handleResendEmail}
+                disabled={isLoading || cooldown > 0}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: cooldown > 0 || isLoading ? "#9CA3AF" : "#4F46E5",
+                  backgroundColor: "transparent",
+                  border: `1px solid ${
+                    cooldown > 0 || isLoading ? "#E5E7EB" : "#4F46E5"
+                  }`,
+                  borderRadius: "6px",
+                  cursor: cooldown > 0 || isLoading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!(cooldown > 0 || isLoading)) {
+                    e.target.style.backgroundColor = "#4F46E5";
+                    e.target.style.color = "white";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!(cooldown > 0 || isLoading)) {
+                    e.target.style.backgroundColor = "transparent";
+                    e.target.style.color = "#4F46E5";
+                  }
+                }}
+              >
+                {cooldown > 0 ? `Gửi lại (${cooldown}s)` : "Gửi lại email"}
+              </button>
+            </div>
 
-              <div className="form-buttons">
-                <button
-                  type="button"
-                  className="back-button"
-                  onClick={handleBackToStep1}
-                  disabled={isLoading}
-                >
-                  ← Quay lại
-                </button>
-                <button
-                  type="submit"
-                  className="reset-button"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Đang đặt lại..." : "Đặt lại mật khẩu"}
-                </button>
-              </div>
-            </form>
-          )}
+            {/* Navigation Link */}
+            <div style={{ fontSize: "14px" }}>
+              <a
+                href="/login"
+                style={{
+                  color: "#6B7280",
+                  textDecoration: "none",
+                  transition: "color 0.2s",
+                  padding: "8px",
+                  borderRadius: "6px",
+                  display: "inline-block",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.color = "#4F46E5";
+                  e.target.style.backgroundColor = "#F3F4F6";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = "#6B7280";
+                  e.target.style.backgroundColor = "transparent";
+                }}
+              >
+                ← Quay lại đăng nhập
+              </a>
+            </div>
+          </>
+        )}
 
-          <div className="forgot-password-footer">
-            <p>
-              Nhớ lại mật khẩu?{" "}
-              <Link to="/login" className="login-link">
-                Đăng nhập
-              </Link>
-            </p>
-            <p>
-              Chưa có tài khoản?{" "}
-              <Link to="/signup" className="signup-link">
-                Đăng ký ngay
-              </Link>
-            </p>
+        {/* Tips */}
+        <div
+          style={{
+            marginTop: "32px",
+            padding: "16px",
+            backgroundColor: "#FFFBEB",
+            border: "1px solid #FDE68A",
+            borderRadius: "8px",
+            textAlign: "left",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "14px",
+              fontWeight: "500",
+              color: "#92400E",
+              marginBottom: "8px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            💡 Lưu ý quan trọng
           </div>
-        </div>
-
-        <div className="forgot-password-info">
-          <h2>💡 Lưu ý quan trọng</h2>
-          <ul className="tips-list">
-            <li>Mã xác nhận có hiệu lực trong 15 phút</li>
-            <li>Kiểm tra cả hộp thư spam nếu không thấy email</li>
-            <li>Mỗi lần yêu cầu sẽ tạo mã mới và hủy mã cũ</li>
-            <li>Sau khi đổi mật khẩu, bạn cần đăng nhập lại</li>
-            <li>Mật khẩu mới phải có ít nhất 6 ký tự</li>
+          <ul
+            style={{
+              margin: "0",
+              padding: "0 0 0 16px",
+              fontSize: "12px",
+              color: "#78350F",
+              lineHeight: "1.4",
+            }}
+          >
+            <li style={{ marginBottom: "4px" }}>
+              Link đặt lại mật khẩu có hiệu lực trong 1 giờ
+            </li>
+            <li style={{ marginBottom: "4px" }}>
+              Kiểm tra cả hộp thư spam nếu không thấy email
+            </li>
+            <li style={{ marginBottom: "4px" }}>
+              Click vào link trong email để đặt lại mật khẩu
+            </li>
+            <li style={{ marginBottom: "4px" }}>
+              Sau khi đổi mật khẩu, hãy đăng nhập lại
+            </li>
           </ul>
         </div>
       </div>

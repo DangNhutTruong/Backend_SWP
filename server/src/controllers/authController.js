@@ -371,18 +371,10 @@ export const forgotPassword = async (req, res) => {
 
     // Send password reset email
     await sendPasswordResetEmail(user, resetToken);
-
-    // In development, return token for testing
-    const isDevelopment = process.env.NODE_ENV === 'development';
     
     res.json({
       success: true,
-      message: 'If the email exists, a password reset link has been sent',
-      // Only show token in development mode for testing
-      ...(isDevelopment && { 
-        devToken: resetToken,
-        devMessage: 'Development mode: Use this token to reset password' 
-      })
+      message: 'If the email exists, a password reset link has been sent'
     });
 
   } catch (error) {

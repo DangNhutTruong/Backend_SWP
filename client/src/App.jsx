@@ -14,6 +14,7 @@ import Blog from "./page/Blog.jsx"; // Import component Blog
 import Login from "./page/Login.jsx"; // Import component Login
 import Register from "./page/Register.jsx"; // Import component Register
 import ForgotPassword from "./page/ForgotPassword.jsx"; // Import component ForgotPassword
+import ResetPassword from "./page/ResetPassword.jsx"; // Import component ResetPassword
 import EmailVerification from "./page/EmailVerification.jsx"; // Import component EmailVerification
 import MembershipPackage from "./page/MembershipPackage.jsx"; // Import component MembershipPackage
 import BookAppointment from "./page/BookAppointment.jsx"; // Import component BookAppointment
@@ -274,7 +275,7 @@ const router = createBrowserRouter([
     path: "/reset-password",
     element: (
       <Layout>
-        <ForgotPassword />
+        <ResetPassword />
       </Layout>
     ),
   },
