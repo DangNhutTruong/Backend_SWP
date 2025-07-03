@@ -86,6 +86,9 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Static files for public directory (HTML test pages)
+app.use(express.static(path.join(process.cwd(), 'public')));
+
 // Static files for uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 

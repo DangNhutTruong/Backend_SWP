@@ -18,7 +18,7 @@ export const generatePasswordResetToken = () => {
 
 // Create Gmail transporter
 const createTransporter = () => {
-  return nodemailer.createTransport({
+  return nodemailer.createTransporter({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER, // Your Gmail address
@@ -92,7 +92,7 @@ export const sendEmail = async (to, subject, text, html) => {
 
 // Send verification email
 export const sendVerificationEmail = async (user, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${token}`;
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
   
   const subject = 'Verify Your Email - NoSmoke App';
   const text = `
@@ -131,7 +131,7 @@ export const sendVerificationEmail = async (user, token) => {
 
 // Send password reset email
 export const sendPasswordResetEmail = async (user, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/reset-password?token=${token}`;
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
   
   const subject = 'Reset Your Password - NoSmoke App';
   const text = `
