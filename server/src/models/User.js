@@ -48,4 +48,12 @@ const User = sequelize.define('User', {
   updatedAt: 'updated_at'
 });
 
+// Define associations
+User.associate = (models) => {
+  User.hasMany(models.DailyCheckin, {
+    foreignKey: 'user_id',
+    as: 'dailyCheckins'
+  });
+};
+
 export default User;
