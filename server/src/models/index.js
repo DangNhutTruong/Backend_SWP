@@ -1,22 +1,10 @@
 import sequelize from '../config/database.js';
 import User from './User.js';
-import DailyCheckin from './DailyCheckin.js';
 
-// Define all models
-const models = {
-  User,
-  DailyCheckin
-};
-
-// Set up associations
-Object.keys(models).forEach(modelName => {
-  if (models[modelName].associate) {
-    models[modelName].associate(models);
-  }
-});
+// For now, just export User and sequelize to avoid relationship conflicts
+// Will add other models and relationships later when needed
 
 export {
   sequelize,
-  User,
-  DailyCheckin
+  User
 };
