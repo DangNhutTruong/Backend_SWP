@@ -29,14 +29,6 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: true
   },
-  email_verification_otp: {
-    type: DataTypes.STRING(6),
-    allowNull: true
-  },
-  email_verification_otp_expires: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
   password_reset_token: {
     type: DataTypes.STRING(255),
     allowNull: true
@@ -55,5 +47,13 @@ const User = sequelize.define('User', {
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });
+
+// Define associations
+User.associate = (models) => {
+  User.hasMany(models.DailyCheckin, {
+    foreignKey: 'user_id',
+    as: 'dailyCheckins'
+  });
+};
 
 export default User;
