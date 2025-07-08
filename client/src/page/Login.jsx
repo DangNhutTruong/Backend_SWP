@@ -1,43 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import './Login.css';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import "./Login.css";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Get the redirect path from location state or default to home
-  const from = location.state?.from || '/';
-  
+  const from = location.state?.from || "/";
+
   // Removed auto-redirect on mount to prevent issues with page reload
   // Users will only be redirected when they actively submit the login form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
-    
+
     try {
       const result = await login(email, password, rememberMe);
       if (result.success) {
         // Redirect based on user role
-        if (result.user && result.user.role === 'coach') {
-          navigate('/coach');
+        if (result.user && result.user.role === "coach") {
+          navigate("/coach");
         } else {
           navigate(from);
         }
+      } else if (result.requiresVerification) {
+        // Nếu cần xác thực email, chuyển đến trang nhập OTP
+        sessionStorage.setItem("verificationEmail", email);
+        navigate("/verify-otp", {
+          state: { email: email, fromLogin: true },
+        });
       } else {
-        setError(result.error || 'Đăng nhập không thành công');
+        setError(result.error || "Đăng nhập không thành công");
       }
     } catch (err) {
-      setError('Có lỗi xảy ra, vui lòng thử lại');
+      setError("Có lỗi xảy ra, vui lòng thử lại");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -51,9 +57,10 @@ export default function Login() {
           <div className="login-header">
             <h1>Đăng nhập</h1>
             <p>Chào mừng bạn quay trở lại với NoSmoke</p>
-          </div>          <form onSubmit={handleSubmit} className="login-form">
+          </div>{" "}
+          <form onSubmit={handleSubmit} className="login-form">
             {error && <div className="error-message">{error}</div>}
-            
+
             <div className="form-group">
               <label htmlFor="email">Email</label>
               <input
@@ -91,21 +98,25 @@ export default function Login() {
                 />
                 <label htmlFor="rememberMe">Ghi nhớ đăng nhập</label>
               </div>
-              <Link to="/forgot-password" className="forgot-password">Quên mật khẩu?</Link>
+              <Link to="/forgot-password-step1" className="forgot-password">
+                Forgot password?
+              </Link>
             </div>
 
-            <button 
-              type="submit" 
-              className="login-button"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            <button type="submit" className="login-button" disabled={isLoading}>
+              {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
-          </form>          <div className="login-footer">
-            <p>Bạn chưa có tài khoản? <Link to="/signup" className="signup-link">Đăng ký ngay</Link></p>
+          </form>{" "}
+          <div className="login-footer">
+            <p>
+              Bạn chưa có tài khoản?{" "}
+              <Link to="/signup" className="signup-link">
+                Đăng ký ngay
+              </Link>
+            </p>
           </div>
         </div>
-        
+
         <div className="login-info">
           <h2>Tại sao nên đăng nhập?</h2>
           <ul className="benefits-list">

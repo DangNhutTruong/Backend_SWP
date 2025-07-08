@@ -12,7 +12,7 @@ const runMigration = async () => {
     
     // Read migration file
     const migrationSQL = readFileSync(
-      join(__dirname, 'migrations', '001_add_auth_fields.sql'),
+      join(__dirname, 'src', 'migrations', '002_add_otp_fields.sql'),
       'utf8'
     );
     

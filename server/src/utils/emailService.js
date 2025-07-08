@@ -11,9 +11,9 @@ export const generateEmailVerificationToken = () => {
   return generateToken(32);
 };
 
-// Generate password reset token
-export const generatePasswordResetToken = () => {
-  return generateToken(32);
+// Generate 6-digit OTP for email verification
+export const generateEmailVerificationOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 // Create Gmail transporter
@@ -90,80 +90,105 @@ export const sendEmail = async (to, subject, text, html) => {
   }
 };
 
-// Send verification email
-export const sendVerificationEmail = async (user, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${token}`;
-  
-  const subject = 'Verify Your Email - NoSmoke App';
+// Send password reset email
+// Send verification OTP email
+export const sendVerificationOTP = async (user, otp) => {
+  const subject = 'Mã xác thực email - NoSmoke App';
   const text = `
-    Hello ${user.username},
+    Xin chào ${user.username},
     
-    Please verify your email by clicking the link below:
-    ${verificationUrl}
+    Mã xác thực email của bạn là: ${otp}
     
-    This link will expire in 24 hours.
+    Vui lòng nhập mã này vào trang xác thực để hoàn tất đăng ký.
+    Mã có hiệu lực trong 10 phút.
     
-    If you didn't create an account, please ignore this email.
+    Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.
     
-    Best regards,
-    NoSmoke Team
+    Trân trọng,
+    Đội ngũ NoSmoke
   `;
   
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Verify Your Email</h2>
-      <p>Hello <strong>${user.username}</strong>,</p>
-      <p>Please verify your email by clicking the button below:</p>
-      <a href="${verificationUrl}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-        Verify Email
-      </a>
-      <p>Or copy and paste this link in your browser:</p>
-      <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-      <p><small>This link will expire in 24 hours.</small></p>
-      <p>If you didn't create an account, please ignore this email.</p>
-      <hr>
-      <p><small>Best regards,<br>NoSmoke Team</small></p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #4CAF50; margin: 0;">NoSmoke</h1>
+        <p style="color: #666; margin: 5px 0;">Ứng dụng hỗ trợ cai thuốc lá</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 10px; text-align: center;">
+        <h2 style="color: #333; margin-bottom: 20px;">Mã xác thực email</h2>
+        <p style="color: #555; margin-bottom: 30px;">Xin chào <strong>${user.username}</strong>,</p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #333; margin-bottom: 10px; font-size: 16px;">Mã xác thực của bạn là:</p>
+          <div style="font-size: 32px; font-weight: bold; color: #4CAF50; letter-spacing: 5px; margin: 15px 0;">
+            ${otp}
+          </div>
+          <p style="color: #666; font-size: 14px;">Mã có hiệu lực trong 10 phút</p>
+        </div>
+        
+        <p style="color: #555; line-height: 1.6;">
+          Vui lòng nhập mã này vào trang xác thực để hoàn tất đăng ký.<br>
+          Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin-top: 30px; color: #888; font-size: 12px;">
+        <p>© 2025 NoSmoke. Tất cả quyền được bảo lưu.</p>
+      </div>
     </div>
   `;
-  
+
   return await sendEmail(user.email, subject, text, html);
 };
 
-// Send password reset email
-export const sendPasswordResetEmail = async (user, token) => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/reset-password?token=${token}`;
-  
-  const subject = 'Reset Your Password - NoSmoke App';
+// Send password reset OTP email
+export const sendPasswordResetOTP = async (user, otp) => {
+  const subject = 'Mã khôi phục mật khẩu - NoSmoke App';
   const text = `
-    Hello ${user.username},
+    Xin chào ${user.username},
     
-    You requested to reset your password. Click the link below to reset it:
-    ${resetUrl}
+    Mã khôi phục mật khẩu của bạn là: ${otp}
     
-    This link will expire in 1 hour.
+    Vui lòng nhập mã này vào trang đặt lại mật khẩu.
+    Mã có hiệu lực trong 10 phút.
     
-    If you didn't request this, please ignore this email.
+    Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
     
-    Best regards,
-    NoSmoke Team
+    Trân trọng,
+    Đội ngũ NoSmoke
   `;
   
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Reset Your Password</h2>
-      <p>Hello <strong>${user.username}</strong>,</p>
-      <p>You requested to reset your password. Click the button below to reset it:</p>
-      <a href="${resetUrl}" style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-        Reset Password
-      </a>
-      <p>Or copy and paste this link in your browser:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p><small>This link will expire in 1 hour.</small></p>
-      <p>If you didn't request this reset, please ignore this email.</p>
-      <hr>
-      <p><small>Best regards,<br>NoSmoke Team</small></p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #4CAF50; margin: 0;">NoSmoke</h1>
+        <p style="color: #666; margin: 5px 0;">Ứng dụng hỗ trợ cai thuốc lá</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 10px; text-align: center;">
+        <h2 style="color: #333; margin-bottom: 20px;">Khôi phục mật khẩu</h2>
+        <p style="color: #555; margin-bottom: 30px;">Xin chào <strong>${user.username}</strong>,</p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #333; margin-bottom: 10px; font-size: 16px;">Mã khôi phục mật khẩu của bạn là:</p>
+          <div style="font-size: 32px; font-weight: bold; color: #dc3545; letter-spacing: 5px; margin: 15px 0;">
+            ${otp}
+          </div>
+          <p style="color: #666; font-size: 14px;">Mã có hiệu lực trong 10 phút</p>
+        </div>
+        
+        <p style="color: #555; line-height: 1.6;">
+          Vui lòng nhập mã này vào trang đặt lại mật khẩu.<br>
+          Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin-top: 30px; color: #888; font-size: 12px;">
+        <p>© 2025 NoSmoke. Tất cả quyền được bảo lưu.</p>
+      </div>
     </div>
   `;
-  
+
   return await sendEmail(user.email, subject, text, html);
 };

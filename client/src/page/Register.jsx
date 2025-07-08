@@ -1,66 +1,66 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import './Register.css';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import "./Register.css";
+import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  
-  const [error, setError] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  
+
   // Chuyển hướng đến profile nếu đã đăng nhập
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/profile');
+      navigate("/profile");
     }
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
+
     // Kiểm tra mật khẩu xác nhận
     if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp');
+      setError("Mật khẩu xác nhận không khớp");
       return;
     }
-    
+
     // Kiểm tra mật khẩu đủ mạnh (ít nhất 6 ký tự)
     if (password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      setError("Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
-    
+
     setIsLoading(true);
-      try {
+    try {
       const userData = {
         name,
         email,
-        password
+        password,
       };
-      
+
       const result = await register(userData);
-      
+
       if (result.success) {
-        // Redirect to email verification page with email
-        navigate('/verify-email', { 
-          state: { 
-            email: email,
-            message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
-          }
+        // Lưu email để sử dụng ở trang verify-otp
+        sessionStorage.setItem("verificationEmail", email);
+
+        // Chuyển hướng đến trang nhập mã OTP
+        navigate("/verify-otp", {
+          state: { email: email },
         });
       } else {
-        setError(result.error || 'Đăng ký không thành công');
+        setError(result.error || "Đăng ký không thành công");
       }
     } catch (err) {
-      setError('Có lỗi xảy ra, vui lòng thử lại');
+      setError("Có lỗi xảy ra, vui lòng thử lại");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -70,14 +70,15 @@ export default function Register() {
   return (
     <div className="register-page">
       <div className="register-container">
-        <div className="register-card">          <div className="register-header">
+        <div className="register-card">
+          {" "}
+          <div className="register-header">
             <h1>Đăng ký tài khoản</h1>
             <p>Tạo tài khoản để bắt đầu hành trình cai thuốc lá</p>
           </div>
-
           <form onSubmit={handleSubmit} className="register-form">
             {error && <div className="error-message">{error}</div>}
-            
+
             <div className="form-group">
               <label htmlFor="name">Họ và tên</label>
               <input
@@ -90,7 +91,7 @@ export default function Register() {
                 required
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="email">Email</label>
               <input
@@ -117,7 +118,7 @@ export default function Register() {
                 minLength={6}
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="confirmPassword">Xác nhận mật khẩu</label>
               <input
@@ -128,29 +129,35 @@ export default function Register() {
                 placeholder="Nhập lại mật khẩu"
                 disabled={isLoading}
                 required
-              />            </div>
-            
+              />{" "}
+            </div>
+
             <div className="terms-privacy">
               <input type="checkbox" id="terms" required />
               <label htmlFor="terms">
-                Tôi đồng ý với <Link to="/terms">Điều khoản sử dụng</Link> và <Link to="/privacy">Chính sách bảo mật</Link>
+                Tôi đồng ý với <Link to="/terms">Điều khoản sử dụng</Link> và{" "}
+                <Link to="/privacy">Chính sách bảo mật</Link>
               </label>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="register-button"
               disabled={isLoading}
             >
-              {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
+              {isLoading ? "Đang đăng ký..." : "Đăng ký"}
             </button>
           </form>
-
           <div className="register-footer">
-            <p>Đã có tài khoản? <Link to="/login" className="login-link">Đăng nhập ngay</Link></p>
+            <p>
+              Đã có tài khoản?{" "}
+              <Link to="/login" className="login-link">
+                Đăng nhập ngay
+              </Link>
+            </p>
           </div>
         </div>
-          <div className="register-info">
+        <div className="register-info">
           <h2>Lợi ích khi đăng ký tài khoản NoSmoke</h2>
           <ul className="benefits-list">
             <li>Tạo và theo dõi kế hoạch cai thuốc lá cá nhân</li>

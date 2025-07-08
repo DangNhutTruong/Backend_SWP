@@ -135,7 +135,7 @@
 
 .coach-nav {
   flex: 1;
-  padding: 1.5rem 0;
+  padding: 1.5rem 1rem;
   align-items: center;
   justify-content: center;
 }
@@ -160,7 +160,7 @@
   background: 
     linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.15) 100%),
     linear-gradient(45deg, rgba(255, 255, 255, 0.1), transparent);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  border: 2px solid rgba(154, 8, 8, 0);
   color: rgba(255, 255, 255, 0.95) !important;
   text-align: left;
   padding: 1.2rem 1.5rem;
