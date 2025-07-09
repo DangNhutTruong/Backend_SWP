@@ -121,6 +121,14 @@ class ApiService {
     return this.apiCall('/api/users/profile');
   }
 
+  async updateProfile(profileData) {
+    console.log('Gửi cập nhật profile đến API:', profileData);
+    return this.apiCall('/api/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+  }
+
   // Progress endpoints
   async getUserProgress() {
     return this.apiCall('/api/progress/user');
@@ -181,6 +189,7 @@ export const {
   verifyOTP,
   resendOTP,
   getUserProfile,
+  updateProfile,
   getUserProgress,
   createCheckin,
   updateCheckin,

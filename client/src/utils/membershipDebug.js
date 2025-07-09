@@ -7,7 +7,7 @@ try {
     console.log('=== THÔNG TIN USER HIỆN TẠI ===');
     console.log('ID:', currentUser.id);
     console.log('Email:', currentUser.email);
-    console.log('Tên:', currentUser.fullName || currentUser.name);
+    console.log('Tên:', currentUser.name);
     console.log('Membership:', currentUser.membership || 'free (mặc định)');
     
     // Nếu không có trường membership, thêm nó vào

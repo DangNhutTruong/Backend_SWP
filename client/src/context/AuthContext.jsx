@@ -269,13 +269,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
   // Hàm cập nhật thông tin người dùng
-  const updateUser = (updatedData) => {
+  const updateUser = async (updatedData) => {
     if (!user)
       return { success: false, error: "Không có người dùng để cập nhật" };
 
     try {
-      // Lấy danh sách người dùng từ localStorage
-      const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
+      // Gọi API để cập nhật thông tin người dùng
+      const apiResult = await apiService.updateProfile(updatedData);
+
+      if (!apiResult.success) {
+        console.error("API cập nhật thất bại:", apiResult.message);
+        return {
+          success: false,
+          error: apiResult.message || "Lỗi khi cập nhật dữ liệu",
+        };
+      }
+
+      console.log("API cập nhật thành công:", apiResult);
+
       // Đảm bảo membership hợp lệ nếu đang cập nhật membership
       if (
         updatedData.hasOwnProperty("membership") &&
@@ -304,6 +315,10 @@ export const AuthProvider = ({ children }) => {
         console.log("Tự động đồng bộ membership:", updatedData.membership);
       }
 
+      // Cập nhật localStorage cũng với dữ liệu từ API
+      // Lấy danh sách người dùng từ localStorage
+      const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
+
       // Tìm và cập nhật người dùng
       const updatedUsers = users.map((u) => {
         if (u.id === user.id) {
@@ -315,8 +330,10 @@ export const AuthProvider = ({ children }) => {
       // Lưu danh sách cập nhật vào localStorage
       localStorage.setItem("nosmoke_users", JSON.stringify(updatedUsers));
 
-      // Cập nhật user hiện tại trong state
-      const updatedUser = { ...user, ...updatedData };
+      // Sử dụng dữ liệu từ API response nếu có
+      const updatedUser = apiResult.data
+        ? { ...user, ...apiResult.data }
+        : { ...user, ...updatedData };
       setUser(updatedUser);
 
       // Cập nhật user trong localStorage cho phiên hiện tại

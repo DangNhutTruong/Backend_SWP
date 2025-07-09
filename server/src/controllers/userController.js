@@ -33,7 +33,7 @@ export const getProfile = async (req, res) => {
 // PUT /api/users/profile
 export const updateProfile = async (req, res) => {
   try {
-    const { full_name, phone, gender, date_of_birth } = req.body;
+    const { name, phone, gender, date_of_birth, address } = req.body;
 
     const user = await User.findByPk(req.user.id);
 
@@ -44,13 +44,17 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    await user.update({
-      full_name,
-      phone,
-      gender,
-      date_of_birth,
-      updated_at: new Date()
-    });
+    // Prepare update data - only update fields that are provided
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (gender !== undefined) updateData.gender = gender;
+    if (date_of_birth !== undefined) updateData.date_of_birth = date_of_birth;
+    if (address !== undefined) updateData.address = address;
+    
+    updateData.updated_at = new Date();
+
+    await user.update(updateData);
 
     // Return user without password
     const { password_hash: _, ...userWithoutPassword } = user.toJSON();

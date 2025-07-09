@@ -998,3 +998,24 @@
   align-items: center;
   width: 100%;
 }
+
+/* Username display - read only field */
+.username-display {
+  background-color: #f8f9fa;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: #6c757d;
+  font-style: italic;
+  border: 1px dashed #dee2e6;
+  margin: 0;
+}
+
+.username-display::before {
+  content: "👤 ";
+  margin-right: 5px;
+}
+
+/* Add spacing between username and name fields */
+.info-field:has(.username-display) + .info-field {
+  margin-top: 20px;
+}

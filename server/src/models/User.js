@@ -21,6 +21,26 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(255),
     allowNull: false
   },
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  phone: {
+    type: DataTypes.STRING(15),
+    allowNull: true
+  },
+  date_of_birth: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  },
+  gender: {
+    type: DataTypes.ENUM('male', 'female', 'other'),
+    allowNull: true
+  },
+  address: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   email_verified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false

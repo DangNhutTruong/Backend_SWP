@@ -105,18 +105,18 @@ export default function Header() {
                   {user.avatar ? (
                     <img
                       src={user.avatar}
-                      alt={user.username || user.name || "User"}
+                      alt={user.name || user.username || "User"}
                       className="user-avatar-header"
                     />
                   ) : (
                     <span className="user-initial">
-                      {user.username || user.name
-                        ? (user.username || user.name).charAt(0).toUpperCase()
+                      {user.name || user.username
+                        ? (user.name || user.username).charAt(0).toUpperCase()
                         : "U"}
                     </span>
                   )}
                   <span className="user-name">
-                    {user.username || user.name || "User"}
+                    {user.name || user.username || "User"}
                     {/* Kiểm tra cả hai trường hợp để hiển thị nhãn thành viên */}
                     {user.membership && user.membership !== "free" ? (
                       <span className={`membership-label ${user.membership}`}>
