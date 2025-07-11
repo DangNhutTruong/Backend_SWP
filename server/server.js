@@ -3,6 +3,11 @@ import { testConnection } from './src/config/database.js';
 
 const PORT = process.env.PORT || 5000;
 
+// Add health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
+
 // Start server without database sync
 const startServer = async () => {
     try {
