@@ -22,7 +22,7 @@ import membershipRoutes from './routes/membership.js';
 // import dashboardRoutes from './routes/dashboard.js';
 import path from 'path';
 
-// Load environment variables --
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -65,14 +65,16 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware for debugging
+// Request logging middleware
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    if (req.method === 'POST' && req.path.includes('/auth/')) {
-        console.log('Auth request body:', { ...req.body, password: '***' });
-    }
+    console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
     next();
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/quit-plans', quitPlanRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Test database connection
 await testConnection();

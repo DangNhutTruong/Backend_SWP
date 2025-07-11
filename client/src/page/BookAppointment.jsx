@@ -161,7 +161,7 @@ function BookAppointment() {
       ? originalAppointment.id
       : Math.floor(Math.random() * 1000000);
     setAppointmentId(newAppointmentId);
-
+    
     // Tạo đối tượng lịch hẹn mới
     const appointment = {
       id: newAppointmentId,
@@ -220,6 +220,19 @@ function BookAppointment() {
       );
       localStorage.setItem("nosmoke_users", JSON.stringify(updatedUsers));
       localStorage.setItem("nosmoke_user", JSON.stringify(updatedUser));
+    }
+
+    // Cập nhật thông tin coach cho user
+    if (user && !user.assignedCoachId) {
+      const updatedUser = { ...user, assignedCoachId: selectedCoach.id, assignedCoachName: selectedCoach.name };
+      
+      // Cập nhật user trong localStorage
+      const users = JSON.parse(localStorage.getItem('nosmoke_users') || '[]');
+      const updatedUsers = users.map(u => 
+        u.id === user.id ? { ...u, assignedCoachId: selectedCoach.id, assignedCoachName: selectedCoach.name } : u
+      );
+      localStorage.setItem('nosmoke_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
     }
 
     // Hiển thị thông báo thành công
@@ -345,7 +358,7 @@ function BookAppointment() {
             ))}
           </div>
         </div>
-
+        
         <button onClick={() => setStep(1)} className="back-button">
           <FaArrowLeft /> Quay lại
         </button>

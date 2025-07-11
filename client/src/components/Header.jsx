@@ -1,10 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
-import { FaBell } from "react-icons/fa";
-import { useState, useEffect, useRef } from "react";
-import LoginModal from "./LoginModal";
-import { useAuth } from "../context/AuthContext";
-import { formatMembershipName } from "../utils/membershipUtils";
-import "./Header.css";
+import { Link, useNavigate } from 'react-router-dom';
+import { FaBell } from 'react-icons/fa';
+import { useState, useEffect, useRef } from 'react';
+import LoginModal from './LoginModal';
+import { useAuth } from '../context/AuthContext';
+import { formatMembershipName } from '../utils/membershipUtils';
+import './Header.css';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -37,8 +37,7 @@ export default function Header() {
   const handleLoginClick = (e) => {
     e.preventDefault();
     setIsLoginModalOpen(true);
-  };
-  const handleLogout = () => {
+  }; const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
   };
@@ -88,116 +87,70 @@ export default function Header() {
                 className="nav-item notification-nav-item"
               >
                 <FaBell /> Thông báo
-                {notificationCount > 0 && (
-                  <span className="notification-badge">
-                    {notificationCount}
-                  </span>
+                {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
+              </Link>              <div className={`user-menu-container ${isUserMenuOpen ? 'menu-open' : ''}`} ref={userMenuRef}>                <button className="user-menu-button" onClick={toggleUserMenu}>
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name || user.fullName || 'User'} className="user-avatar-header" />
+                ) : (
+                  <span className="user-initial">{(user.name || user.fullName || 'U').charAt(0)}</span>
                 )}
-              </Link>{" "}
-              <div
-                className={`user-menu-container ${
-                  isUserMenuOpen ? "menu-open" : ""
-                }`}
-                ref={userMenuRef}
-              >
-                {" "}
-                <button className="user-menu-button" onClick={toggleUserMenu}>
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name || user.username || "User"}
-                      className="user-avatar-header"
-                    />
-                  ) : (
-                    <span className="user-initial">
-                      {user.name || user.username
-                        ? (user.name || user.username).charAt(0).toUpperCase()
-                        : "U"}
+                <span className="user-name">
+                  {user.name || user.fullName || 'User'}
+                  {/* Kiểm tra cả hai trường hợp để hiển thị nhãn thành viên */}
+                  {(user.membership && user.membership !== 'free') ? (
+                    <span className={`membership-label ${user.membership}`}>
+                      {formatMembershipName(user.membership)}
+                    </span>
+                  ) : (user.membershipType && user.membershipType !== 'free') && (
+                    <span className={`membership-label ${user.membershipType}`}>
+                      {formatMembershipName(user.membershipType)}
                     </span>
                   )}
-                  <span className="user-name">
-                    {user.name || user.username || "User"}
-                    {/* Kiểm tra cả hai trường hợp để hiển thị nhãn thành viên */}
-                    {user.membership && user.membership !== "free" ? (
-                      <span className={`membership-label ${user.membership}`}>
-                        {formatMembershipName(user.membership)}
-                      </span>
-                    ) : (
-                      user.membershipType &&
-                      user.membershipType !== "free" && (
-                        <span
-                          className={`membership-label ${user.membershipType}`}
-                        >
-                          {formatMembershipName(user.membershipType)}
-                        </span>
-                      )
-                    )}
-                  </span>
-                </button>{" "}
-                {isUserMenuOpen && (
-                  <div className="user-dropdown-menu">
-                    {user.role === "coach" ? (
-                      <>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            navigate("/coach-dashboard");
-                          }}
-                        >
-                          <i className="fas fa-comments"></i> Dashboard & Tin
-                          nhắn
-                        </button>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            navigate("/coach");
-                          }}
-                        >
-                          <i className="fas fa-tachometer-alt"></i> Dashboard Cũ
-                        </button>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            navigate("/coach/bookings");
-                          }}
-                        >
-                          <i className="fas fa-calendar-alt"></i> Quản lý
-                          Booking
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            navigate("/profile");
-                          }}
-                        >
-                          <i className="fas fa-user"></i> Hồ sơ cá nhân
-                        </button>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            navigate("/settings");
-                          }}
-                        >
-                          <i className="fas fa-cog"></i> Cài đặt
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      className="dropdown-item logout-btn"
-                    >
-                      <i className="fas fa-sign-out-alt"></i> Đăng xuất
-                    </button>
-                  </div>
-                )}
+                </span>
+              </button>                {isUserMenuOpen && (
+                <div className="user-dropdown-menu">
+                  {user.role === 'coach' ? (
+                    <>
+                      <button className="dropdown-item" onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/coach-dashboard');
+                      }}>
+                        <i className="fas fa-comments"></i> Dashboard & Tin nhắn
+                      </button>
+                      <button className="dropdown-item" onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/coach');
+                      }}>
+                        <i className="fas fa-tachometer-alt"></i> Dashboard Cũ
+                      </button>
+                      <button className="dropdown-item" onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/coach/bookings');
+                      }}>
+                        <i className="fas fa-calendar-alt"></i> Quản lý Booking
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="dropdown-item" onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/profile');
+                      }}>
+                        <i className="fas fa-user"></i> Hồ sơ cá nhân
+                      </button>
+                      <button className="dropdown-item" onClick={() => {
+                        setIsUserMenuOpen(false);
+                        navigate('/settings');
+                      }}>
+                        <i className="fas fa-cog"></i> Cài đặt
+                      </button>
+                    </>
+                  )}
+                  <button onClick={handleLogout} className="dropdown-item logout-btn">
+                    <i className="fas fa-sign-out-alt"></i> Đăng xuất
+                  </button>
+                </div>
+              )}
               </div>
             </>
           ) : (

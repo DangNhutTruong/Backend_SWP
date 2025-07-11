@@ -251,7 +251,8 @@ const UserProfile = ({ isStandalone = false }) => {
 
         setSuccessMessage("Thông tin đã được cập nhật thành công.");
         setIsEditing(false);
-
+        
+        // Clear success message after 3 seconds
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
@@ -314,7 +315,6 @@ const UserProfile = ({ isStandalone = false }) => {
                 <FaUserAlt />
               </div>
             )}
-
             {isEditing && (
               <div className="avatar-edit">
                 <label htmlFor="avatar-input" className="avatar-edit-button">
@@ -342,7 +342,6 @@ const UserProfile = ({ isStandalone = false }) => {
             )}
           </div>
         </div>
-
         <div className="info-section">
           <div className="profile-section basic-info">
             <h2>Thông tin cơ bản</h2>
@@ -422,9 +421,9 @@ const UserProfile = ({ isStandalone = false }) => {
                 <FaTransgender /> Giới tính
               </label>
               {isEditing ? (
-                <select
-                  name="gender"
-                  value={userData.gender || ""}
+                <select 
+                  name="gender" 
+                  value={userData.gender || ""} 
                   onChange={handleChange}
                 >
                   <option value="">-- Chọn giới tính --</option>
@@ -448,7 +447,7 @@ const UserProfile = ({ isStandalone = false }) => {
 
           <div className="profile-section contact-section">
             <h2>Thông tin liên hệ</h2>
-
+            
             <div className="info-field">
               <label>
                 <FaMapMarkerAlt /> Địa chỉ
@@ -465,7 +464,7 @@ const UserProfile = ({ isStandalone = false }) => {
                 <p>{userData.address || "Chưa cập nhật"}</p>
               )}
             </div>
-
+            
             <div className="info-field">
               <label>
                 <FaEnvelope /> Email
@@ -496,7 +495,7 @@ const UserProfile = ({ isStandalone = false }) => {
 
           <div className="profile-section security-section">
             <h2>Bảo mật</h2>
-
+            
             <div className="info-field">
               <label>
                 <FaLock /> Mật khẩu
@@ -514,10 +513,9 @@ const UserProfile = ({ isStandalone = false }) => {
               )}
             </div>
           </div>
-
           <div className="profile-section quit-reason-section">
             <h2>Lý do cai thuốc</h2>
-
+            
             <div className="info-field quit-reason-field">
               {isEditing ? (
                 <textarea

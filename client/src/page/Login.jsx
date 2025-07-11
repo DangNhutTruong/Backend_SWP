@@ -25,7 +25,7 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const result = await login(email, password, rememberMe);
+      const result = await login(emailOrUsername, password, rememberMe);
       if (result.success) {
         // Redirect based on user role
         if (result.user && result.user.role === "coach") {
@@ -62,13 +62,13 @@ export default function Login() {
             {error && <div className="error-message">{error}</div>}
 
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="emailOrUsername">Email hoặc Username</label>
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Nhập email của bạn"
+                type="text"
+                id="emailOrUsername"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
+                placeholder="Nhập email hoặc username của bạn"
                 disabled={isLoading}
                 required
               />

@@ -306,6 +306,14 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "/verify-email",
+    element: (
+      <Layout>
+        <EmailVerification />
+      </Layout>
+    ),
+  },
+  {
     path: "/payment",
     element: (
       <Layout>
@@ -363,20 +371,20 @@ const router = createBrowserRouter([
   {
     path: "/coach",
     element: (
-      <RoleBasedRoute allowedRoles={["coach"]}>
+      <RoleBasedRoute allowedRoles={['coach']}>
         <CoachLayout />
       </RoleBasedRoute>
     ),
     children: [
       {
         index: true,
-        element: <CoachDashboard />,
+        element: <CoachDashboard />
       },
       {
         path: "bookings",
-        element: <CoachBookings />,
-      },
-    ],
+        element: <CoachBookings />
+      }
+    ]
   },
   {
     path: "/access-denied",

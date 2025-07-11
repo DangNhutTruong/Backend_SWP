@@ -85,11 +85,8 @@
 
 .form-row {
   display: flex;
+  flex-direction: column;
   gap: 20px;
-}
-
-.form-row .form-group {
-  flex: 1;
 }
 
 .terms-privacy {
@@ -281,11 +278,11 @@
   .register-container {
     flex-direction: column;
   }
-  
+
   .register-info {
     padding: 30px;
   }
-  
+
   .form-row {
     flex-direction: column;
     gap: 20px;

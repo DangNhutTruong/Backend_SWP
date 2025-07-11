@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import "./PaymentSuccess.css";
-import { FaCheckCircle, FaCheck, FaCrown, FaClock } from "react-icons/fa";
-import { useAuth } from "../context/AuthContext";
-import ReactConfetti from "react-confetti";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import './PaymentSuccess.css';
+import { FaCheckCircle, FaCheck, FaCrown, FaClock } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
+import ReactConfetti from 'react-confetti';
 
 const PaymentSuccess = () => {
   // Hooks and state
   const location = useLocation();
-  const navigate = useNavigate();
-  const [packageInfo, setPackageInfo] = useState(null);
+  const navigate = useNavigate();  const [packageInfo, setPackageInfo] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [warningMessage, setWarningMessage] = useState(null);
   const [subscriptionId, setSubscriptionId] = useState(null);
@@ -18,9 +17,9 @@ const PaymentSuccess = () => {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [windowDimension, setWindowDimension] = useState({
     width: window.innerWidth,
-    height: window.innerHeight,
+    height: window.innerHeight
   });
-  // Redirect function using React Router Navigate for SPA navigation
+    // Redirect function using React Router Navigate for SPA navigation
   const forceRedirect = useCallback(() => {
     console.log("Redirecting to home...");
     setIsRedirecting(true);
@@ -75,7 +74,7 @@ const PaymentSuccess = () => {
       // Đánh dấu hiển thị thông báo thành công
       window.sessionStorage.setItem("membership_updated", "true");
     }
-  }, [packageInfo, user, updateUser]); // Countdown timer effect
+  }, [packageInfo, user, updateUser]);    // Countdown timer effect
   useEffect(() => {
     if (!packageInfo || isRedirecting) return;
 
@@ -106,23 +105,23 @@ const PaymentSuccess = () => {
       console.log("Countdown cleared");
     };
   }, [packageInfo, forceRedirect, isRedirecting, countdown]);
-
+  
   // Effect to detect window resize for confetti
   useEffect(() => {
     const handleResize = () => {
       setWindowDimension({
         width: window.innerWidth,
-        height: window.innerHeight,
+        height: window.innerHeight
       });
     };
 
-    window.addEventListener("resize", handleResize);
-
+    window.addEventListener('resize', handleResize);
+    
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
-
+  
   // If no package info, show loading or return null
   if (!packageInfo) {
     return (
@@ -140,20 +139,16 @@ const PaymentSuccess = () => {
         <div className="success-icon">
           <FaCheckCircle />
         </div>
-        <h1>Thanh toán thành công!</h1>
+          <h1>Thanh toán thành công!</h1>
         <p>Cảm ơn bạn đã đăng ký sử dụng dịch vụ của chúng tôi.</p>
-
+        
         <div className="success-trophy-container">
-          <img
-            src="/image/hero/winners-two-color.png"
-            alt="Trophy"
-            className="success-trophy-image"
-          />
+          <img src="/image/hero/winners-two-color.png" alt="Trophy" className="success-trophy-image" />
           <div className="success-message">
             Cam kết bỏ thuốc - Bước tới cuộc sống khỏe mạnh
           </div>
         </div>
-
+        
         <div className="package-summary">
           <h2>Thông tin gói</h2>
           <div className="summary-item">
