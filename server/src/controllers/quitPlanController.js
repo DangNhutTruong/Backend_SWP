@@ -1,5 +1,4 @@
-import { User } from '../models/index.js';
-// import QuitSmokingPlan, Progress later when needed
+import { User, QuitSmokingPlan, Progress } from '../models/index.js';
 import { Op } from 'sequelize';
 
 // POST /api/quit-plans

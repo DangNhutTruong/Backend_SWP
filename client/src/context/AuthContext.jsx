@@ -57,7 +57,10 @@ export const AuthProvider = ({ children }) => {
     const checkConnection = async () => {
       const online = await apiService.healthCheck();
       setIsOnline(online);
-      console.log("Kết nối backend:", online ? "Đã kết nối" : "Ngoại tuyến");
+      // Optional: Log connection status only in development
+      if (import.meta.env.DEV) {
+        console.log("Backend connection:", online ? "Connected" : "Offline");
+      }
     };
 
     checkConnection();

@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { FaCalendarCheck, FaSave } from "react-icons/fa";
+import React, { useState, useEffect, useCallback } from "react";
+import { FaCalendarCheck, FaSave, FaSpinner } from "react-icons/fa";
+import {
+  createCheckin,
+  updateCheckin,
+  getProgressByDate,
+  createCheckinData,
+} from "../services/progressService";
 
-const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
+const DailyCheckin = ({ onProgressUpdate, currentPlan }) => {
   const [todayData, setTodayData] = useState({
     date: new Date().toISOString().split("T")[0],
     targetCigarettes: 12, // Sẽ được tính từ kế hoạch
@@ -12,12 +18,14 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(1); // Tuần hiện tại
   const [streakDays, setStreakDays] = useState(0); // Số ngày liên tiếp đạt mục tiêu
+  const [activePlanId, setActivePlanId] = useState(null); // ID của kế hoạch active
+  const [isLoading, setIsLoading] = useState(false); // Loading state cho API calls
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   }); // Thông báo dạng toast    // Tính target cigarettes dựa trên kế hoạch và ngày hiện tại
-  const calculateTodayTarget = () => {
+  const calculateTodayTarget = useCallback(() => {
     // Kiểm tra kỹ các trường hợp null/undefined
     if (!currentPlan) return 12;
     if (
@@ -80,7 +88,7 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
       console.error("Lỗi khi tính toán mục tiêu hôm nay:", error);
       return 12; // Fallback an toàn nếu có lỗi
     }
-  };
+  }, [currentPlan]);
 
   // Tính streak days
   const calculateStreakDays = () => {
@@ -109,6 +117,53 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
   };
 
   // Cập nhật target khi component mount hoặc plan thay đổi
+  // Load data từ backend khi component mount
+  useEffect(() => {
+    const loadTodayData = async () => {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+
+        // Tìm planId từ currentPlan hoặc localStorage
+        let planId = currentPlan?.id || activePlanId;
+        if (!planId) {
+          // Thử lấy từ localStorage
+          const savedPlan = localStorage.getItem("activePlan");
+          if (savedPlan) {
+            const parsedPlan = JSON.parse(savedPlan);
+            planId = parsedPlan.id;
+            setActivePlanId(planId);
+          }
+        }
+
+        if (planId) {
+          // Kiểm tra xem đã có checkin hôm nay chưa
+          const existingCheckin = await getProgressByDate(today);
+          if (existingCheckin && existingCheckin.length > 0) {
+            const todayCheckin = existingCheckin[0];
+            setTodayData((prev) => ({
+              ...prev,
+              actualCigarettes: todayCheckin.cigarettes_smoked || 0,
+              notes: todayCheckin.note || "",
+            }));
+            setIsSubmitted(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading today data:", error);
+        // Fallback to localStorage
+        const today = new Date().toISOString().split("T")[0];
+        const savedData = localStorage.getItem(`checkin_${today}`);
+        if (savedData) {
+          const data = JSON.parse(savedData);
+          setTodayData(data);
+          setIsSubmitted(true);
+        }
+      }
+    };
+
+    loadTodayData();
+  }, [currentPlan, activePlanId]);
+
   useEffect(() => {
     const target = calculateTodayTarget();
     setTodayData((prev) => ({
@@ -116,63 +171,107 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
       targetCigarettes: target,
     }));
     calculateStreakDays();
-  }, [currentPlan]); // Kiểm tra xem hôm nay đã checkin chưa
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const savedData = localStorage.getItem(`checkin_${today}`);
-    if (savedData) {
-      const data = JSON.parse(savedData);
-      setTodayData(data);
-      setIsSubmitted(true);
-    }
-  }, []);
+  }, [currentPlan, calculateTodayTarget]);
+
   const handleInputChange = (field, value) => {
     setTodayData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
-  const handleSubmit = () => {
-    // Lưu dữ liệu vào localStorage
-    const today = new Date().toISOString().split("T")[0];
-    const isUpdate = localStorage.getItem(`checkin_${today}`) !== null;
-    localStorage.setItem(`checkin_${today}`, JSON.stringify(todayData));
 
-    // Cập nhật streak bằng cách tính toán lại từ dữ liệu đã lưu
-    // thay vì tăng giá trị hiện tại
-    calculateStreakDays();
+  const handleSubmit = async () => {
+    setIsLoading(true);
 
-    setIsSubmitted(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
 
-    // Callback để cập nhật component cha
-    if (onProgressUpdate) {
-      onProgressUpdate({
-        week: currentWeek,
-        amount: todayData.actualCigarettes,
-        achieved: todayData.actualCigarettes <= todayData.targetCigarettes,
-      });
-    }
+      // Tìm planId
+      let planId = currentPlan?.id || activePlanId;
+      if (!planId) {
+        const savedPlan = localStorage.getItem("activePlan");
+        if (savedPlan) {
+          const parsedPlan = JSON.parse(savedPlan);
+          planId = parsedPlan.id;
+          setActivePlanId(planId);
+        }
+      }
 
-    // Hiển thị thông báo toast thay vì alert
-    if (isUpdate) {
-      setToast({
-        show: true,
-        message: "✅ Đã cập nhật thông tin checkin hôm nay!",
-        type: "success",
-      });
-    } else {
+      if (!planId) {
+        throw new Error("Không tìm thấy kế hoạch cai thuốc active");
+      }
+
+      // Tạo dữ liệu checkin
+      const checkinData = createCheckinData(
+        planId,
+        today,
+        todayData.actualCigarettes,
+        todayData.targetCigarettes,
+        todayData.actualCigarettes <= todayData.targetCigarettes
+          ? "good"
+          : "bad",
+        todayData.notes
+      );
+
+      // Kiểm tra xem đã có checkin hôm nay chưa
+      const existingCheckin = await getProgressByDate(today);
+
+      if (existingCheckin && existingCheckin.length > 0) {
+        // Cập nhật checkin hiện tại
+        await updateCheckin(today, checkinData);
+      } else {
+        // Tạo checkin mới
+        await createCheckin(checkinData);
+      }
+
+      // Lưu vào localStorage để backup
+      localStorage.setItem(`checkin_${today}`, JSON.stringify(todayData));
+
+      setIsSubmitted(true);
+      calculateStreakDays();
+
+      // Callback để cập nhật component cha
+      if (onProgressUpdate) {
+        onProgressUpdate({
+          week: currentWeek,
+          amount: todayData.actualCigarettes,
+          achieved: todayData.actualCigarettes <= todayData.targetCigarettes,
+        });
+      }
+
+      // Hiển thị thông báo thành công
       setToast({
         show: true,
         message: "✅ Đã lưu thông tin checkin hôm nay!",
         type: "success",
       });
-    }
 
-    // Auto hide toast sau 5 giây
-    setTimeout(() => {
-      setToast((prev) => ({ ...prev, show: false }));
-    }, 5000);
+      // Auto hide toast sau 5 giây
+      setTimeout(() => {
+        setToast((prev) => ({ ...prev, show: false }));
+      }, 5000);
+    } catch (error) {
+      console.error("Error saving checkin:", error);
+
+      // Fallback: Lưu vào localStorage
+      const today = new Date().toISOString().split("T")[0];
+      localStorage.setItem(`checkin_${today}`, JSON.stringify(todayData));
+      setIsSubmitted(true);
+
+      setToast({
+        show: true,
+        message: "⚠️ Đã lưu offline. Sẽ đồng bộ khi có kết nối mạng.",
+        type: "warning",
+      });
+
+      setTimeout(() => {
+        setToast((prev) => ({ ...prev, show: false }));
+      }, 5000);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
   const handleEdit = () => {
     setIsSubmitted(false);
     // Đảm bảo input field được kích hoạt
@@ -323,16 +422,33 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan, isOnline = false }) => {
         {/* Action Buttons */}
         <div className="checkin-actions">
           {!isSubmitted ? (
-            <button onClick={handleSubmit} className="submit-btn">
-              <FaSave className="btn-icon" />
-              Lưu checkin hôm nay
+            <button
+              onClick={handleSubmit}
+              className="submit-btn"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <FaSpinner className="btn-icon spinning" />
+                  Đang lưu...
+                </>
+              ) : (
+                <>
+                  <FaSave className="btn-icon" />
+                  Lưu checkin hôm nay
+                </>
+              )}
             </button>
           ) : (
-            <button onClick={handleEdit} className="edit-btn">
+            <button
+              onClick={handleEdit}
+              className="edit-btn"
+              disabled={isLoading}
+            >
               <FaSave className="btn-icon" />
               Cập nhật số điếu hôm nay
             </button>
-          )}{" "}
+          )}
         </div>
         {/* Summary Card đã được xóa vì dư thừa */}
       </div>

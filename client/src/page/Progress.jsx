@@ -4,6 +4,7 @@ import QuitProgressChart from "../components/QuitProgressChart";
 import DailyCheckin from "../components/DailyCheckin";
 import ProgressDashboard from "../components/ProgressDashboard";
 import apiService from "../services/apiService";
+import { getUserProgress, getProgressStats } from "../services/progressService";
 import "./Progress.css";
 import "../styles/DailyCheckin.css";
 import "../styles/ProgressDashboard.css";
@@ -16,8 +17,108 @@ export default function Progress() {
   const [userPlan, setUserPlan] = useState(null);
   const [actualProgress, setActualProgress] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Chỉ loading khi thực sự cần thiết
   const [error, setError] = useState(null);
+
+  // Initialize with default plan on first load
+  useEffect(() => {
+    if (!userPlan) {
+      const defaultPlan = {
+        name: "Kế hoạch 6 tuần",
+        startDate: new Date().toISOString().split("T")[0],
+        weeks: [
+          { week: 1, amount: 20, phase: "Thích nghi" },
+          { week: 2, amount: 16, phase: "Thích nghi" },
+          { week: 3, amount: 12, phase: "Tăng tốc" },
+          { week: 4, amount: 8, phase: "Tăng tốc" },
+          { week: 5, amount: 5, phase: "Hoàn thiện" },
+          { week: 6, amount: 2, phase: "Hoàn thiện" },
+          { week: 7, amount: 0, phase: "Mục tiêu đạt được" },
+        ],
+        initialCigarettes: 20,
+      };
+      setUserPlan(defaultPlan);
+    }
+  }, [userPlan]); // Chỉ chạy một lần khi component mount
+
+  // Fallback function to load progress from localStorage
+  const loadProgressFromLocalStorage = useCallback(() => {
+    try {
+      const localProgress = [];
+      const today = new Date();
+
+      for (let i = 29; i >= 0; i--) {
+        try {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split("T")[0];
+
+          const checkinData = localStorage.getItem(`checkin_${dateStr}`);
+          if (checkinData) {
+            const data = JSON.parse(checkinData);
+            localProgress.push({
+              date: dateStr,
+              actualCigarettes:
+                data.cigarettesSmoked || data.actualCigarettes || 0,
+              targetCigarettes: data.targetCigarettes || 0,
+              mood: data.mood,
+              achievements: data.achievements || [],
+              challenges: data.challenges || [],
+              notes: data.notes || "",
+            });
+          }
+        } catch (error) {
+          console.error(`Error loading check-in data for day -${i}:`, error);
+        }
+      }
+
+      setActualProgress(localProgress);
+    } catch (error) {
+      console.error("Error loading progress from localStorage:", error);
+    }
+  }, []);
+
+  // Load progress data từ backend
+  const loadProgressData = useCallback(
+    async (planId) => {
+      try {
+        if (import.meta.env.DEV) {
+          console.log("📊 Loading progress data for plan:", planId);
+        }
+
+        // Load progress records
+        const progressData = await getUserProgress(planId, 30);
+
+        // Convert backend data format to frontend format
+        const convertedProgress = progressData.map((item) => ({
+          date: item.progress_date,
+          actualCigarettes: item.cigarettes_smoked || 0,
+          targetCigarettes: item.target_cigarettes || 0,
+          mood: item.status || "unknown",
+          note: item.note || "",
+        }));
+
+        setActualProgress(convertedProgress);
+
+        // Load dashboard stats
+        const stats = await getProgressStats(planId);
+        setDashboardStats(stats);
+
+        if (import.meta.env.DEV) {
+          console.log(
+            "✅ Loaded progress data:",
+            convertedProgress.length,
+            "records"
+          );
+        }
+      } catch (error) {
+        console.error("❌ Error loading progress data:", error);
+        // Fallback to localStorage when backend fails
+        loadProgressFromLocalStorage();
+      }
+    },
+    [loadProgressFromLocalStorage]
+  );
 
   // Load user plan from backend or localStorage
   const loadUserPlan = useCallback(async () => {
@@ -25,16 +126,28 @@ export default function Progress() {
       setLoading(true);
       setError(null);
 
-      // Check backend connection first
-      const isOnline = await apiService.healthCheck();
-      console.log("Backend status:", isOnline ? "Online" : "Offline");
-
-      // Try to load from backend first if authenticated and online
-      if (isAuthenticated && user && isOnline) {
+      // Try to load from backend first if authenticated
+      if (isAuthenticated && user) {
         try {
-          const response = await apiService.getActivePlan();
-          if (response.success && response.data) {
-            setUserPlan(response.data);
+          if (import.meta.env.DEV) {
+            console.log("🔍 Loading user plans from backend...");
+          }
+          const plans = await apiService.getUserPlans();
+
+          if (plans && plans.length > 0) {
+            // Tìm plan đang active
+            const activePlan =
+              plans.find((plan) => plan.status === "ongoing") || plans[0];
+            setUserPlan(activePlan);
+
+            // Load progress data cho plan này (không await để tránh hang)
+            loadProgressData(activePlan.id).catch((err) => {
+              console.warn("Failed to load progress data:", err);
+            });
+
+            if (import.meta.env.DEV) {
+              console.log("✅ Loaded plan from backend:", activePlan.plan_name);
+            }
             return;
           }
         } catch (apiError) {
@@ -86,9 +199,10 @@ export default function Progress() {
       setError("Không thể tải kế hoạch của bạn");
       setUserPlan(getDefaultPlan());
     } finally {
+      // Luôn luôn tắt loading sau khi hoàn thành
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, loadProgressData]);
 
   // Get default plan
   const getDefaultPlan = () => ({
@@ -105,73 +219,6 @@ export default function Progress() {
     ],
     initialCigarettes: 20,
   });
-
-  // Load progress data from backend or localStorage
-  const loadProgressData = useCallback(async () => {
-    try {
-      // Check backend connection
-      const isOnline = await apiService.healthCheck();
-
-      // Try to load from backend first if authenticated and online
-      if (isAuthenticated && user && isOnline) {
-        try {
-          const response = await apiService.getUserProgress();
-          if (response.success && response.data) {
-            const backendProgress = response.data.map((item) => ({
-              date: item.progress_date,
-              actualCigarettes: item.cigarettes_smoked || 0,
-              targetCigarettes: item.target_cigarettes || 0,
-              mood: item.mood,
-              achievements: item.achievements || [],
-              challenges: item.challenges || [],
-              notes: item.note || "",
-            }));
-            setActualProgress(backendProgress);
-            return;
-          }
-        } catch (apiError) {
-          console.warn(
-            "Failed to load progress from backend, falling back to localStorage:",
-            apiError
-          );
-        }
-      }
-
-      // Fallback to localStorage
-      const localProgress = [];
-      const today = new Date();
-
-      for (let i = 29; i >= 0; i--) {
-        try {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const dateStr = date.toISOString().split("T")[0];
-
-          const checkinData = localStorage.getItem(`checkin_${dateStr}`);
-          if (checkinData) {
-            const data = JSON.parse(checkinData);
-            localProgress.push({
-              date: dateStr,
-              actualCigarettes:
-                data.cigarettesSmoked || data.actualCigarettes || 0,
-              targetCigarettes: data.targetCigarettes || 0,
-              mood: data.mood,
-              achievements: data.achievements || [],
-              challenges: data.challenges || [],
-              notes: data.notes || "",
-            });
-          }
-        } catch (error) {
-          console.error(`Error loading check-in data for day -${i}:`, error);
-        }
-      }
-
-      setActualProgress(localProgress);
-    } catch (error) {
-      console.error("Error loading progress data:", error);
-      setError("Không thể tải dữ liệu tiến trình");
-    }
-  }, [isAuthenticated, user]);
 
   // Calculate statistics
   const calculateStatistics = useCallback(() => {
@@ -270,7 +317,9 @@ export default function Progress() {
           };
 
           await apiService.createCheckin(checkinData);
-          console.log("Progress saved to backend successfully");
+          if (import.meta.env.DEV) {
+            console.log("Progress saved to backend successfully");
+          }
         } catch (apiError) {
           console.warn(
             "Failed to save to backend, continuing with localStorage:",
@@ -294,14 +343,20 @@ export default function Progress() {
     }
   };
 
-  // Load data on component mount
+  // Load data on component mount - chỉ chạy một lần
   useEffect(() => {
-    loadUserPlan();
-  }, [loadUserPlan]);
+    const loadInitialData = async () => {
+      if (!userPlan) {
+        await loadUserPlan();
+      }
+    };
+    loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Chỉ chạy một lần khi mount
 
   useEffect(() => {
     if (userPlan) {
-      loadProgressData();
+      loadProgressData(userPlan.id);
     }
   }, [userPlan, loadProgressData]);
 
@@ -312,7 +367,8 @@ export default function Progress() {
   }, [calculateStatistics]);
 
   // Loading state
-  if (loading) {
+  // Chỉ hiển thị loading khi thực sự đang load và chưa có dữ liệu
+  if (loading && !userPlan) {
     return (
       <div className="progress-container">
         <div style={{ textAlign: "center", padding: "2rem" }}>
@@ -431,23 +487,23 @@ export default function Progress() {
           : "Tiến trình cai thuốc của bạn"}
       </h1>
 
-      {/* Connection Status Indicator */}
-      <div
-        className="connection-status"
-        style={{
-          padding: "8px 16px",
-          borderRadius: "5px",
-          marginBottom: "1rem",
-          fontSize: "0.9rem",
-          backgroundColor: isAuthenticated ? "#d4edda" : "#fff3cd",
-          color: isAuthenticated ? "#155724" : "#856404",
-          border: `1px solid ${isAuthenticated ? "#c3e6cb" : "#ffeaa7"}`,
-        }}
-      >
-        {isAuthenticated
-          ? `✅ Đã kết nối với server - Xin chào ${user?.name || user?.email}!`
-          : "⚠️ Đang hoạt động offline - Dữ liệu được lưu cục bộ"}
-      </div>
+      {/* Connection Status - Only show when offline */}
+      {!isAuthenticated && (
+        <div
+          className="connection-status"
+          style={{
+            padding: "8px 16px",
+            borderRadius: "5px",
+            marginBottom: "1rem",
+            fontSize: "0.9rem",
+            backgroundColor: "#fff3cd",
+            color: "#856404",
+            border: "1px solid #ffeaa7",
+          }}
+        >
+          ⚠️ Đang hoạt động offline - Dữ liệu được lưu cục bộ
+        </div>
+      )}
 
       {/* Daily Checkin Section */}
       <DailyCheckin

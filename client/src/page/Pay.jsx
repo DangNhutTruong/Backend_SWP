@@ -1,24 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import './Pay.css';
-import { FaCreditCard, FaWallet, FaMoneyBillWave, FaPaypal } from 'react-icons/fa';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import membershipService from "../services/membershipService";
+import "./Pay.css";
+import {
+  FaCreditCard,
+  FaWallet,
+  FaMoneyBillWave,
+  FaPaypal,
+} from "react-icons/fa";
 
 const Pay = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { updateUser } = useAuth();
   const [selectedPackage, setSelectedPackage] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('zalopay'); // Default payment method
+  const [paymentMethod, setPaymentMethod] = useState("zalopay"); // Default payment method
   const [cardInfo, setCardInfo] = useState({
-    cardName: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
+    cardName: "",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
   });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState('');
+  const [processingMessage, setProcessingMessage] = useState("");
 
   useEffect(() => {
     // Kiểm tra nếu có dữ liệu từ trang chọn gói
@@ -26,7 +32,7 @@ const Pay = () => {
       setSelectedPackage(location.state.package);
     } else {
       // Nếu không có dữ liệu, chuyển về trang chọn gói
-      navigate('/membership');
+      navigate("/membership");
     }
   }, [location, navigate]);
 
@@ -40,65 +46,135 @@ const Pay = () => {
     const { name, value } = e.target;
     setCardInfo({
       ...cardInfo,
-      [name]: value
+      [name]: value,
     });
-  };  // Xử lý khi nhấn nút thanh toán
-  const handlePayment = (e) => {
+  }; // Xử lý khi nhấn nút thanh toán
+  const handlePayment = async (e) => {
     e.preventDefault();
-    
+
     if (!termsAccepted) {
-      alert('Vui lòng đồng ý với điều khoản sử dụng dịch vụ');
+      alert("Vui lòng đồng ý với điều khoản sử dụng dịch vụ");
       return;
     }
 
     // Hiển thị loading hoặc thông báo đang xử lý thanh toán dựa trên phương thức thanh toán
     setIsProcessing(true);
-    
+
     // Hiển thị thông báo xử lý dựa vào phương thức thanh toán
-    let message = '';
-    switch(paymentMethod) {
-      case 'creditCard':
-        message = 'Đang xác thực thông tin thẻ...';
+    let message = "";
+    switch (paymentMethod) {
+      case "creditCard":
+        message = "Đang xác thực thông tin thẻ...";
         break;
-      case 'momo':
-        message = 'Đang chờ thanh toán từ ví Momo...';
+      case "momo":
+        message = "Đang chờ thanh toán từ ví Momo...";
         break;
-      case 'zalopay':
-        message = 'Đang chờ thanh toán từ ZaloPay...';
+      case "zalopay":
+        message = "Đang chờ thanh toán từ ZaloPay...";
         break;
-      case 'paypal':
-        message = 'Đang chuyển hướng đến PayPal...';
+      case "paypal":
+        message = "Đang chuyển hướng đến PayPal...";
         break;
       default:
-        message = 'Đang xử lý thanh toán...';
+        message = "Đang xử lý thanh toán...";
     }
-    
+
     setProcessingMessage(message);
-    
+
     // Mô phỏng quá trình thanh toán (giả lập delay để tạo trải nghiệm thực tế hơn)
-    console.log(`Đang xử lý thanh toán gói ${selectedPackage.name} với giá ${selectedPackage.price.toLocaleString()}đ qua ${paymentMethod}`);
-    
-    // Mô phỏng thời gian xử lý thanh toán
-    setTimeout(() => {
-      // Cập nhật gói thành viên của người dùng
-      updateUser({ membershipType: selectedPackage.name.toLowerCase() });
-      
-      // Chuyển hướng người dùng sau khi thanh toán - sử dụng replace để không thể quay lại
-      navigate('/payment/success', { 
-        replace: true,
-        state: { 
-          package: selectedPackage,
-          paymentMethod: paymentMethod
-        } 
+    console.log(
+      `Đang xử lý thanh toán gói ${
+        selectedPackage.name
+      } với giá ${selectedPackage.price.toLocaleString()}đ qua ${paymentMethod}`
+    );
+
+    try {
+      // Mô phỏng thời gian xử lý thanh toán
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Sau khi thanh toán thành công, gọi API để lưu subscription vào database
+      setProcessingMessage("Đang cập nhật thông tin gói thành viên...");
+
+      // Chuyển đổi package info thành format cho API
+      const subscriptionData = membershipService.packageToApiFormat(
+        selectedPackage,
+        paymentMethod
+      );
+
+      // Gọi API tạo subscription
+      const result = await membershipService.createSubscription(
+        subscriptionData
+      );
+
+      if (result.success) {
+        // Cập nhật membership trong localStorage
+        const membershipType = selectedPackage.name.toLowerCase();
+        await updateUser({
+          membership: membershipType,
+          membershipType: membershipType,
+        });
+
+        console.log(
+          "Đã lưu subscription vào database và cập nhật user membership"
+        );
+
+        // Chuyển hướng người dùng sau khi thanh toán - sử dụng replace để không thể quay lại
+        navigate("/payment/success", {
+          replace: true,
+          state: {
+            package: selectedPackage,
+            paymentMethod: paymentMethod,
+            subscriptionId: result.data?.subscription_id,
+          },
+        });
+      } else {
+        // Nếu API thất bại, vẫn cập nhật membership cục bộ (fallback)
+        console.error("Lỗi khi lưu subscription vào database:", result.message);
+        console.log("Fallback: Chỉ cập nhật membership cục bộ");
+
+        const membershipType = selectedPackage.name.toLowerCase();
+        await updateUser({
+          membership: membershipType,
+          membershipType: membershipType,
+        });
+
+        // Vẫn chuyển hướng nhưng không có subscriptionId
+        navigate("/payment/success", {
+          replace: true,
+          state: {
+            package: selectedPackage,
+            paymentMethod: paymentMethod,
+            warning: "Thanh toán thành công nhưng có lỗi khi đồng bộ dữ liệu",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi trong quá trình thanh toán:", error);
+
+      // Fallback: Vẫn cập nhật membership cục bộ
+      const membershipType = selectedPackage.name.toLowerCase();
+      await updateUser({
+        membership: membershipType,
+        membershipType: membershipType,
       });
-    }, 2000); // Giả lập delay 2 giây
+
+      // Chuyển hướng với cảnh báo
+      navigate("/payment/success", {
+        replace: true,
+        state: {
+          package: selectedPackage,
+          paymentMethod: paymentMethod,
+          warning: "Thanh toán thành công nhưng có lỗi khi đồng bộ dữ liệu",
+        },
+      });
+    }
   };
 
   // Xử lý nút quay lại
   const handleGoBack = () => {
-    navigate('/membership');
+    navigate("/membership");
   };
-    // Hiển thị loading khi chưa có dữ liệu gói
+  // Hiển thị loading khi chưa có dữ liệu gói
   if (!selectedPackage) {
     return (
       <div className="payment-container">
@@ -109,7 +185,7 @@ const Pay = () => {
       </div>
     );
   }
-  
+
   // Hiển thị màn hình xử lý thanh toán
   if (isProcessing) {
     return (
@@ -117,10 +193,14 @@ const Pay = () => {
         <div className="payment-processing">
           <div className="processing-animation">
             <div className="loading-spinner"></div>
-            {paymentMethod === 'creditCard' && <div className="credit-card-icon">💳</div>}
-            {paymentMethod === 'momo' && <div className="momo-icon">M</div>}
-            {paymentMethod === 'zalopay' && <div className="zalopay-icon">Z</div>}
-            {paymentMethod === 'paypal' && <div className="paypal-icon">P</div>}
+            {paymentMethod === "creditCard" && (
+              <div className="credit-card-icon">💳</div>
+            )}
+            {paymentMethod === "momo" && <div className="momo-icon">M</div>}
+            {paymentMethod === "zalopay" && (
+              <div className="zalopay-icon">Z</div>
+            )}
+            {paymentMethod === "paypal" && <div className="paypal-icon">P</div>}
           </div>
           <h2>{processingMessage}</h2>
           <p>Vui lòng không đóng trang này trong quá trình xử lý...</p>
@@ -138,69 +218,71 @@ const Pay = () => {
       <div className="payment-content">
         <div className="payment-methods-section">
           <h2>Phương thức thanh toán</h2>
-          
+
           <div className="payment-method-options">
             <div className="payment-option">
-              <input 
-                type="radio" 
-                id="creditCard" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'creditCard'} 
-                onChange={() => handlePaymentMethodChange('creditCard')} 
-              />              <label htmlFor="creditCard">
-                <FaCreditCard style={{marginRight: '10px'}} /> Thẻ tín dụng/ghi nợ
+              <input
+                type="radio"
+                id="creditCard"
+                name="paymentMethod"
+                checked={paymentMethod === "creditCard"}
+                onChange={() => handlePaymentMethodChange("creditCard")}
+              />{" "}
+              <label htmlFor="creditCard">
+                <FaCreditCard style={{ marginRight: "10px" }} /> Thẻ tín
+                dụng/ghi nợ
               </label>
             </div>
-            
+
             <div className="payment-option">
-              <input 
-                type="radio" 
-                id="momo" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'momo'} 
-                onChange={() => handlePaymentMethodChange('momo')} 
+              <input
+                type="radio"
+                id="momo"
+                name="paymentMethod"
+                checked={paymentMethod === "momo"}
+                onChange={() => handlePaymentMethodChange("momo")}
               />
               <label htmlFor="momo">
-                <FaWallet style={{marginRight: '10px'}} /> Ví Momo
+                <FaWallet style={{ marginRight: "10px" }} /> Ví Momo
               </label>
             </div>
-            
+
             <div className="payment-option">
-              <input 
-                type="radio" 
-                id="zalopay" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'zalopay'} 
-                onChange={() => handlePaymentMethodChange('zalopay')} 
+              <input
+                type="radio"
+                id="zalopay"
+                name="paymentMethod"
+                checked={paymentMethod === "zalopay"}
+                onChange={() => handlePaymentMethodChange("zalopay")}
               />
               <label htmlFor="zalopay">
-                <FaMoneyBillWave style={{marginRight: '10px'}} /> ZaloPay
+                <FaMoneyBillWave style={{ marginRight: "10px" }} /> ZaloPay
               </label>
             </div>
-            
+
             <div className="payment-option">
-              <input 
-                type="radio" 
-                id="paypal" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'paypal'} 
-                onChange={() => handlePaymentMethodChange('paypal')} 
+              <input
+                type="radio"
+                id="paypal"
+                name="paymentMethod"
+                checked={paymentMethod === "paypal"}
+                onChange={() => handlePaymentMethodChange("paypal")}
               />
               <label htmlFor="paypal">
-                <FaPaypal style={{marginRight: '10px'}} /> PayPal
+                <FaPaypal style={{ marginRight: "10px" }} /> PayPal
               </label>
             </div>
           </div>
-            {paymentMethod === 'creditCard' && (
+          {paymentMethod === "creditCard" && (
             <div className="card-info-form">
               <h3>Thông tin thẻ</h3>
               <div className="form-group">
                 <label htmlFor="cardName">Tên chủ thẻ</label>
-                <input 
-                  type="text" 
-                  id="cardName" 
-                  name="cardName" 
-                  placeholder="NGUYEN VAN A" 
+                <input
+                  type="text"
+                  id="cardName"
+                  name="cardName"
+                  placeholder="NGUYEN VAN A"
                   value={cardInfo.cardName}
                   onChange={handleCardInfoChange}
                   required
@@ -208,11 +290,11 @@ const Pay = () => {
               </div>
               <div className="form-group">
                 <label htmlFor="cardNumber">Số thẻ</label>
-                <input 
-                  type="text" 
-                  id="cardNumber" 
-                  name="cardNumber" 
-                  placeholder="1234 5678 9012 3456" 
+                <input
+                  type="text"
+                  id="cardNumber"
+                  name="cardNumber"
+                  placeholder="1234 5678 9012 3456"
                   value={cardInfo.cardNumber}
                   onChange={handleCardInfoChange}
                   required
@@ -221,11 +303,11 @@ const Pay = () => {
               <div className="form-row">
                 <div className="form-group half-width">
                   <label htmlFor="expiryDate">Ngày hết hạn</label>
-                  <input 
-                    type="text" 
-                    id="expiryDate" 
-                    name="expiryDate" 
-                    placeholder="MM/YY" 
+                  <input
+                    type="text"
+                    id="expiryDate"
+                    name="expiryDate"
+                    placeholder="MM/YY"
                     value={cardInfo.expiryDate}
                     onChange={handleCardInfoChange}
                     required
@@ -233,11 +315,11 @@ const Pay = () => {
                 </div>
                 <div className="form-group half-width">
                   <label htmlFor="cvv">Mã CVV</label>
-                  <input 
-                    type="text" 
-                    id="cvv" 
-                    name="cvv" 
-                    placeholder="123" 
+                  <input
+                    type="text"
+                    id="cvv"
+                    name="cvv"
+                    placeholder="123"
                     value={cardInfo.cvv}
                     onChange={handleCardInfoChange}
                     required
@@ -246,8 +328,8 @@ const Pay = () => {
               </div>
             </div>
           )}
-          
-          {paymentMethod === 'momo' && (
+
+          {paymentMethod === "momo" && (
             <div className="momo-payment-form">
               <div className="qr-code-container">
                 <h3>Quét mã để thanh toán qua Ví Momo</h3>
@@ -258,7 +340,9 @@ const Pay = () => {
                       <div className="qr-grid"></div>
                     </div>
                   </div>
-                  <p className="qr-instruction">Sử dụng ứng dụng Momo để quét mã QR</p>
+                  <p className="qr-instruction">
+                    Sử dụng ứng dụng Momo để quét mã QR
+                  </p>
                 </div>
                 <div className="payment-instructions">
                   <h4>Hướng dẫn thanh toán:</h4>
@@ -273,8 +357,8 @@ const Pay = () => {
               </div>
             </div>
           )}
-          
-          {paymentMethod === 'zalopay' && (
+
+          {paymentMethod === "zalopay" && (
             <div className="zalopay-payment-form">
               <div className="qr-code-container">
                 <h3>Quét mã để thanh toán qua ZaloPay</h3>
@@ -285,7 +369,9 @@ const Pay = () => {
                       <div className="qr-grid"></div>
                     </div>
                   </div>
-                  <p className="qr-instruction">Sử dụng ứng dụng ZaloPay để quét mã QR</p>
+                  <p className="qr-instruction">
+                    Sử dụng ứng dụng ZaloPay để quét mã QR
+                  </p>
                 </div>
                 <div className="payment-instructions">
                   <h4>Hướng dẫn thanh toán:</h4>
@@ -300,8 +386,8 @@ const Pay = () => {
               </div>
             </div>
           )}
-          
-          {paymentMethod === 'paypal' && (
+
+          {paymentMethod === "paypal" && (
             <div className="paypal-payment-form">
               <h3>Thanh toán bằng PayPal</h3>
               <div className="paypal-container">
@@ -313,15 +399,23 @@ const Pay = () => {
                   <div className="paypal-a2">a</div>
                   <div className="paypal-l">l</div>
                 </div>
-                <p className="paypal-instruction">Bạn sẽ được chuyển đến trang web PayPal để hoàn tất thanh toán.</p>                <button className="paypal-button" onClick={handlePayment}></button>
+                <p className="paypal-instruction">
+                  Bạn sẽ được chuyển đến trang web PayPal để hoàn tất thanh
+                  toán.
+                </p>{" "}
+                <button
+                  className="paypal-button"
+                  onClick={handlePayment}
+                ></button>
                 <div className="paypal-secure">
-                  <span className="lock-icon">🔒</span> Thanh toán an toàn qua PayPal
+                  <span className="lock-icon">🔒</span> Thanh toán an toàn qua
+                  PayPal
                 </div>
               </div>
             </div>
           )}
         </div>
-        
+
         <div className="payment-summary-section">
           <h2>Tóm tắt đơn hàng</h2>
           <div className="package-details">
@@ -338,19 +432,26 @@ const Pay = () => {
               <span>{totalAmount.toLocaleString()}đ</span>
             </div>
           </div>
-          
+
           <div className="payment-agreement">
-            <input 
-              type="checkbox" 
-              id="terms" 
+            <input
+              type="checkbox"
+              id="terms"
               checked={termsAccepted}
               onChange={() => setTermsAccepted(!termsAccepted)}
             />
-            <label htmlFor="terms">Tôi đồng ý với <a href="#">điều khoản</a> và <a href="#">điều kiện sử dụng dịch vụ</a></label>
+            <label htmlFor="terms">
+              Tôi đồng ý với <a href="#">điều khoản</a> và{" "}
+              <a href="#">điều kiện sử dụng dịch vụ</a>
+            </label>
           </div>
-          
+
           <div className="payment-actions">
-            <button className="payment-button" onClick={handlePayment} disabled={!termsAccepted}>
+            <button
+              className="payment-button"
+              onClick={handlePayment}
+              disabled={!termsAccepted}
+            >
               Thanh toán ngay
             </button>
             <button className="back-button" onClick={handleGoBack}>

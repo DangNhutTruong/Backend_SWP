@@ -161,6 +161,10 @@ class ApiService {
     return this.apiCall('/api/quit-plans/active');
   }
 
+  async getUserPlans() {
+    return this.apiCall('/api/quit-plans/user');
+  }
+
   async createQuitPlan(planData) {
     return this.apiCall('/api/quit-plans', {
       method: 'POST',
@@ -196,6 +200,7 @@ export const {
   getProgressStats,
   getChartData,
   getActivePlan,
+  getUserPlans,
   createQuitPlan,
   updateQuitPlan,
   forgotPassword,

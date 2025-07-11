@@ -4,17 +4,17 @@
   "description": "NoSmoke - Quit Smoking Support Platform",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd server; npm run dev",
-    "dev:frontend": "cd client; npm run dev",
+    "dev:backend": "cd server && npm run dev",
+    "dev:frontend": "cd client && npm run dev", 
     "start": "npm run start:backend",
-    "start:backend": "cd server; npm start",
-    "start:frontend": "cd client; npm run dev",
-    "install:all": "npm install; cd server; npm install; cd ../client; npm install",
-    "build": "cd client; npm run build",
-    "build:backend": "cd server; npm run build",
-    "test": "cd server; npm test",
+    "start:backend": "cd server && npm start",
+    "start:frontend": "cd client && npm run dev",
+    "install:all": "powershell -Command \"npm install; Push-Location server; npm install; Pop-Location; Push-Location client; npm install; Pop-Location\"",
+    "build": "cd client && npm run build",
+    "build:backend": "cd server && npm run build", 
+    "test": "cd server && npm test",
     "production": "concurrently \"npm run start:backend\" \"npm run build\"",
-    "deploy": "npm run build; npm run start"
+    "deploy": "powershell -Command \"Push-Location client; npm run build; Pop-Location; Push-Location server; npm start; Pop-Location\""
   },
   "devDependencies": {
     "concurrently": "^7.6.0"
