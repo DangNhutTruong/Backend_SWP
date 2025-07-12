@@ -83,9 +83,7 @@ const UserProfile = ({ isStandalone = false }) => {
         username: userData.username,
         full_name: userData.name,
         phone: userData.phone,
-        birth_day: userData.birthDay,
-        birth_month: userData.birthMonth,
-        birth_year: userData.birthYear,
+        age: userData.age,
         gender: userData.gender,
         address: userData.address,
         quit_reason: userData.quitReason
@@ -103,9 +101,7 @@ const UserProfile = ({ isStandalone = false }) => {
           phone: userData.phone,
           address: userData.address,
           gender: userData.gender,
-          birth_day: userData.birthDay,
-          birth_month: userData.birthMonth,
-          birth_year: userData.birthYear,
+          age: userData.age,
           quit_reason: userData.quitReason
         })
       });
@@ -238,57 +234,20 @@ const UserProfile = ({ isStandalone = false }) => {
             </div>
             
             <div className="info-field">
-              <label><FaCalendarAlt /> Ngày sinh</label>
+              <label><FaCalendarAlt /> Tuổi</label>
               {isEditing ? (
-                <div className="date-picker">
-                  <select 
-                    name="birthDay" 
-                    value={userData.birthDay || ""} 
-                    onChange={handleChange}
-                  >
-                    <option value="">Ngày</option>
-                    {[...Array(31)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {i + 1}
-                      </option>
-                    ))}
-                  </select>
-                  <select 
-                    name="birthMonth" 
-                    value={userData.birthMonth || ""} 
-                    onChange={handleChange}
-                  >
-                    <option value="">Tháng</option>
-                    {[
-                      "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-                      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
-                    ].map((month, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {month}
-                      </option>
-                    ))}
-                  </select>
-                  <select 
-                    name="birthYear" 
-                    value={userData.birthYear || ""} 
-                    onChange={handleChange}
-                  >
-                    <option value="">Năm</option>
-                    {[...Array(100)].map((_, i) => {
-                      const year = new Date().getFullYear() - i;
-                      return (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                <input
+                  type="number"
+                  name="age"
+                  value={userData.age || ""}
+                  onChange={handleChange}
+                  placeholder="Nhập tuổi"
+                  min="0"
+                  max="120"
+                />
               ) : (
                 <p>
-                  {userData.birthDay && userData.birthMonth && userData.birthYear
-                    ? `${userData.birthDay}/${userData.birthMonth}/${userData.birthYear}`
-                    : "Chưa cập nhật"}
+                  {userData.age ? `${userData.age} tuổi` : "Chưa cập nhật"}
                 </p>
               )}
             </div>

@@ -94,20 +94,10 @@ export const validateProfileUpdate = [
         .matches(/^[0-9\-\+\(\)\s]{10,15}$/)
         .withMessage('Phone number must be 10-15 characters with only digits, spaces, brackets, plus or dash'),
 
-    body('birth_day')
+    body('age')
         .optional()
-        .isInt({ min: 1, max: 31 })
-        .withMessage('Birth day must be between 1 and 31'),
-
-    body('birth_month')
-        .optional()
-        .isInt({ min: 1, max: 12 })
-        .withMessage('Birth month must be between 1 and 12'),
-
-    body('birth_year')
-        .optional()
-        .isInt({ min: 1900, max: new Date().getFullYear() })
-        .withMessage('Birth year must be valid'),
+        .isInt({ min: 0, max: 120 })
+        .withMessage('Age must be between 0 and 120'),
 
     body('gender')
         .optional()

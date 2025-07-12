@@ -17,9 +17,7 @@ export const ensureTablesExist = async () => {
                 full_name VARCHAR(100),
                 phone VARCHAR(20),
                 date_of_birth DATE,
-                birth_day INT,
-                birth_month INT,
-                birth_year INT,
+                age INT,
                 gender ENUM('male', 'female', 'other'),
                 address TEXT,
                 quit_reason TEXT,
@@ -144,6 +142,51 @@ export const ensureTablesExist = async () => {
             }
         }
 
+        // Remove old birth date columns and add age column
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                DROP COLUMN birth_day
+            `);
+        } catch (error) {
+            if (!error.message.includes("doesn't exist")) {
+                console.log('drop birth_day column error:', error.message);
+            }
+        }
+
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                DROP COLUMN birth_month
+            `);
+        } catch (error) {
+            if (!error.message.includes("doesn't exist")) {
+                console.log('drop birth_month column error:', error.message);
+            }
+        }
+
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                DROP COLUMN birth_year
+            `);
+        } catch (error) {
+            if (!error.message.includes("doesn't exist")) {
+                console.log('drop birth_year column error:', error.message);
+            }
+        }
+
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN age INT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('age column error:', error.message);
+            }
+        }
+
         // Create pending_registrations table
         await pool.execute(`
             CREATE TABLE IF NOT EXISTS pending_registrations (
@@ -248,9 +291,7 @@ const formatUserResponse = (user) => {
         name: user.full_name, // Alias for compatibility
         phone: user.phone,
         dateOfBirth: user.date_of_birth,
-        birthDay: user.birth_day,
-        birthMonth: user.birth_month,
-        birthYear: user.birth_year,
+        age: user.age,
         gender: user.gender,
         address: user.address,
         quitReason: user.quit_reason,
@@ -671,9 +712,7 @@ export const updateProfile = async (req, res) => {
             username, 
             full_name, 
             phone, 
-            birth_day, 
-            birth_month, 
-            birth_year, 
+            age, 
             gender, 
             address, 
             quit_reason, 
@@ -686,9 +725,7 @@ export const updateProfile = async (req, res) => {
         console.log('    👤  Username:', username);
         console.log('    🏷️  Full Name:', full_name);
         console.log('    📞  Phone:', phone);
-        console.log('    📅  Birth Day:', birth_day);
-        console.log('    📅  Birth Month:', birth_month);
-        console.log('    📅  Birth Year:', birth_year);
+        console.log('    🎂  Age:', age);
         console.log('    ⚧️   Gender:', gender);
         console.log('    🏠  Address:', address);
         console.log('    🚭  Quit Reason:', quit_reason);
@@ -700,9 +737,7 @@ export const updateProfile = async (req, res) => {
                 username = COALESCE(?, username),
                 full_name = COALESCE(?, full_name), 
                 phone = COALESCE(?, phone), 
-                birth_day = ?, 
-                birth_month = ?, 
-                birth_year = ?, 
+                age = ?, 
                 gender = COALESCE(?, gender), 
                 address = ?,
                 quit_reason = ?,
@@ -713,9 +748,7 @@ export const updateProfile = async (req, res) => {
                 username, 
                 full_name, 
                 phone, 
-                birth_day || null, 
-                birth_month || null, 
-                birth_year || null, 
+                age || null, 
                 gender, 
                 address || null, 
                 quit_reason || null, 
