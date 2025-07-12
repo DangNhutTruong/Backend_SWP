@@ -12,8 +12,12 @@ import TestPage from "./page/TestPage.jsx"; // Thêm trang test đơn giản
 import Blog from "./page/Blog.jsx"; // Import component Blog
 import Login from "./page/Login.jsx"; // Import component Login
 import Register from "./page/Register.jsx"; // Import component Register
+import VerifyEmailPending from "./page/VerifyEmailPending.jsx"; // Import component VerifyEmailPending
+import VerifyOTP from "./page/VerifyOTP.jsx"; // Import component VerifyOTP
 import ForgotPassword from "./page/ForgotPassword.jsx"; // Import component ForgotPassword
-import EmailVerification from "./page/EmailVerification.jsx"; // Import component EmailVerification
+import ForgotPasswordStep1 from "./page/ForgotPasswordStep1.jsx"; // Import component ForgotPasswordStep1
+import ForgotPasswordStep2 from "./page/ForgotPasswordStep2.jsx"; // Import component ForgotPasswordStep2
+import ResetPasswordOTP from "./page/ResetPasswordOTP.jsx"; // Import component ResetPasswordOTP
 import MembershipPackage from "./page/MembershipPackage.jsx"; // Import component MembershipPackage
 import BookAppointment from "./page/BookAppointment.jsx"; // Import component BookAppointment
 import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Import ProtectedRoute
@@ -254,10 +258,50 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "/verify-email-pending",
+    element: (
+      <Layout>
+        <VerifyEmailPending />
+      </Layout>
+    ),
+  },
+  {
+    path: "/verify-otp",
+    element: (
+      <Layout>
+        <VerifyOTP />
+      </Layout>
+    ),
+  },
+  {
     path: "/forgot-password",
     element: (
       <Layout>
-        <ForgotPassword />
+        <ForgotPasswordStep1 />
+      </Layout>
+    ),
+  },
+  {
+    path: "/forgot-password-step1",
+    element: (
+      <Layout>
+        <ForgotPasswordStep1 />
+      </Layout>
+    ),
+  },
+  {
+    path: "/forgot-password-step2",
+    element: (
+      <Layout>
+        <ForgotPasswordStep2 />
+      </Layout>
+    ),
+  },
+  {
+    path: "/reset-password-otp",
+    element: (
+      <Layout>
+        <ResetPasswordOTP />
       </Layout>
     ),
   },
