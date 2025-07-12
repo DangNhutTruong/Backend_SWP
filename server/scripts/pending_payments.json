@@ -1,0 +1,13 @@
+{
+  "TEST_1752323732": {
+    "payment_id": "TEST_1752323732",
+    "amount": 299000,
+    "package_name": "Premium Monthly",
+    "user_email": "test.user@example.com",
+    "qr_content": "QSA PREMIUM TEST_1752323732",
+    "created_at": "2025-07-12T19:35:32.411485",
+    "status": "confirmed",
+    "notifications_sent": 0,
+    "confirmed_at": "2025-07-12T19:35:35.263027"
+  }
+}

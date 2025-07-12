@@ -4,7 +4,7 @@ import createQuitPlanTable from './utils/createQuitPlanTable.js';
 import createProgressTable from './utils/createProgressTable.js';
 
 const ensureAllTablesExist = async () => {
-    await ensureTablesExist();
+    await ensureTablesExist(); // Đã bao gồm cả payment & membership tables
     await createQuitPlanTable();
     await createProgressTable();
     console.log('✅ All tables checked and created if needed');

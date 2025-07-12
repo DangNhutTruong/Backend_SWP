@@ -59,7 +59,7 @@ class User {
                     date_of_birth, gender, role
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    username, email, password_hash, full_name, phone, 
+                    username, email, password_hash, full_name, phone,
                     date_of_birth, gender, role
                 ]
             );
@@ -74,14 +74,14 @@ class User {
         try {
             const keys = Object.keys(updateData);
             const values = Object.values(updateData);
-            
+
             if (keys.length === 0) {
                 return false;
             }
-            
+
             const setClause = keys.map(key => `${key} = ?`).join(', ');
             const query = `UPDATE users SET ${setClause} WHERE id = ?`;
-            
+
             const [result] = await pool.query(query, [...values, id]);
             return result.affectedRows > 0;
         } catch (error) {
@@ -151,6 +151,55 @@ class User {
             return result.affectedRows > 0;
         } catch (error) {
             console.error('Error deleting user:', error);
+            throw error;
+        }
+    }
+
+    static async updateMembership(id, membershipType, startDate = null, endDate = null) {
+        try {
+            const [result] = await pool.query(
+                `UPDATE users SET 
+                    membership = ?, 
+                    membership_start_date = ?, 
+                    membership_end_date = ? 
+                WHERE id = ?`,
+                [membershipType, startDate, endDate, id]
+            );
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error updating user membership:', error);
+            throw error;
+        }
+    }
+
+    static async getUserMembership(id) {
+        try {
+            const [rows] = await pool.query(
+                'SELECT membership, membership_start_date, membership_end_date FROM users WHERE id = ?',
+                [id]
+            );
+            return rows[0];
+        } catch (error) {
+            console.error('Error getting user membership:', error);
+            throw error;
+        }
+    }
+
+    static async checkMembershipExpiry(id) {
+        try {
+            const [rows] = await pool.query(
+                `SELECT membership, membership_end_date,
+                    CASE 
+                        WHEN membership_end_date IS NULL THEN FALSE
+                        WHEN membership_end_date < NOW() THEN TRUE
+                        ELSE FALSE
+                    END as is_expired
+                FROM users WHERE id = ?`,
+                [id]
+            );
+            return rows[0];
+        } catch (error) {
+            console.error('Error checking membership expiry:', error);
             throw error;
         }
     }
