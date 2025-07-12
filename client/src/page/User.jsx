@@ -71,8 +71,54 @@ const UserProfile = ({ isStandalone = false }) => {
   // Save user data changes
   const saveChanges = async () => {
     try {
-      const result = await updateUser(userData);
-      if (result && result.success) {
+      // Gọi API để cập nhật thông tin người dùng
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setErrorMessage("Vui lòng đăng nhập lại để cập nhật thông tin.");
+        return;
+      }
+      
+      console.log('Sending update request:', {
+        username: userData.username,
+        full_name: userData.name,
+        phone: userData.phone,
+        birth_day: userData.birthDay,
+        birth_month: userData.birthMonth,
+        birth_year: userData.birthYear,
+        gender: userData.gender,
+        address: userData.address,
+        quit_reason: userData.quitReason
+      });
+      
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          username: userData.username,
+          full_name: userData.name,
+          phone: userData.phone,
+          address: userData.address,
+          gender: userData.gender,
+          birth_day: userData.birthDay,
+          birth_month: userData.birthMonth,
+          birth_year: userData.birthYear,
+          quit_reason: userData.quitReason
+        })
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        await response.json();
+        
+        // Cập nhật user trong context
+        const updatedUser = { ...user, ...userData };
+        await updateUser(updatedUser);
+        
         setSuccessMessage("Thông tin đã được cập nhật thành công.");
         setIsEditing(false);
         
@@ -81,7 +127,9 @@ const UserProfile = ({ isStandalone = false }) => {
           setSuccessMessage("");
         }, 3000);
       } else {
-        setErrorMessage("Có lỗi xảy ra khi cập nhật thông tin.");
+        const error = await response.json();
+        console.error('API error:', error);
+        setErrorMessage(error.message || "Có lỗi xảy ra khi cập nhật thông tin.");
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật thông tin:", error);
@@ -92,7 +140,9 @@ const UserProfile = ({ isStandalone = false }) => {
   // If no user data is available, show loading state
   if (!user) {
     return <div className="loading-container">Đang tải...</div>;
-  }  return (
+  }
+
+  return (
     <div className="user-profile-container">
       <div className="user-profile-header">
         <h1>Thông tin cá nhân</h1>
@@ -122,7 +172,10 @@ const UserProfile = ({ isStandalone = false }) => {
         <div className="error-message">
           <FaTimes /> {errorMessage}
         </div>
-      )}        <div className="avatar-info-layout">        <div className="avatar-section">
+      )}
+
+      <div className="avatar-info-layout">
+        <div className="avatar-section">
           <div className="avatar-container">
             {userData.avatar ? (
               <img 
@@ -150,7 +203,8 @@ const UserProfile = ({ isStandalone = false }) => {
                 />
               </div>
             )}
-              {/* Hiển thị ID người dùng dưới avatar */}
+            
+            {/* Hiển thị ID người dùng dưới avatar */}
             <div className="user-id">
               ID: {userData._id || userData.id || "N/A"}
             </div>
@@ -167,6 +221,7 @@ const UserProfile = ({ isStandalone = false }) => {
           {/* Thông tin cơ bản */}
           <div className="profile-section basic-info">
             <h2>Thông tin cơ bản</h2>
+            
             <div className="info-field">
               <label><FaUserAlt /> Họ và tên</label>
               {isEditing ? (
@@ -181,21 +236,64 @@ const UserProfile = ({ isStandalone = false }) => {
                 <p>{userData.name || "Chưa cập nhật"}</p>
               )}
             </div>
+            
+            <div className="info-field">
+              <label><FaCalendarAlt /> Ngày sinh</label>
+              {isEditing ? (
+                <div className="date-picker">
+                  <select 
+                    name="birthDay" 
+                    value={userData.birthDay || ""} 
+                    onChange={handleChange}
+                  >
+                    <option value="">Ngày</option>
+                    {[...Array(31)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {i + 1}
+                      </option>
+                    ))}
+                  </select>
+                  <select 
+                    name="birthMonth" 
+                    value={userData.birthMonth || ""} 
+                    onChange={handleChange}
+                  >
+                    <option value="">Tháng</option>
+                    {[
+                      "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+                      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+                    ].map((month, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                  <select 
+                    name="birthYear" 
+                    value={userData.birthYear || ""} 
+                    onChange={handleChange}
+                  >
+                    <option value="">Năm</option>
+                    {[...Array(100)].map((_, i) => {
+                      const year = new Date().getFullYear() - i;
+                      return (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              ) : (
+                <p>
+                  {userData.birthDay && userData.birthMonth && userData.birthYear
+                    ? `${userData.birthDay}/${userData.birthMonth}/${userData.birthYear}`
+                    : "Chưa cập nhật"}
+                </p>
+              )}
+            </div>
 
             <div className="info-field">
-              <label><FaCalendarAlt /> Tuổi</label>
-              {isEditing ? (
-                <input
-                  type="number"
-                  name="age"
-                  value={userData.age || ""}
-                  onChange={handleChange}
-                  placeholder="Nhập tuổi"
-                />
-              ) : (
-                <p>{userData.age || "Chưa cập nhật"}</p>
-              )}
-            </div>            <div className="info-field">
               <label><FaTransgender /> Giới tính</label>
               {isEditing ? (
                 <select 

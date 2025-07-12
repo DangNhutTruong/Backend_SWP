@@ -17,7 +17,12 @@ export const ensureTablesExist = async () => {
                 full_name VARCHAR(100),
                 phone VARCHAR(20),
                 date_of_birth DATE,
+                birth_day INT,
+                birth_month INT,
+                birth_year INT,
                 gender ENUM('male', 'female', 'other'),
+                address TEXT,
+                quit_reason TEXT,
                 role ENUM('user', 'admin', 'coach') DEFAULT 'user',
                 email_verified BOOLEAN DEFAULT FALSE,
                 is_active BOOLEAN DEFAULT TRUE,
@@ -81,6 +86,62 @@ export const ensureTablesExist = async () => {
             `);
         } catch (error) {
             console.log('role column error:', error.message);
+        }
+
+        // Add new columns for enhanced profile
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN birth_day INT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('birth_day column error:', error.message);
+            }
+        }
+        
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN birth_month INT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('birth_month column error:', error.message);
+            }
+        }
+        
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN birth_year INT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('birth_year column error:', error.message);
+            }
+        }
+        
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN address TEXT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('address column error:', error.message);
+            }
+        }
+        
+        try {
+            await pool.execute(`
+                ALTER TABLE users 
+                ADD COLUMN quit_reason TEXT
+            `);
+        } catch (error) {
+            if (!error.message.includes('Duplicate column name')) {
+                console.log('quit_reason column error:', error.message);
+            }
         }
 
         // Create pending_registrations table
@@ -184,9 +245,15 @@ const formatUserResponse = (user) => {
         username: user.username,
         email: user.email,
         fullName: user.full_name,
+        name: user.full_name, // Alias for compatibility
         phone: user.phone,
         dateOfBirth: user.date_of_birth,
+        birthDay: user.birth_day,
+        birthMonth: user.birth_month,
+        birthYear: user.birth_year,
         gender: user.gender,
+        address: user.address,
+        quitReason: user.quit_reason,
         role: user.role,
         emailVerified: user.email_verified,
         isActive: user.is_active,
@@ -600,30 +667,64 @@ export const updateProfile = async (req, res) => {
         console.log('✏️  ═══════════════════════════════════════');
 
         const userId = req.user.id;
-        const { fullName, phone, dateOfBirth, gender, role } = req.body;
+        const { 
+            username, 
+            full_name, 
+            phone, 
+            birth_day, 
+            birth_month, 
+            birth_year, 
+            gender, 
+            address, 
+            quit_reason, 
+            role 
+        } = req.body;
 
         console.log('🆔  User ID:', userId);
+        console.log('📝  Request Body:', req.body);
         console.log('📝  Updates:');
-        console.log('    🏷️  Full Name:', fullName);
+        console.log('    👤  Username:', username);
+        console.log('    🏷️  Full Name:', full_name);
         console.log('    📞  Phone:', phone);
-        console.log('    📅  DOB:', dateOfBirth);
+        console.log('    📅  Birth Day:', birth_day);
+        console.log('    📅  Birth Month:', birth_month);
+        console.log('    📅  Birth Year:', birth_year);
         console.log('    ⚧️   Gender:', gender);
+        console.log('    🏠  Address:', address);
+        console.log('    🚭  Quit Reason:', quit_reason);
         console.log('    🏆  Role:', role);
 
         console.log('💾  Updating profile...');
-        await pool.execute(
+        const result = await pool.execute(
             `UPDATE users SET 
-                full_name = ?, 
-                phone = ?, 
-                date_of_birth = ?, 
-                gender = ?, 
-                role = ?,
+                username = COALESCE(?, username),
+                full_name = COALESCE(?, full_name), 
+                phone = COALESCE(?, phone), 
+                birth_day = ?, 
+                birth_month = ?, 
+                birth_year = ?, 
+                gender = COALESCE(?, gender), 
+                address = ?,
+                quit_reason = ?,
+                role = COALESCE(?, role),
                 updated_at = NOW() 
              WHERE id = ?`,
-            [fullName, phone || null, dateOfBirth || null, gender || null, role || 'user', userId]
+            [
+                username, 
+                full_name, 
+                phone, 
+                birth_day || null, 
+                birth_month || null, 
+                birth_year || null, 
+                gender, 
+                address || null, 
+                quit_reason || null, 
+                role || 'user', 
+                userId
+            ]
         );
 
-        console.log('✅  Profile updated successfully');
+        console.log('✅  Profile updated successfully. Affected rows:', result[0].affectedRows);
         console.log('✏️  ═══════════════════════════════════════\n');
 
         sendSuccess(res, 'Profile updated successfully');
@@ -632,6 +733,7 @@ export const updateProfile = async (req, res) => {
         console.log('💥  UPDATE PROFILE ERROR');
         console.log('❌ ═══════════════════════════════════════');
         console.error('🚨  Error:', error.message);
+        console.error('🚨  Stack:', error.stack);
         console.log('❌ ═══════════════════════════════════════\n');
         sendError(res, 'Failed to update profile', 500);
     }

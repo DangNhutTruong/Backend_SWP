@@ -75,26 +75,56 @@ export const validateLogin = [
 
 // Validation rules for profile update
 export const validateProfileUpdate = [
-    body('fullName')
+    body('username')
+        .optional()
+        .trim()
+        .isLength({ min: 3, max: 50 })
+        .withMessage('Username must be between 3 and 50 characters')
+        .matches(/^[a-zA-Z0-9_]+$/)
+        .withMessage('Username can only contain letters, numbers, and underscores'),
+
+    body('full_name')
         .optional()
         .trim()
         .isLength({ min: 2, max: 100 })
         .withMessage('Full name must be between 2 and 100 characters'),
 
     body('phone')
-        .optional()
-        .matches(/^[0-9]{10,11}$/)
-        .withMessage('Phone number must be 10-11 digits'),
+        .optional({ checkFalsy: true })
+        .matches(/^[0-9\-\+\(\)\s]{10,15}$/)
+        .withMessage('Phone number must be 10-15 characters with only digits, spaces, brackets, plus or dash'),
 
-    body('dateOfBirth')
+    body('birth_day')
         .optional()
-        .isISO8601()
-        .withMessage('Date of birth must be a valid date'),
+        .isInt({ min: 1, max: 31 })
+        .withMessage('Birth day must be between 1 and 31'),
+
+    body('birth_month')
+        .optional()
+        .isInt({ min: 1, max: 12 })
+        .withMessage('Birth month must be between 1 and 12'),
+
+    body('birth_year')
+        .optional()
+        .isInt({ min: 1900, max: new Date().getFullYear() })
+        .withMessage('Birth year must be valid'),
 
     body('gender')
         .optional()
         .isIn(['male', 'female', 'other'])
         .withMessage('Gender must be male, female, or other'),
+
+    body('address')
+        .optional()
+        .trim()
+        .isLength({ max: 200 })
+        .withMessage('Address must be less than 200 characters'),
+
+    body('quit_reason')
+        .optional()
+        .trim()
+        .isLength({ max: 500 })
+        .withMessage('Quit reason must be less than 500 characters'),
 
     body('avatarUrl')
         .optional()

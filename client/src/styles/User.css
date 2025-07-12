@@ -998,3 +998,44 @@
   align-items: center;
   width: 100%;
 }
+
+/* Date Picker Styles */
+.date-picker {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.date-picker select {
+  padding: 8px 12px;
+  border: 1px solid #e0e4e8;
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 14px;
+  color: #333;
+  min-width: 80px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.date-picker select:hover {
+  border-color: #2570e8;
+}
+
+.date-picker select:focus {
+  outline: none;
+  border-color: #2570e8;
+  box-shadow: 0 0 0 2px rgba(37, 112, 232, 0.1);
+}
+
+.date-picker select:first-child {
+  min-width: 60px; /* Ngày */
+}
+
+.date-picker select:nth-child(2) {
+  min-width: 90px; /* Tháng */
+}
+
+.date-picker select:last-child {
+  min-width: 80px; /* Năm */
+}

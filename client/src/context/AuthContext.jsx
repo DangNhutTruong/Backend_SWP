@@ -52,7 +52,13 @@ export const AuthProvider = ({ children }) => {
       return {
         ...userData,
         name: userData.name || userData.fullName || userData.username,
-        fullName: userData.fullName || userData.name || userData.username
+        fullName: userData.fullName || userData.name || userData.username,
+        username: userData.username,
+        birthDay: userData.birthDay,
+        birthMonth: userData.birthMonth,
+        birthYear: userData.birthYear,
+        address: userData.address,
+        quitReason: userData.quitReason
       };
     }
     return null;

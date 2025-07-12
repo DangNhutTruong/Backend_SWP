@@ -82,12 +82,12 @@ export default function Header() {
                 {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
               </Link>              <div className={`user-menu-container ${isUserMenuOpen ? 'menu-open' : ''}`} ref={userMenuRef}>                <button className="user-menu-button" onClick={toggleUserMenu}>
                 {user.avatar ? (
-                  <img src={user.avatar} alt={user.name || user.fullName || 'User'} className="user-avatar-header" />
+                  <img src={user.avatar} alt={user.username || 'User'} className="user-avatar-header" />
                 ) : (
-                  <span className="user-initial">{(user.name || user.fullName || 'U').charAt(0)}</span>
+                  <span className="user-initial">{(user.username || 'U').charAt(0)}</span>
                 )}
                 <span className="user-name">
-                  {user.name || user.fullName || 'User'}
+                  {user.username || 'User'}
                   {/* Kiểm tra cả hai trường hợp để hiển thị nhãn thành viên */}
                   {(user.membership && user.membership !== 'free') ? (
                     <span className={`membership-label ${user.membership}`}>
