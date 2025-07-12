@@ -1,14 +1,9 @@
-import React, { useState, useEffect } from "react";
-import {
-  FaCalendarAlt,
-  FaArrowLeft,
-  FaArrowRight,
-  FaCheck,
-} from "react-icons/fa";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import RequireMembership from "../components/RequireMembership";
-import "./BookAppointment.css";
+import React, { useState, useEffect } from 'react';
+import { FaCalendarAlt, FaArrowLeft, FaArrowRight, FaCheck } from 'react-icons/fa';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import RequireMembership from '../components/RequireMembership';
+import './BookAppointment.css';
 
 function BookAppointment() {
   const [step, setStep] = useState(1); // 1: Choose coach, 2: Select date, 3: Select time
@@ -27,13 +22,11 @@ function BookAppointment() {
   // Check if we're rescheduling an appointment
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const isRescheduling = searchParams.get("reschedule") === "true";
+    const isRescheduling = searchParams.get('reschedule') === 'true';
 
     if (isRescheduling) {
       // Get the appointment to reschedule from localStorage
-      const appointmentToReschedule = JSON.parse(
-        localStorage.getItem("appointmentToReschedule")
-      );
+      const appointmentToReschedule = JSON.parse(localStorage.getItem('appointmentToReschedule'));
 
       if (appointmentToReschedule) {
         setIsRescheduling(true);
@@ -41,22 +34,18 @@ function BookAppointment() {
         setAppointmentId(appointmentToReschedule.id);
 
         // Find and preselect the coach
-        const coach = coaches.find(
-          (c) => c.id === appointmentToReschedule.coachId
-        );
+        const coach = coaches.find(c => c.id === appointmentToReschedule.coachId);
         if (coach) {
           setSelectedCoach(coach);
           setStep(2); // Move to date selection step
 
           // Set the current month to the appointment date month
           const appointmentDate = new Date(appointmentToReschedule.date);
-          setCurrentMonth(
-            new Date(
-              appointmentDate.getFullYear(),
-              appointmentDate.getMonth(),
-              1
-            )
-          );
+          setCurrentMonth(new Date(
+            appointmentDate.getFullYear(),
+            appointmentDate.getMonth(),
+            1
+          ));
 
           // Preselect the date
           setSelectedDate(appointmentDate);
@@ -69,34 +58,33 @@ function BookAppointment() {
   const coaches = [
     {
       id: 1,
-      name: "Nguyên Văn A",
-      role: "Coach cai thuốc chuyên nghiệp",
+      name: 'Nguyên Văn A',
+      role: 'Coach cai thuốc chuyên nghiệp',
       rating: 4.8,
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-      available: true,
+      avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+      available: true
     },
     {
       id: 2,
-      name: "Trần Thị B",
-      role: "Chuyên gia tâm lý",
+      name: 'Trần Thị B',
+      role: 'Chuyên gia tâm lý',
       rating: 4.9,
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-      available: true,
+      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+      available: true
     },
     {
       id: 3,
-      name: "Phạm Minh C",
-      role: "Bác sĩ phục hồi chức năng",
+      name: 'Phạm Minh C',
+      role: 'Bác sĩ phục hồi chức năng',
       rating: 4.7,
-      avatar: "https://randomuser.me/api/portraits/men/64.jpg",
-      available: true,
-    },
-  ]; // Custom time selection
-  const [customTime, setCustomTime] = useState("");
+      avatar: 'https://randomuser.me/api/portraits/men/64.jpg',
+      available: true
+    }
+  ];  // Custom time selection
+  const [customTime, setCustomTime] = useState('');
 
   // Helper functions for calendar
-  const getDaysInMonth = (year, month) =>
-    new Date(year, month + 1, 0).getDate();
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
   const generateCalendarDays = () => {
@@ -133,8 +121,8 @@ function BookAppointment() {
   };
 
   const formatMonth = (date) => {
-    const options = { month: "long", year: "numeric" };
-    return date.toLocaleDateString("vi-VN", options);
+    const options = { month: 'long', year: 'numeric' };
+    return date.toLocaleDateString('vi-VN', options);
   };
 
   const handleSelectCoach = (coach) => {
@@ -145,11 +133,7 @@ function BookAppointment() {
   const handleSelectDate = (day) => {
     if (!day) return;
 
-    const selectedDate = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day
-    );
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     setSelectedDate(selectedDate);
     setStep(3);
   };
@@ -157,16 +141,14 @@ function BookAppointment() {
     setSelectedTime(time);
 
     // Sử dụng ID của lịch hẹn cũ nếu đang thay đổi lịch hẹn, ngược lại tạo ID mới
-    const newAppointmentId = isRescheduling
-      ? originalAppointment.id
-      : Math.floor(Math.random() * 1000000);
+    const newAppointmentId = isRescheduling ? originalAppointment.id : Math.floor(Math.random() * 1000000);
     setAppointmentId(newAppointmentId);
     
     // Tạo đối tượng lịch hẹn mới
     const appointment = {
       id: newAppointmentId,
       userId: user.id,
-      userName: user.name,
+      userName: user.fullName || user.name,
       userEmail: user.email,
       coachId: selectedCoach.id,
       coachName: selectedCoach.name,
@@ -174,52 +156,26 @@ function BookAppointment() {
       coachRole: selectedCoach.role,
       date: selectedDate.toISOString(),
       time: time,
-      status: "pending", // Trạng thái: 'pending', 'confirmed', 'completed', 'cancelled'
+      status: 'pending', // Trạng thái: 'pending', 'confirmed', 'completed', 'cancelled'
       completed: false, // Trường để theo dõi việc hoàn thành (cần xác nhận thủ công)
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
 
     // Lưu vào localStorage
-    const existingAppointments =
-      JSON.parse(localStorage.getItem("appointments")) || [];
+    const existingAppointments = JSON.parse(localStorage.getItem('appointments')) || [];
 
     if (isRescheduling) {
       // Nếu đang thay đổi lịch hẹn, xóa lịch hẹn cũ và thêm lịch hẹn mới
-      const updatedAppointments = existingAppointments.filter(
-        (app) => app.id !== originalAppointment.id
-      );
+      const updatedAppointments = existingAppointments.filter(app => app.id !== originalAppointment.id);
       updatedAppointments.push(appointment);
-      localStorage.setItem("appointments", JSON.stringify(updatedAppointments));
+      localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
 
       // Xóa thông tin lịch hẹn đang thay đổi từ localStorage
-      localStorage.removeItem("appointmentToReschedule");
+      localStorage.removeItem('appointmentToReschedule');
     } else {
       // Nếu đang đặt lịch hẹn mới, thêm vào danh sách
       const updatedAppointments = [...existingAppointments, appointment];
-      localStorage.setItem("appointments", JSON.stringify(updatedAppointments));
-    }
-
-    // Cập nhật thông tin coach cho user
-    if (user && !user.assignedCoachId) {
-      const updatedUser = {
-        ...user,
-        assignedCoachId: selectedCoach.id,
-        assignedCoachName: selectedCoach.name,
-      };
-
-      // Cập nhật user trong localStorage
-      const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
-      const updatedUsers = users.map((u) =>
-        u.id === user.id
-          ? {
-              ...u,
-              assignedCoachId: selectedCoach.id,
-              assignedCoachName: selectedCoach.name,
-            }
-          : u
-      );
-      localStorage.setItem("nosmoke_users", JSON.stringify(updatedUsers));
-      localStorage.setItem("nosmoke_user", JSON.stringify(updatedUser));
+      localStorage.setItem('appointments', JSON.stringify(updatedAppointments));
     }
 
     // Cập nhật thông tin coach cho user
@@ -239,11 +195,11 @@ function BookAppointment() {
     setShowSuccess(true);
 
     // Lưu trạng thái tab trong localStorage để Profile page hiển thị tab lịch hẹn
-    localStorage.setItem("activeProfileTab", "appointments");
+    localStorage.setItem('activeProfileTab', 'appointments');
 
     // Sau 3 giây chuyển hướng đến trang hồ sơ
     setTimeout(() => {
-      navigate("/profile");
+      navigate('/profile');
     }, 3000);
   };
 
@@ -255,7 +211,7 @@ function BookAppointment() {
 
     if (customTime.trim()) {
       // Extract hours and minutes
-      const [hours, minutes] = customTime.split(":").map(Number);
+      const [hours, minutes] = customTime.split(':').map(Number);
 
       // Basic validation for business hours (8:00 AM to 10:00 PM)
       if ((hours >= 8 && hours < 22) || (hours === 22 && minutes === 0)) {
@@ -263,7 +219,7 @@ function BookAppointment() {
         const formattedTime = customTime;
         handleSelectTime(formattedTime);
       } else {
-        alert("Vui lòng chọn thời gian trong giờ làm việc (8:00 - 22:00)");
+        alert('Vui lòng chọn thời gian trong giờ làm việc (8:00 - 22:00)');
       }
     }
   };
@@ -273,28 +229,21 @@ function BookAppointment() {
       <div className="coach-selection-container">
         <h2>Chọn Coach</h2>
         <div className="coaches-list">
-          {coaches.map((coach) => (
+          {coaches.map(coach => (
             <div
               key={coach.id}
-              className={`coach-card ${
-                selectedCoach?.id === coach.id ? "selected" : ""
-              }`}
+              className={`coach-card ${selectedCoach?.id === coach.id ? 'selected' : ''}`}
               onClick={() => handleSelectCoach(coach)}
             >
               <div className="coach-avatar">
                 <img src={coach.avatar} alt={coach.name} />
-                {coach.available && (
-                  <div className="coach-status available"></div>
-                )}
+                {coach.available && <div className="coach-status available"></div>}
               </div>
               <div className="coach-info">
                 <h3>{coach.name}</h3>
                 <p>{coach.role}</p>
                 <div className="coach-rating">
-                  <span className="stars">
-                    {"★".repeat(Math.floor(coach.rating))}
-                    {coach.rating % 1 > 0 ? "☆" : ""}
-                  </span>
+                  <span className="stars">{'★'.repeat(Math.floor(coach.rating))}{coach.rating % 1 > 0 ? '☆' : ''}</span>
                   <span className="rating-value">{coach.rating}</span>
                 </div>
               </div>
@@ -306,7 +255,7 @@ function BookAppointment() {
   };
   const renderDateSelection = () => {
     const days = generateCalendarDays();
-    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     return (
       <div className="date-selection-container">
@@ -315,11 +264,7 @@ function BookAppointment() {
         </div>
 
         <div className="selected-coach">
-          <img
-            src={selectedCoach.avatar}
-            alt={selectedCoach.name}
-            className="small-avatar"
-          />
+          <img src={selectedCoach.avatar} alt={selectedCoach.name} className="small-avatar" />
           <span>{selectedCoach.name}</span>
         </div>
 
@@ -335,22 +280,14 @@ function BookAppointment() {
           </div>
 
           <div className="calendar">
-            {dayNames.map((day) => (
-              <div key={day} className="day-header">
-                {day}
-              </div>
+            {dayNames.map(day => (
+              <div key={day} className="day-header">{day}</div>
             ))}
 
             {days.map((day, index) => (
               <div
                 key={index}
-                className={`calendar-day ${!day ? "empty" : ""} ${
-                  day === new Date().getDate() &&
-                  currentMonth.getMonth() === new Date().getMonth() &&
-                  currentMonth.getFullYear() === new Date().getFullYear()
-                    ? "today"
-                    : ""
-                }`}
+                className={`calendar-day ${!day ? 'empty' : ''} ${day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear() ? 'today' : ''}`}
                 onClick={() => handleSelectDate(day)}
               >
                 {day}
@@ -371,54 +308,35 @@ function BookAppointment() {
         <div className="selection-header">
           <h2>Chọn thời gian</h2>
         </div>
+
         <div className="selection-details">
           <div className="selected-coach">
-            <img
-              src={selectedCoach.avatar}
-              alt={selectedCoach.name}
-              className="small-avatar"
-            />
+            <img src={selectedCoach.avatar} alt={selectedCoach.name} className="small-avatar" />
             <span>{selectedCoach.name}</span>
           </div>
           <div className="selected-date">
             <FaCalendarAlt />
-            <span>
-              {selectedDate.toLocaleDateString("vi-VN", {
-                weekday: "long",
-                day: "numeric",
-                month: "numeric",
-                year: "numeric",
-              })}
-            </span>
+            <span>{selectedDate.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' })}</span>
           </div>
-        </div>{" "}
-        <div className="time-slots-container">
-          {" "}
-          <div className="custom-time-container">
-            <p>Chọn giờ hẹn:</p>
-            <form
-              onSubmit={handleCustomTimeSubmit}
-              className="custom-time-form"
-            >
-              <input
-                type="time"
-                value={customTime}
-                onChange={handleCustomTimeChange}
-                className="custom-time-input"
-                min="08:00"
-                max="18:00"
-                step="900" // 15-minute intervals
-                required
-              />
-              <button type="submit" className="btn-submit-time">
-                Xác nhận giờ hẹn
-              </button>
-            </form>
-            <small className="time-helper-text">
-              Giờ làm việc: 8:00 - 22:00
-            </small>
-          </div>
+        </div>        <div className="time-slots-container">          <div className="custom-time-container">
+          <p>Chọn giờ hẹn:</p>
+          <form onSubmit={handleCustomTimeSubmit} className="custom-time-form">
+            <input
+              type="time"
+              value={customTime}
+              onChange={handleCustomTimeChange}
+              className="custom-time-input"
+              min="08:00"
+              max="18:00"
+              step="900" // 15-minute intervals
+              required
+            />
+            <button type="submit" className="btn-submit-time">Xác nhận giờ hẹn</button>
+          </form>
+          <small className="time-helper-text">Giờ làm việc: 8:00 - 22:00</small>
         </div>
+        </div>
+        
         <button onClick={() => setStep(2)} className="back-button">
           <FaArrowLeft /> Quay lại
         </button>
@@ -433,59 +351,31 @@ function BookAppointment() {
         <div className="success-icon">
           <FaCheck />
         </div>
-        <h2>
-          {isRescheduling
-            ? "Thay đổi lịch thành công!"
-            : "Đặt lịch thành công!"}
-        </h2>{" "}
-        <p>
-          Bạn đã {isRescheduling ? "thay đổi lịch hẹn" : "đặt lịch hẹn"} với{" "}
-          <strong>{selectedCoach.name}</strong>
-        </p>
-        <p>
-          Vào ngày <strong>{selectedDate.toLocaleDateString("vi-VN")}</strong>{" "}
-          lúc <strong>{selectedTime}</strong>
-        </p>
-        <p>
-          Mã cuộc hẹn: <strong>#{appointmentId}</strong>
-        </p>
+        <h2>{isRescheduling ? 'Thay đổi lịch thành công!' : 'Đặt lịch thành công!'}</h2>        <p>Bạn đã {isRescheduling ? 'thay đổi lịch hẹn' : 'đặt lịch hẹn'} với <strong>{selectedCoach.name}</strong></p>
+        <p>Vào ngày <strong>{selectedDate.toLocaleDateString('vi-VN')}</strong> lúc <strong>{selectedTime}</strong></p>
+        <p>Mã cuộc hẹn: <strong>#{appointmentId}</strong></p>
         <div className="pending-status-info">
-          <p>
-            <strong>⏳ Trạng thái:</strong> Đang chờ coach xác nhận
-          </p>
-          <p className="status-note">
-            Coach sẽ xem xét và xác nhận lịch hẹn của bạn. Bạn sẽ nhận được
-            thông báo khi lịch được xác nhận.
-          </p>
+          <p><strong>⏳ Trạng thái:</strong> Đang chờ coach xác nhận</p>
+          <p className="status-note">Coach sẽ xem xét và xác nhận lịch hẹn của bạn. Bạn sẽ nhận được thông báo khi lịch được xác nhận.</p>
         </div>
-        <p className="redirect-message">
-          Bạn sẽ được chuyển đến trang hồ sơ cá nhân để xem lịch hẹn của bạn...
-        </p>
+        <p className="redirect-message">Bạn sẽ được chuyển đến trang hồ sơ cá nhân để xem lịch hẹn của bạn...</p>
       </div>
     );
   };
   return (
     <section className="appointment-section">
-      <div className="container">
-        {" "}
-        <div className="appointment-header">
-          <h1>
-            <FaCalendarAlt className="appointment-icon" />
-            <span>Đặt lịch hẹn với Coach</span>
-          </h1>
-        </div>
-        {showSuccess ? (
-          renderSuccess()
-        ) : (
-          <RequireMembership
-            allowedMemberships={["premium", "pro"]}
-            showModal={true}
-          >
+      <div className="container">        <div className="appointment-header">
+        <h1>
+          <FaCalendarAlt className="appointment-icon" />
+          <span>Đặt lịch hẹn với Coach</span>
+        </h1>
+      </div>
+
+        {showSuccess ? renderSuccess() : (
+          <RequireMembership allowedMemberships={['premium', 'pro']} showModal={true}>
             <div className="appointment-stepper">
               <div
-                className={`stepper-step ${step >= 1 ? "active" : ""} ${
-                  selectedCoach ? "clickable" : ""
-                }`}
+                className={`stepper-step ${step >= 1 ? 'active' : ''} ${selectedCoach ? 'clickable' : ''}`}
                 onClick={() => selectedCoach && setStep(1)}
               >
                 <div className="step-number">1</div>
@@ -493,9 +383,7 @@ function BookAppointment() {
               </div>
               <div className="stepper-line"></div>
               <div
-                className={`stepper-step ${step >= 2 ? "active" : ""} ${
-                  selectedDate ? "clickable" : ""
-                }`}
+                className={`stepper-step ${step >= 2 ? 'active' : ''} ${selectedDate ? 'clickable' : ''}`}
                 onClick={() => selectedDate && setStep(2)}
               >
                 <div className="step-number">2</div>
@@ -503,9 +391,7 @@ function BookAppointment() {
               </div>
               <div className="stepper-line"></div>
               <div
-                className={`stepper-step ${step >= 3 ? "active" : ""} ${
-                  selectedTime ? "clickable" : ""
-                }`}
+                className={`stepper-step ${step >= 3 ? 'active' : ''} ${selectedTime ? 'clickable' : ''}`}
                 onClick={() => selectedTime && setStep(3)}
               >
                 <div className="step-number">3</div>
@@ -516,8 +402,7 @@ function BookAppointment() {
             <div className="appointment-content">
               {step === 1 && renderCoachSelection()}
               {step === 2 && renderDateSelection()}
-              {step === 3 && renderTimeSelection()}{" "}
-            </div>
+              {step === 3 && renderTimeSelection()}            </div>
           </RequireMembership>
         )}
       </div>

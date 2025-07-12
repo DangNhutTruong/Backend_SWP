@@ -4,23 +4,9 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { testConnection } from './config/database.js';
 import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import quitPlanRoutes from './routes/quit-plans.js';
-import progressRoutes from './routes/progress.js';
-import achievementRoutes from './routes/achievements.js';
-import packageRoutes from './routes/packages.js';
-import coachRoutes from './routes/coaches.js';
-import appointmentRoutes from './routes/appointments.js';
-import dailyCheckinRoutes from './routes/dailyCheckins.js';
-import membershipRoutes from './routes/membership.js';
-// import blogRoutes from './routes/blogs.js';
-// import communityRoutes from './routes/community.js';
-// import paymentRoutes from './routes/payments.js';
-// import notificationRoutes from './routes/notifications.js';
-// import smokingStatusRoutes from './routes/smoking-status.js';
-// import settingsRoutes from './routes/settings.js';
-// import dashboardRoutes from './routes/dashboard.js';
-import path from 'path';
+import quitPlanRoutes from './routes/quitPlanRoutes.js';
+import progressRoutes from './routes/progressRoutes.js';
+import ensureTablesExist from './ensureTables.js';
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +64,8 @@ app.use('/api/progress', progressRoutes);
 
 // Test database connection
 await testConnection();
+// Ensure all required tables exist on startup
+await ensureTablesExist();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -89,32 +77,6 @@ app.get('/health', (req, res) => {
         version: '1.0.0'
     });
 });
-
-// Static files for public directory (HTML test pages)
-app.use(express.static(path.join(process.cwd(), 'public')));
-
-// Static files for uploads
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
-
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/quit-plans', quitPlanRoutes);
-app.use('/api/progress', progressRoutes);
-app.use('/api/achievements', achievementRoutes);
-app.use('/api/packages', packageRoutes);
-app.use('/api/coaches', coachRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/daily-checkins', dailyCheckinRoutes);
-app.use('/api/membership', membershipRoutes);
-// app.use('/api/appointments', appointmentRoutes);
-// app.use('/api/blog', blogRoutes);
-// app.use('/api/community', communityRoutes);
-// app.use('/api/payments', paymentRoutes);
-// app.use('/api/notifications', notificationRoutes);
-// app.use('/api/smoking-status', smokingStatusRoutes);
-// app.use('/api/settings', settingsRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

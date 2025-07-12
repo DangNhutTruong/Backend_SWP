@@ -9,26 +9,63 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan }) => {
         notes: ''
     });
 
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [currentWeek, setCurrentWeek] = useState(1); // Tuần hiện tại
-  const [streakDays, setStreakDays] = useState(0); // Số ngày liên tiếp đạt mục tiêu
-  const [activePlanId, setActivePlanId] = useState(null); // ID của kế hoạch active
-  const [isLoading, setIsLoading] = useState(false); // Loading state cho API calls
-  const [toast, setToast] = useState({
-    show: false,
-    message: "",
-    type: "success",
-  }); // Thông báo dạng toast    // Tính target cigarettes dựa trên kế hoạch và ngày hiện tại
-  const calculateTodayTarget = useCallback(() => {
-    // Kiểm tra kỹ các trường hợp null/undefined
-    if (!currentPlan) return 12;
-    if (
-      !currentPlan.weeks ||
-      !Array.isArray(currentPlan.weeks) ||
-      currentPlan.weeks.length === 0
-    )
-      return 12;
-    if (!currentPlan.startDate) return currentPlan.weeks[0]?.amount || 12;
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [currentWeek, setCurrentWeek] = useState(1); // Tuần hiện tại
+    const [streakDays, setStreakDays] = useState(0); // Số ngày liên tiếp đạt mục tiêu
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' }); // Thông báo dạng toast    // Tính target cigarettes dựa trên kế hoạch và ngày hiện tại
+    const calculateTodayTarget = () => {
+        // Kiểm tra kỹ các trường hợp null/undefined
+        if (!currentPlan) return 12;
+        if (!currentPlan.weeks || !Array.isArray(currentPlan.weeks) || currentPlan.weeks.length === 0) return 12;
+        if (!currentPlan.startDate) return currentPlan.weeks[0]?.amount || 12;
+        
+        try {
+            const today = new Date();
+            const startDate = new Date(currentPlan.startDate);
+            
+            // Kiểm tra ngày bắt đầu hợp lệ
+            if (isNaN(startDate.getTime())) return currentPlan.weeks[0]?.amount || 12;
+            
+            const daysDiff = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+            const currentWeekNumber = Math.floor(daysDiff / 7) + 1;
+            
+            setCurrentWeek(currentWeekNumber);
+            
+            // Tìm tuần hiện tại trong plan
+            const currentWeekPlan = currentPlan.weeks.find(w => w.week === currentWeekNumber);
+            if (currentWeekPlan) {
+                // Lấy target của tuần trước nếu có
+                const prevWeekPlan = currentPlan.weeks.find(w => w.week === currentWeekNumber - 1);
+                if (prevWeekPlan && prevWeekPlan.amount > currentWeekPlan.amount) {
+                    const reduction = prevWeekPlan.amount - currentWeekPlan.amount;
+                    const percentReduction = Math.round((reduction / prevWeekPlan.amount) * 100);
+                    
+                    // Lưu thông tin tiến độ so với tuần trước
+                    setTodayData(prev => ({
+                        ...prev,
+                        weeklyProgress: {
+                            reduction,
+                            percentReduction,
+                            prevAmount: prevWeekPlan.amount
+                        }
+                    }));
+                }
+                
+                return currentWeekPlan.amount;
+            }
+            
+            // Nếu đã qua hết kế hoạch, target = 0
+            if (currentWeekNumber > currentPlan.weeks.length) {
+                return 0;
+            }
+            
+            // Fallback
+            return currentPlan.weeks[0]?.amount || 12;
+        } catch (error) {
+            console.error("Lỗi khi tính toán mục tiêu hôm nay:", error);
+            return 12; // Fallback an toàn nếu có lỗi
+        }
+    };
 
     // Tính streak days
     const calculateStreakDays = () => {
@@ -152,7 +189,6 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan }) => {
         } else {
             setToast({ ...toast, show: false });
         }
-      }
     };
     
     return (
@@ -183,12 +219,20 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan }) => {
                 </div>
             )}
 
-  const handleInputChange = (field, value) => {
-    setTodayData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+            <div className="checkin-content">
+                {/* Target vs Actual */}
+                <div className="progress-section">                    <div className="target-card">
+                        <h3>Mục tiêu hôm nay</h3>
+                        <div className="target-amount">{todayData.targetCigarettes} điếu</div>
+                        <p>Tuần {currentWeek} - Kế hoạch của bạn</p>
+                        
+                        {todayData.weeklyProgress && (
+                            <div className="progress-badge">
+                                <span>-{todayData.weeklyProgress.reduction} điếu ({todayData.weeklyProgress.percentReduction}%)</span>
+                                <p>so với tuần trước</p>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="vs-divider">VS</div>                    <div className="actual-card">
                         <h3>Thực tế đã hút</h3>
@@ -245,134 +289,7 @@ const DailyCheckin = ({ onProgressUpdate, currentPlan }) => {
                 {/* Summary Card đã được xóa vì dư thừa */}
             </div>
         </div>
-        {/* Streak counter */}{" "}
-        <div className="streak-badge">
-          <span className="streak-number">{streakDays}</span>
-          <span className="streak-text">ngày liên tiếp</span>
-        </div>
-      </div>
-
-      <div className="checkin-separator"></div>
-
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className={`toast-notification ${toast.type}`}>
-          <span className="toast-message">{toast.message}</span>
-          <button className="toast-close" onClick={closeToast}>
-            &times;
-          </button>
-        </div>
-      )}
-
-      <div className="checkin-content">
-        {/* Target vs Actual */}
-        <div className="progress-section">
-          {" "}
-          <div className="target-card">
-            <h3>Mục tiêu hôm nay</h3>
-            <div className="target-amount">
-              {todayData.targetCigarettes} điếu
-            </div>
-            <p>Tuần {currentWeek} - Kế hoạch của bạn</p>
-
-            {todayData.weeklyProgress && (
-              <div className="progress-badge">
-                <span>
-                  -{todayData.weeklyProgress.reduction} điếu (
-                  {todayData.weeklyProgress.percentReduction}%)
-                </span>
-                <p>so với tuần trước</p>
-              </div>
-            )}
-          </div>
-          <div className="vs-divider">VS</div>{" "}
-          <div className="actual-card">
-            <h3>Thực tế đã hút</h3>
-            <div className="number-input-container">
-              <button
-                type="button"
-                className="number-decrement"
-                onClick={() =>
-                  !isSubmitted &&
-                  handleInputChange(
-                    "actualCigarettes",
-                    Math.max(0, todayData.actualCigarettes - 1)
-                  )
-                }
-                disabled={isSubmitted || todayData.actualCigarettes <= 0}
-              >
-                -
-              </button>
-              <input
-                type="number"
-                min="0"
-                max="50"
-                value={todayData.actualCigarettes}
-                onChange={(e) =>
-                  handleInputChange(
-                    "actualCigarettes",
-                    parseInt(e.target.value) || 0
-                  )
-                }
-                className="actual-input"
-                disabled={isSubmitted}
-                placeholder="0"
-              />
-              <button
-                type="button"
-                className="number-increment"
-                onClick={() =>
-                  !isSubmitted &&
-                  handleInputChange(
-                    "actualCigarettes",
-                    Math.min(50, todayData.actualCigarettes + 1)
-                  )
-                }
-                disabled={isSubmitted || todayData.actualCigarettes >= 50}
-              >
-                +
-              </button>
-            </div>
-            <p className={`result ${isTargetAchieved ? "success" : "warning"}`}>
-              {isTargetAchieved ? "✅ Đạt mục tiêu!" : "⚠️ Vượt mục tiêu"}
-            </p>
-          </div>
-        </div>{" "}
-        {/* Action Buttons */}
-        <div className="checkin-actions">
-          {!isSubmitted ? (
-            <button
-              onClick={handleSubmit}
-              className="submit-btn"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <FaSpinner className="btn-icon spinning" />
-                  Đang lưu...
-                </>
-              ) : (
-                <>
-                  <FaSave className="btn-icon" />
-                  Lưu checkin hôm nay
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={handleEdit}
-              className="edit-btn"
-              disabled={isLoading}
-            >
-              <FaSave className="btn-icon" />
-              Cập nhật số điếu hôm nay
-            </button>
-          )}
-        </div>
-        {/* Summary Card đã được xóa vì dư thừa */}
-      </div>
-    </div>
-  );
+    );
 };
 
 export default DailyCheckin;

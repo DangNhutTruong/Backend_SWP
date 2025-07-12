@@ -1,14 +1,34 @@
-import { User } from '../models/index.js';
-import { generateToken, generateRefreshToken, hashPassword, comparePassword } from '../middleware/auth.js';
-import { 
-  generateEmailVerificationToken, 
-  generateEmailVerificationOTP,
-  sendVerificationOTP,
-  sendPasswordResetOTP
-} from '../utils/emailService.js';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { pool } from '../config/database.js';
+import { sendSuccess, sendError } from '../utils/response.js';
+import emailService from '../services/emailService.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Ensure required tables exist
+export const ensureTablesExist = async () => {
+    try {
+        // Create users table if it doesn't exist
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                full_name VARCHAR(100),
+                phone VARCHAR(20),
+                date_of_birth DATE,
+                gender ENUM('male', 'female', 'other'),
+                role ENUM('user', 'admin', 'coach') DEFAULT 'user',
+                email_verified BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                refresh_token TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_email (email),
+                INDEX idx_username (username),
+                INDEX idx_active (is_active)
+            )
+        `);
 
         // Add missing columns to users table if they don't exist
         try {
@@ -185,14 +205,16 @@ export const register = async (req, res) => {
         console.log('👤  Username:', req.body.username);
         console.log('🏷️  Full Name:', req.body.fullName);
 
-    // Check if user already exists
-    console.log('🔍 Checking if user exists...');
-    const existingUser = await User.findOne({
-      where: {
-        email: email
-      }
-    });
-    console.log('✅ User existence check completed');
+        const {
+            username,
+            email,
+            password,
+            fullName,
+            phone,
+            dateOfBirth,
+            gender,
+            role
+        } = req.body;
 
         // Basic validation
         if (!username || !email || !password) {
@@ -274,74 +296,9 @@ export const register = async (req, res) => {
 
         sendError(res, errorMessage, 500);
     }
-
-    // Hash password
-    console.log('🔐 Hashing password...');
-    const password_hash = await hashPassword(password);
-    console.log('✅ Password hashed successfully');
-
-    // Create user
-    console.log('👤 Creating user...');
-    
-    // Determine username priority: username > name > full_name > email prefix
-    let finalUsername = username || name || full_name;
-    if (!finalUsername || finalUsername.trim() === '') {
-      // Extract name from email if no username provided
-      finalUsername = email.split('@')[0];
-    }
-    
-    console.log('📝 Final username will be:', finalUsername);
-    
-    const user = await User.create({
-      username: finalUsername,
-      email: email,
-      password: password_hash  // Store hashed password
-    });
-    console.log('✅ User created successfully:', user.toJSON());
-
-    // Generate email verification OTP
-    console.log('📧 Generating email verification OTP...');
-    const verificationOTP = generateEmailVerificationOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-    
-    await user.update({ 
-      email_verification_otp: verificationOTP,
-      email_verification_otp_expires: otpExpires
-    });
-
-    // Send verification OTP email
-    try {
-      await sendVerificationOTP(user, verificationOTP);
-      console.log('✅ Verification OTP email sent successfully');
-    } catch (emailError) {
-      console.error('⚠️ Failed to send verification email:', emailError);
-      // Don't fail registration if email fails
-    }
-
-    // Return user without password and tokens (require email verification first)
-    const { password: _, ...userWithoutPassword } = user.toJSON();
-
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully. Please check your email to verify your account.',
-      requiresVerification: true,
-      data: {
-        user: userWithoutPassword
-        // Don't include token and refreshToken until email is verified
-      }
-    });
-  } catch (error) {
-    console.error('❌ Register error:', error);
-    console.error('❌ Error stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed',
-      error: error.message
-    });
-  }
 };
 
-// POST /api/auth/login
+// Login User
 export const login = async (req, res) => {
     try {
         console.log('\n🔐 ═══════════════════════════════════════');
@@ -412,66 +369,6 @@ export const login = async (req, res) => {
         console.log('❌ ═══════════════════════════════════════\n');
         sendError(res, 'Login failed. Please try again.', 500);
     }
-
-    // Check password - support both hashed and plain text for existing users
-    let isPasswordValid = false;
-    
-    // Try hashed password first
-    try {
-      isPasswordValid = await comparePassword(password, user.password);
-    } catch (error) {
-      console.log('Hash comparison failed, trying plain text...');
-    }
-    
-    // If hash comparison failed, try plain text comparison for old users
-    if (!isPasswordValid && user.password === password) {
-      isPasswordValid = true;
-      console.log('⚠️  Plain text password matched - consider updating to hashed password');
-    }
-
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Check if email is verified
-    if (!user.email_verified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Please verify your email before logging in. Check your inbox for the verification link.',
-        requiresVerification: true
-      });
-    }
-
-    // Update last login (if you add this field later)
-    // await user.update({ last_login: new Date() });
-
-    // Generate tokens
-    const token = generateToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user.toJSON();
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: userWithoutPassword,
-        token,
-        refreshToken
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed',
-      error: error.message
-    });
-  }
 };
 
 // Verify Email (simple version)

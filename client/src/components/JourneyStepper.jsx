@@ -462,6 +462,7 @@ export default function JourneyStepper() {
           keysToRemove.push(key);
         }
       }
+
       // Xóa từng key đã thu thập
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);

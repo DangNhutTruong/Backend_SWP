@@ -10,7 +10,7 @@ export default function Header() {
   const navigate = useNavigate();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [notificationCount, _setNotificationCount] = useState(0); // Add this state for notification count
+  const [notificationCount, setNotificationCount] = useState(0); // Add this state for notification count
   const { user, logout } = useAuth();
 
   // Thêm useRef để theo dõi dropdown menu
@@ -18,18 +18,15 @@ export default function Header() {
   // Debug user membership và đảm bảo nhất quán
   useEffect(() => {
     if (user) {
-      console.log("Header - User Membership:", user.membership);
-      console.log("Header - User MembershipType:", user.membershipType);
-      console.log("Header - User Object:", user);
+      console.log('Header - User Membership:', user.membership);
+      console.log('Header - User MembershipType:', user.membershipType);
+      console.log('Header - User Object:', user);
 
       // Đảm bảo nhất quán giữa membership và membershipType
       if (!user.membership && user.membershipType) {
-        console.log(
-          "Header - Syncing membership from membershipType:",
-          user.membershipType
-        );
+        console.log('Header - Syncing membership from membershipType:', user.membershipType);
         // Đánh dấu cần refresh để đồng bộ dữ liệu
-        window.sessionStorage.setItem("membership_refresh_needed", "true");
+        window.sessionStorage.setItem('membership_refresh_needed', 'true');
       }
     }
   }, [user]);
@@ -56,12 +53,12 @@ export default function Header() {
 
     // Thêm event listener khi dropdown đang mở
     if (isUserMenuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
     // Cleanup function
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isUserMenuOpen]);
 
@@ -70,9 +67,7 @@ export default function Header() {
       <div className="container">
         <div className="logo">
           <Link to="/">
-            <span className="logo-text">
-              No<span className="smoke">Smoke</span>
-            </span>
+            <span className="logo-text">No<span className="smoke">Smoke</span></span>
           </Link>
         </div>
         <div className="nav-actions">
@@ -82,10 +77,7 @@ export default function Header() {
           </Link>
           {user ? (
             <>
-              <Link
-                to="/notifications"
-                className="nav-item notification-nav-item"
-              >
+              <Link to="/notifications" className="nav-item notification-nav-item">
                 <FaBell /> Thông báo
                 {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
               </Link>              <div className={`user-menu-container ${isUserMenuOpen ? 'menu-open' : ''}`} ref={userMenuRef}>                <button className="user-menu-button" onClick={toggleUserMenu}>
@@ -155,19 +147,12 @@ export default function Header() {
             </>
           ) : (
             <>
-              <a href="#" className="login-btn" onClick={handleLoginClick}>
-                Đăng nhập
-              </a>
-              <Link to="/signup" className="signup-btn">
-                Đăng ký
-              </Link>
+              <a href="#" className="login-btn" onClick={handleLoginClick}>Đăng nhập</a>
+              <Link to="/signup" className="signup-btn">Đăng ký</Link>
             </>
           )}
 
-          <LoginModal
-            isOpen={isLoginModalOpen}
-            onClose={() => setIsLoginModalOpen(false)}
-          />
+          <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
         </div>
       </div>
     </header>

@@ -1,201 +1,287 @@
-import { User } from '../models/index.js';
-// import SmokingStatus later when needed
-import { hashPassword, comparePassword } from '../middleware/auth.js';
+import User from '../models/User.js';
+import { pool } from '../config/database.js';
+import fs from 'fs';
+import path from 'path';
 
-// GET /api/users/profile
+// Get user profile
 export const getProfile = async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password_hash'] }
-    });
+    try {        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found',
+                data: null
+            });
+        }
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+        // Remove sensitive information
+        delete user.password_hash;
+        delete user.refresh_token;
+        
+        res.status(200).json({
+            success: true,
+            message: 'User profile retrieved successfully',
+            data: user
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
     }
-
-    res.json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get profile',
-      error: error.message
-    });
-  }
 };
 
-// PUT /api/users/profile
+// Update user profile
 export const updateProfile = async (req, res) => {
-  try {
-    const { name, phone, gender, date_of_birth, address } = req.body;
-
-    const user = await User.findByPk(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+    try {
+        const { name, email, phone, age, gender, address } = req.body;
+        const userId = req.user.id;
+        
+        // Check if email already exists for another user
+        if (email) {
+            const existingUser = await User.findByEmail(email);
+            if (existingUser && existingUser.id !== userId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email already in use',
+                    data: null
+                });
+            }
+        }
+        
+        // Prepare update data
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email;
+        if (phone) updateData.phone = phone;
+        if (age) updateData.age = parseInt(age);
+        if (gender) updateData.gender = gender;
+        if (address) updateData.address = address;
+        
+        // Update user in database
+        await User.update(userId, updateData);
+          // Get updated user
+        const updatedUser = await User.findById(userId);
+        delete updatedUser.password_hash;
+        delete updatedUser.refresh_token;
+        
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: updatedUser
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
     }
-
-    // Prepare update data - only update fields that are provided
-    const updateData = {};
-    if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone;
-    if (gender !== undefined) updateData.gender = gender;
-    if (date_of_birth !== undefined) updateData.date_of_birth = date_of_birth;
-    if (address !== undefined) updateData.address = address;
-    
-    updateData.updated_at = new Date();
-
-    await user.update(updateData);
-
-    // Return user without password
-    const { password_hash: _, ...userWithoutPassword } = user.toJSON();
-
-    res.json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: userWithoutPassword
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update profile',
-      error: error.message
-    });
-  }
 };
 
-// POST /api/users/avatar
+// Upload avatar
 export const uploadAvatar = async (req, res) => {
-  try {
-    // This would typically handle file upload
-    // For now, expecting avatar_url in body
-    const { avatar_url } = req.body;
-
-    const user = await User.findByPk(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded',
+                data: null
+            });
+        }
+        
+        const userId = req.user.id;
+        const avatarPath = `/uploads/avatars/${req.file.filename}`;
+          // Get user's current avatar
+        const currentUser = await User.findById(userId);
+        const oldAvatarPath = currentUser.profile_image;
+          // Update user's avatar in database
+        await User.update(userId, { profile_image: avatarPath });
+        
+        // Delete old avatar file if it exists and is not a default avatar
+        if (oldAvatarPath && !oldAvatarPath.includes('default') && fs.existsSync(path.join(process.cwd(), 'public', oldAvatarPath))) {
+            fs.unlinkSync(path.join(process.cwd(), 'public', oldAvatarPath));
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: 'Avatar uploaded successfully',
+            data: { avatarUrl: avatarPath }
+        });
+    } catch (error) {
+        // Delete uploaded file if there's an error
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
     }
-
-    await user.update({
-      avatar_url,
-      updated_at: new Date()
-    });
-
-    res.json({
-      success: true,
-      message: 'Avatar updated successfully',
-      data: { avatar_url: user.avatar_url }
-    });
-  } catch (error) {
-    console.error('Upload avatar error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload avatar',
-      error: error.message
-    });
-  }
 };
 
-// GET /api/users/smoking-status
+// Get smoking status
 export const getSmokingStatus = async (req, res) => {
-  try {
-    const smokingStatus = await SmokingStatus.findOne({
-      where: { smoker_id: req.user.id },
-      order: [['recorded_at', 'DESC']]
-    });
-
-    res.json({
-      success: true,
-      data: smokingStatus
-    });
-  } catch (error) {
-    console.error('Get smoking status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get smoking status',
-      error: error.message
-    });
-  }
+    try {
+        const userId = req.user.id;
+        
+        // Get user's smoking status from database
+        const query = `
+            SELECT 
+                SmokingStatus,
+                CigarettesPerDay,
+                YearsSmoked,
+                QuitDate,
+                LastUpdated
+            FROM user_smoking_status
+            WHERE UserID = ?
+        `;
+        
+        const [rows] = await pool.query(query, [userId]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Smoking status not found',
+                data: null
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: 'Smoking status retrieved successfully',
+            data: rows[0]
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
+    }
 };
 
-// PUT /api/users/smoking-status
+// Update smoking status
 export const updateSmokingStatus = async (req, res) => {
-  try {
-    const { status, cigarettes_per_day } = req.body;
-
-    // Create new smoking status record
-    const smokingStatus = await SmokingStatus.create({
-      smoker_id: req.user.id,
-      status,
-      cigarettes_per_day
-    });
-
-    res.json({
-      success: true,
-      message: 'Smoking status updated successfully',
-      data: smokingStatus
-    });
-  } catch (error) {
-    console.error('Update smoking status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update smoking status',
-      error: error.message
-    });
-  }
+    try {
+        const { smokingStatus, cigarettesPerDay, yearsSmoked, quitDate } = req.body;
+        const userId = req.user.id;
+        
+        // Check if user already has a smoking status record
+        const checkQuery = `SELECT UserID FROM user_smoking_status WHERE UserID = ?`;
+        const [checkRows] = await pool.query(checkQuery, [userId]);
+        
+        let query, params;
+        
+        if (checkRows.length === 0) {
+            // Insert new record
+            query = `
+                INSERT INTO user_smoking_status 
+                    (UserID, SmokingStatus, CigarettesPerDay, YearsSmoked, QuitDate, LastUpdated) 
+                VALUES (?, ?, ?, ?, ?, NOW())
+            `;
+            params = [userId, smokingStatus, cigarettesPerDay, yearsSmoked, quitDate || null];
+        } else {
+            // Update existing record
+            query = `
+                UPDATE user_smoking_status
+                SET 
+                    SmokingStatus = ?,
+                    CigarettesPerDay = ?,
+                    YearsSmoked = ?,
+                    QuitDate = ?,
+                    LastUpdated = NOW()
+                WHERE UserID = ?
+            `;
+            params = [smokingStatus, cigarettesPerDay, yearsSmoked, quitDate || null, userId];
+        }
+        
+        await pool.query(query, params);
+        
+        // Get updated smoking status
+        const getQuery = `
+            SELECT 
+                SmokingStatus,
+                CigarettesPerDay,
+                YearsSmoked,
+                QuitDate,
+                LastUpdated
+            FROM user_smoking_status
+            WHERE UserID = ?
+        `;
+        
+        const [rows] = await pool.query(getQuery, [userId]);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Smoking status updated successfully',
+            data: rows[0]
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
+    }
 };
 
-// DELETE /api/users/account
+// Delete user account
 export const deleteAccount = async (req, res) => {
-  try {
-    const { password } = req.body;
-
-    const user = await User.findByPk(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+    try {
+        const userId = req.user.id;
+          // Get user's avatar
+        const user = await User.findById(userId);
+        const avatarPath = user.profile_image;
+        
+        // Begin transaction to ensure all related data is deleted
+        await pool.query('START TRANSACTION');
+        
+        // Delete user's smoking status
+        await pool.query('DELETE FROM user_smoking_status WHERE UserID = ?', [userId]);
+        
+        // Delete user's refresh tokens
+        await pool.query('DELETE FROM refresh_tokens WHERE UserID = ?', [userId]);
+        
+        // Delete any other related data...
+        // For example:
+        // await pool.query('DELETE FROM user_progress WHERE UserID = ?', [userId]);
+        // await pool.query('DELETE FROM user_goals WHERE UserID = ?', [userId]);
+        
+        // Finally delete the user
+        await pool.query('DELETE FROM users WHERE UserID = ?', [userId]);
+        
+        // Commit transaction
+        await pool.query('COMMIT');
+        
+        // Delete avatar file if it exists and is not a default avatar
+        if (avatarPath && !avatarPath.includes('default') && fs.existsSync(path.join(process.cwd(), 'public', avatarPath))) {
+            fs.unlinkSync(path.join(process.cwd(), 'public', avatarPath));
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: 'Account deleted successfully',
+            data: null
+        });
+    } catch (error) {
+        // Rollback transaction if error
+        await pool.query('ROLLBACK');
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message,
+            data: null
+        });
     }
-
-    // Verify password before deletion
-    const isPasswordValid = await comparePassword(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid password'
-      });
-    }
-
-    // In a real app, you might want to soft delete or anonymize data
-    await user.destroy();
-
-    res.json({
-      success: true,
-      message: 'Account deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete account error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete account',
-      error: error.message
-    });
-  }
 };
