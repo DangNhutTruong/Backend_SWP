@@ -12,7 +12,7 @@ import {
   FaTimes,
   FaCrown,
   FaImage,
-  FaCheckCircle
+  FaCheckCircle,
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -38,7 +38,7 @@ const UserProfile = ({ isStandalone = false }) => {
     const { name, value } = e.target;
     setUserData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -50,7 +50,7 @@ const UserProfile = ({ isStandalone = false }) => {
       reader.onload = (e) => {
         setUserData((prev) => ({
           ...prev,
-          avatar: e.target.result
+          avatar: e.target.result,
         }));
       };
       reader.readAsDataURL(file);
@@ -72,28 +72,28 @@ const UserProfile = ({ isStandalone = false }) => {
   const saveChanges = async () => {
     try {
       // Gọi API để cập nhật thông tin người dùng
-      const token = localStorage.getItem('auth_token');
-      
+      const token = localStorage.getItem("auth_token");
+
       if (!token) {
         setErrorMessage("Vui lòng đăng nhập lại để cập nhật thông tin.");
         return;
       }
-      
-      console.log('Sending update request:', {
+
+      console.log("Sending update request:", {
         username: userData.username,
         full_name: userData.name,
         phone: userData.phone,
         age: userData.age,
         gender: userData.gender,
         address: userData.address,
-        quit_reason: userData.quitReason
+        quit_reason: userData.quitReason,
       });
-      
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
-        method: 'PUT',
+
+      const response = await fetch("http://localhost:5000/api/auth/profile", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           username: userData.username,
@@ -102,30 +102,32 @@ const UserProfile = ({ isStandalone = false }) => {
           address: userData.address,
           gender: userData.gender,
           age: userData.age,
-          quit_reason: userData.quitReason
-        })
+          quit_reason: userData.quitReason,
+        }),
       });
 
-      console.log('Response status:', response.status);
-      
+      console.log("Response status:", response.status);
+
       if (response.ok) {
         await response.json();
-        
+
         // Cập nhật user trong context
         const updatedUser = { ...user, ...userData };
         await updateUser(updatedUser);
-        
+
         setSuccessMessage("Thông tin đã được cập nhật thành công.");
         setIsEditing(false);
-        
+
         // Clear success message after 3 seconds
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
       } else {
         const error = await response.json();
-        console.error('API error:', error);
-        setErrorMessage(error.message || "Có lỗi xảy ra khi cập nhật thông tin.");
+        console.error("API error:", error);
+        setErrorMessage(
+          error.message || "Có lỗi xảy ra khi cập nhật thông tin."
+        );
       }
     } catch (error) {
       console.error("Lỗi khi cập nhật thông tin:", error);
@@ -174,17 +176,17 @@ const UserProfile = ({ isStandalone = false }) => {
         <div className="avatar-section">
           <div className="avatar-container">
             {userData.avatar ? (
-              <img 
-                src={userData.avatar} 
-                alt="Ảnh đại diện" 
-                className="user-avatar" 
+              <img
+                src={userData.avatar}
+                alt="Ảnh đại diện"
+                className="user-avatar"
               />
             ) : (
               <div className="user-avatar-placeholder">
                 <FaUserAlt />
               </div>
             )}
-            
+
             {isEditing && (
               <div className="avatar-edit">
                 <label htmlFor="avatar-input" className="avatar-edit-button">
@@ -199,27 +201,30 @@ const UserProfile = ({ isStandalone = false }) => {
                 />
               </div>
             )}
-            
+
             {/* Hiển thị ID người dùng dưới avatar */}
             <div className="user-id">
               ID: {userData._id || userData.id || "N/A"}
             </div>
-            
-            {userData.membershipType && userData.membershipType !== 'free' && (
+
+            {userData.membershipType && userData.membershipType !== "free" && (
               <div className={`membership-badge ${userData.membershipType}`}>
-                <FaCrown /> {userData.membershipType === 'premium' ? 'Premium' : 'Pro'}
+                <FaCrown />{" "}
+                {userData.membershipType === "premium" ? "Premium" : "Pro"}
               </div>
             )}
           </div>
         </div>
-        
+
         <div className="info-section">
           {/* Thông tin cơ bản */}
           <div className="profile-section basic-info">
             <h2>Thông tin cơ bản</h2>
-            
+
             <div className="info-field">
-              <label><FaUserAlt /> Họ và tên</label>
+              <label>
+                <FaUserAlt /> Họ và tên
+              </label>
               {isEditing ? (
                 <input
                   type="text"
@@ -232,9 +237,11 @@ const UserProfile = ({ isStandalone = false }) => {
                 <p>{userData.name || "Chưa cập nhật"}</p>
               )}
             </div>
-            
+
             <div className="info-field">
-              <label><FaCalendarAlt /> Tuổi</label>
+              <label>
+                <FaCalendarAlt /> Tuổi
+              </label>
               {isEditing ? (
                 <input
                   type="number"
@@ -246,18 +253,18 @@ const UserProfile = ({ isStandalone = false }) => {
                   max="120"
                 />
               ) : (
-                <p>
-                  {userData.age ? `${userData.age} tuổi` : "Chưa cập nhật"}
-                </p>
+                <p>{userData.age ? `${userData.age} tuổi` : "Chưa cập nhật"}</p>
               )}
             </div>
 
             <div className="info-field">
-              <label><FaTransgender /> Giới tính</label>
+              <label>
+                <FaTransgender /> Giới tính
+              </label>
               {isEditing ? (
-                <select 
-                  name="gender" 
-                  value={userData.gender || ""} 
+                <select
+                  name="gender"
+                  value={userData.gender || ""}
                   onChange={handleChange}
                 >
                   <option value="">-- Chọn giới tính --</option>
@@ -267,9 +274,13 @@ const UserProfile = ({ isStandalone = false }) => {
                 </select>
               ) : (
                 <p>
-                  {userData.gender === "male" ? "Nam" : 
-                   userData.gender === "female" ? "Nữ" : 
-                   userData.gender === "other" ? "Khác" : "Chưa cập nhật"}
+                  {userData.gender === "male"
+                    ? "Nam"
+                    : userData.gender === "female"
+                    ? "Nữ"
+                    : userData.gender === "other"
+                    ? "Khác"
+                    : "Chưa cập nhật"}
                 </p>
               )}
             </div>
@@ -278,9 +289,11 @@ const UserProfile = ({ isStandalone = false }) => {
           {/* Thông tin liên hệ */}
           <div className="profile-section contact-section">
             <h2>Thông tin liên hệ</h2>
-            
+
             <div className="info-field">
-              <label><FaMapMarkerAlt /> Địa chỉ</label>
+              <label>
+                <FaMapMarkerAlt /> Địa chỉ
+              </label>
               {isEditing ? (
                 <input
                   type="text"
@@ -293,15 +306,21 @@ const UserProfile = ({ isStandalone = false }) => {
                 <p>{userData.address || "Chưa cập nhật"}</p>
               )}
             </div>
-            
+
             <div className="info-field">
-              <label><FaEnvelope /> Email</label>
-              <p><strong>{userData.email}</strong></p>
+              <label>
+                <FaEnvelope /> Email
+              </label>
+              <p>
+                <strong>{userData.email}</strong>
+              </p>
               <small className="field-note">Email không thể thay đổi</small>
             </div>
 
             <div className="info-field">
-              <label><FaPhone /> Số điện thoại</label>
+              <label>
+                <FaPhone /> Số điện thoại
+              </label>
               {isEditing ? (
                 <input
                   type="tel"
@@ -319,9 +338,11 @@ const UserProfile = ({ isStandalone = false }) => {
           {/* Bảo mật */}
           <div className="profile-section security-section">
             <h2>Bảo mật</h2>
-            
+
             <div className="info-field">
-              <label><FaLock /> Mật khẩu</label>
+              <label>
+                <FaLock /> Mật khẩu
+              </label>
               {isEditing ? (
                 <input
                   type="password"
@@ -335,11 +356,11 @@ const UserProfile = ({ isStandalone = false }) => {
               )}
             </div>
           </div>
-          
+
           {/* Lý do cai thuốc */}
           <div className="profile-section quit-reason-section">
             <h2>Lý do cai thuốc</h2>
-            
+
             <div className="info-field quit-reason-field">
               {isEditing ? (
                 <textarea
@@ -350,7 +371,9 @@ const UserProfile = ({ isStandalone = false }) => {
                   rows={3}
                 />
               ) : (
-                <p className="quit-reason-text">{userData.quitReason || "Chưa cập nhật"}</p>
+                <p className="quit-reason-text">
+                  {userData.quitReason || "Chưa cập nhật"}
+                </p>
               )}
             </div>
           </div>
