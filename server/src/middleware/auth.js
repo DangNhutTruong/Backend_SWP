@@ -4,14 +4,21 @@ import { sendError } from '../utils/response.js';
 
 export const authenticateToken = async (req, res, next) => {
     try {
+        console.log('🔐 AUTH MIDDLEWARE - Request to:', req.path);
+        
         const authHeader = req.headers['authorization'];
+        console.log('🔐 Auth header:', authHeader ? 'Present' : 'Missing');
+        
         const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
         if (!token) {
+            console.log('❌ No token provided');
             return sendError(res, 'Access token is required', 401);
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);        // Check if user still exists and is active
+        console.log('🔐 Token found, verifying...');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('🔐 Token decoded for user ID:', decoded.userId);        // Check if user still exists and is active
         const [users] = await pool.execute(
             `SELECT id, username, email, full_name, phone, date_of_birth, gender, 
                     role, email_verified, is_active, created_at 
@@ -21,8 +28,11 @@ export const authenticateToken = async (req, res, next) => {
         );
 
         if (users.length === 0) {
+            console.log('❌ User not found or deactivated');
             return sendError(res, 'User not found or account deactivated', 401);
-        }        // Add user info to request object
+        }
+
+        console.log('✅ User authenticated:', users[0].username);        // Add user info to request object
         req.user = {
             id: users[0].id,
             username: users[0].username,

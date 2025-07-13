@@ -1144,3 +1144,258 @@ export const logout = async (req, res) => {
         sendError(res, 'Failed to logout', 500);
     }
 };
+
+// ═════════════════════════════════════════════════════════════════
+//                      APPOINTMENT MANAGEMENT
+// ═════════════════════════════════════════════════════════════════
+
+// Create new appointment
+export const createAppointment = async (req, res) => {
+    try {
+        console.log('\n📅 ═══════════════════════════════════════');
+        console.log('🔔  CREATE APPOINTMENT');
+        console.log('📅 ═══════════════════════════════════════');
+
+        // For testing without authentication - get userId from request body
+        const {
+            userId,
+            coachId,
+            appointmentDate,
+            appointmentTime
+        } = req.body;
+
+        console.log('🆔  User ID:', userId);
+        console.log('👤  Coach ID:', coachId);
+        console.log('📅  Date:', appointmentDate);
+        console.log('🕒  Time:', appointmentTime);
+
+        // Validate required fields
+        if (!coachId || !appointmentDate || !appointmentTime) {
+            console.log('❌  Missing required fields');
+            return sendError(res, 'Missing required fields: coachId, appointmentDate, appointmentTime', 400);
+        }
+
+        // Get user information
+        const [users] = await pool.execute(
+            'SELECT username, full_name, email FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            console.log('❌  User not found');
+            return sendError(res, 'User not found', 404);
+        }
+
+        const user = users[0];
+
+        // Insert appointment into appointments table (old schema)
+        const result = await pool.execute(
+            `INSERT INTO appointments (
+                coach_id, user_id, date, time, duration_minutes, status, notes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW(), NOW())`,
+            [
+                coachId,
+                userId,
+                appointmentDate, // Separate date field
+                appointmentTime, // Separate time field  
+                30, // Default 30 minutes duration
+                'Cuộc hẹn tư vấn với coach' // Default notes
+            ]
+        );
+
+        console.log('✅  Appointment created successfully');
+        console.log('🆔  Appointment ID:', result[0].insertId);
+        console.log('📅 ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Appointment created successfully', {
+            appointmentId: result[0].insertId,
+            status: 'pending'
+        });
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  CREATE APPOINTMENT ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error message:', error.message);
+        console.error('🚨  Error code:', error.code);
+        console.error('🚨  Error stack:', error.stack);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to create appointment: ' + error.message, 500);
+    }
+};
+
+// Get user appointments
+export const getUserAppointments = async (req, res) => {
+    try {
+        console.log('\n📋 ═══════════════════════════════════════');
+        console.log('📅  GET USER APPOINTMENTS');
+        console.log('📋 ═══════════════════════════════════════');
+
+        // For testing without authentication - get userId from query params or request body
+        const userId = req.query.userId || req.body.userId || (req.user && req.user.id);
+        console.log('🆔  User ID:', userId);
+
+        if (!userId) {
+            return sendError(res, 'User ID is required', 400);
+        }
+
+        const [appointments] = await pool.execute(
+            `SELECT a.*, u.full_name as user_name, u.email as user_email 
+             FROM appointments a
+             JOIN users u ON a.user_id = u.id
+             WHERE a.user_id = ? 
+             ORDER BY a.created_at DESC`,
+            [userId]
+        );
+
+        console.log('✅  Found', appointments.length, 'appointments');
+        console.log('📋 ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Appointments retrieved successfully', appointments);
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  GET APPOINTMENTS ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error:', error.message);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to get appointments', 500);
+    }
+};
+
+// Get coach appointments
+export const getCoachAppointments = async (req, res) => {
+    try {
+        console.log('\n📋 ═══════════════════════════════════════');
+        console.log('👨‍⚕️  GET COACH APPOINTMENTS');
+        console.log('📋 ═══════════════════════════════════════');
+
+        // For testing without authentication - get coachId from query params or request body
+        const coachId = req.query.coachId || req.body.coachId || (req.user && req.user.id);
+        console.log('🆔  Coach ID:', coachId);
+
+        if (!coachId) {
+            return sendError(res, 'Coach ID is required', 400);
+        }
+
+        const [appointments] = await pool.execute(
+            `SELECT a.*, u.full_name as user_name, u.email as user_email 
+             FROM appointments a
+             JOIN users u ON a.user_id = u.id
+             WHERE a.coach_id = ? 
+             ORDER BY a.created_at DESC`,
+            [coachId]
+        );
+
+        console.log('✅  Found', appointments.length, 'appointments for coach');
+        console.log('📋 ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Coach appointments retrieved successfully', appointments);
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  GET COACH APPOINTMENTS ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error:', error.message);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to get coach appointments', 500);
+    }
+};
+
+// Update appointment status
+export const updateAppointmentStatus = async (req, res) => {
+    try {
+        console.log('\n🔄 ═══════════════════════════════════════');
+        console.log('📝  UPDATE APPOINTMENT STATUS');
+        console.log('🔄 ═══════════════════════════════════════');
+
+        const { appointmentId } = req.params;
+        const { status, notes } = req.body;
+        // For testing without authentication - get userId from request body or use bypass
+        const userId = req.body.userId || (req.user && req.user.id);
+
+        console.log('🆔  Appointment ID:', appointmentId);
+        console.log('🆔  User ID:', userId);
+        console.log('📝  New Status:', status);
+
+        // Check appointment exists (remove user restriction for coach access)
+        const [appointments] = await pool.execute(
+            'SELECT * FROM appointments WHERE id = ?',
+            [appointmentId]
+        );
+
+        if (appointments.length === 0) {
+            console.log('❌  Appointment not found');
+            return sendError(res, 'Appointment not found', 404);
+        }
+
+        // Update appointment status in appointments table
+        await pool.execute(
+            `UPDATE appointments 
+             SET status = ?, notes = COALESCE(?, notes), updated_at = NOW()
+             WHERE id = ?`,
+            [status, notes, appointmentId]
+        );
+
+        console.log('✅  Appointment status updated successfully');
+        console.log('🔄 ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Appointment status updated successfully');
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  UPDATE APPOINTMENT ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error:', error.message);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to update appointment', 500);
+    }
+};
+
+// Cancel appointment
+export const cancelAppointment = async (req, res) => {
+    try {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('🚫  CANCEL APPOINTMENT');
+        console.log('❌ ═══════════════════════════════════════');
+
+        const { appointmentId } = req.params;
+        const userId = req.user.id;
+
+        console.log('🆔  Appointment ID:', appointmentId);
+        console.log('🆔  User ID:', userId);
+
+        // Verify appointment belongs to user and is not already cancelled
+        const [appointments] = await pool.execute(
+            `SELECT * FROM appointment 
+             WHERE id = ? AND user_id = ? AND status != 'cancelled'`,
+            [appointmentId, userId]
+        );
+
+        if (appointments.length === 0) {
+            console.log('❌  Appointment not found, unauthorized, or already cancelled');
+            return sendError(res, 'Appointment not found, unauthorized, or already cancelled', 404);
+        }
+
+        // Update appointment status to cancelled
+        await pool.execute(
+            `UPDATE appointment 
+             SET status = 'cancelled', updated_at = NOW()
+             WHERE id = ? AND user_id = ?`,
+            [appointmentId, userId]
+        );
+
+        console.log('✅  Appointment cancelled successfully');
+        console.log('❌ ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Appointment cancelled successfully');
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  CANCEL APPOINTMENT ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error:', error.message);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to cancel appointment', 500);
+    }
+};

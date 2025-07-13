@@ -219,44 +219,56 @@
 /* New messaging styles */
 .tab-navigation {
   display: flex;
-  gap: 15px;
-  margin-top: 20px;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .tab-button {
+  padding: 0.75rem 1.25rem;
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: rgba(102, 126, 234, 0.1);
-  border: 2px solid rgba(102, 126, 234, 0.2);
-  border-radius: 8px;
-  color: #667eea;
-  cursor: pointer;
+  gap: 0.5rem;
   transition: all 0.3s ease;
-  position: relative;
+  text-decoration: none;
 }
 
 .tab-button:hover {
-  background: rgba(102, 126, 234, 0.2);
-  transform: translateY(-2px);
+  background: #e9ecef;
+  border-color: #dee2e6;
 }
 
 .tab-button.active {
-  background: #667eea;
+  background: #4a90e2;
   color: white;
-  border-color: #667eea;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  border-color: #4a90e2;
+}
+
+.manage-bookings-btn {
+  background: #28a745 !important;
+  color: white !important;
+  border-color: #28a745 !important;
+}
+
+.manage-bookings-btn:hover {
+  background: #218838 !important;
+  border-color: #1e7e34 !important;
 }
 
 .unread-badge {
-  background: #ff4757;
+  background: #dc3545;
   color: white;
   border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
   font-weight: bold;
-  min-width: 20px;
+  min-width: 1.2rem;
   text-align: center;
 }
 

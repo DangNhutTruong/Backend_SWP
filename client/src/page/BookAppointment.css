@@ -429,6 +429,22 @@
   box-shadow: 0 8px 15px rgba(37, 112, 232, 0.3);
 }
 
+.month-nav:disabled {
+  background: linear-gradient(145deg, #e9ecef, #f8f9fa);
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.month-nav:disabled:hover {
+  background: linear-gradient(145deg, #e9ecef, #f8f9fa);
+  color: #6c757d;
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
 .month-nav::after {
   content: '';
   position: absolute;
@@ -502,6 +518,15 @@
   pointer-events: none;
   opacity: 0.2;
   background: #f9f9f9;
+  box-shadow: none;
+}
+
+.calendar-day.disabled {
+  pointer-events: none;
+  opacity: 0.3;
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
   box-shadow: none;
 }
 
@@ -764,6 +789,41 @@
   transform: translateY(-2px);
 }
 
+.time-dropdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.time-dropdown {
+  padding: 15px 20px;
+  border: 2px solid #e0e6ed;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background-color: #ffffff;
+  color: #333;
+  font-weight: 500;
+  box-shadow: 0 5px 15px rgba(37, 112, 232, 0.08);
+  position: relative;
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.time-dropdown:hover {
+  border-color: #c0d0ff;
+  box-shadow: 0 8px 20px rgba(37, 112, 232, 0.1);
+}
+
+.time-dropdown:focus {
+  border-color: #2570e8;
+  box-shadow: 0 0 0 5px rgba(37, 112, 232, 0.15);
+  background-color: #ffffff;
+  transform: translateY(-2px);
+}
+
 .btn-submit-time {
   padding: 16px 25px;
   background: linear-gradient(135deg, #2570e8, #1a5cbf);
@@ -788,6 +848,21 @@
 .btn-submit-time:active {
   transform: translateY(1px);
   box-shadow: 0 2px 8px rgba(37, 112, 232, 0.25);
+}
+
+.btn-submit-time:disabled {
+  background: linear-gradient(135deg, #e9ecef, #dee2e6);
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.btn-submit-time:disabled:hover {
+  background: linear-gradient(135deg, #e9ecef, #dee2e6);
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .btn-submit-time::before {

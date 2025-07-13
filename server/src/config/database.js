@@ -1,27 +1,24 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from server root directory
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+// Debug env variables
+console.log('🔍 DEBUG ENV VARIABLES:');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? '***' : 'NOT SET');
+console.log('DB_NAME:', process.env.DB_NAME);
 
 // Support both Railway connection string and individual parameters
 const createDbConfig = () => {
-    // If using Railway connection string (recommended)
-    if (process.env.DATABASE_URL || process.env.DB_URL) {
-        const url = process.env.DATABASE_URL || process.env.DB_URL;
-        return {
-            uri: url,
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0,
-            charset: 'utf8mb4',
-            timezone: '+00:00', // Railway uses UTC
-            ssl: {
-                rejectUnauthorized: false // Required for Railway
-            }
-        };
-    }
-
-    // Fallback to individual parameters
+    // Use individual parameters for better control
     return {
         host: process.env.DB_HOST,
         port: process.env.DB_PORT || 3306,
@@ -31,14 +28,11 @@ const createDbConfig = () => {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
-        acquireTimeout: 60000,
-        timeout: 60000,
-        reconnect: true,
         charset: 'utf8mb4',
         timezone: '+00:00',
-        ssl: process.env.NODE_ENV === 'production' ? {
+        ssl: {
             rejectUnauthorized: false
-        } : false
+        }
     };
 };
 

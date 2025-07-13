@@ -248,6 +248,44 @@
   font-size: 1.1rem;
 }
 
+/* Server Error Banner */
+.server-error-banner {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  border-left: 4px solid #fff;
+}
+
+.server-error-banner svg {
+  font-size: 1.5rem;
+  min-width: 24px;
+}
+
+.server-error-banner strong {
+  font-size: 1.1rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.server-error-banner p {
+  margin: 0.25rem 0 0.5rem 0;
+  opacity: 0.9;
+}
+
+.server-error-banner small {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .bookings-header h1 {
