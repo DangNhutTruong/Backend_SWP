@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Appointment Status Update</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Appointment Status Update</h1>
+        
+        <div class="form-group">
+            <label for="token">Authorization Token:</label>
+            <input type="text" id="token" placeholder="Bearer your-token-here">
+        </div>
+        
+        <div class="form-group">
+            <label for="appointmentId">Appointment ID:</label>
+            <input type="text" id="appointmentId" placeholder="e.g. 147" value="147">
+        </div>
+        
+        <div class="form-group">
+            <label for="status">Status:</label>
+            <select id="status">
+                <option value="pending">pending</option>
+                <option value="confirmed" selected>confirmed</option>
+                <option value="completed">completed</option>
+                <option value="cancelled">cancelled</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>API Endpoint:</label>
+            <div>
+                <input type="radio" id="newEndpoint" name="endpoint" value="new" checked> 
+                <label for="newEndpoint">New POST: /api/appointment-update/:id/status</label>
+            </div>
+            <div>
+                <input type="radio" id="oldEndpoint" name="endpoint" value="old"> 
+                <label for="oldEndpoint">Old PATCH: /api/appointments/:id/status</label>
+            </div>
+        </div>
+        
+        <button onclick="updateStatus()">Send Request</button>
+        
+        <h2>Response:</h2>
+        <pre id="response">Results will appear here...</pre>
+    </div>
+
+    <script>
+        async function updateStatus() {
+            const token = document.getElementById('token').value;
+            const appointmentId = document.getElementById('appointmentId').value;
+            const status = document.getElementById('status').value;
+            const endpointType = document.querySelector('input[name="endpoint"]:checked').value;
+            
+            const responseElement = document.getElementById('response');
+            responseElement.innerHTML = 'Sending request...';
+            
+            // Build URL based on selected endpoint
+            const baseUrl = 'http://localhost:5000';
+            let url, method;
+            
+            if (endpointType === 'new') {
+                url = `${baseUrl}/api/appointment-update/${appointmentId}/status`;
+                method = 'POST';
+            } else {
+                url = `${baseUrl}/api/appointments/${appointmentId}/status`;
+                method = 'PATCH';
+            }
+            
+            // Log request details
+            console.log(`Sending ${method} request to ${url}`);
+            console.log(`Status: ${status}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token
+                    },
+                    body: JSON.stringify({ status: status })
+                });
+                
+                const contentType = response.headers.get('content-type');
+                let result;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    result = await response.text();
+                }
+                
+                // Format and display the response
+                responseElement.innerHTML = 
+                    `Status: ${response.status} ${response.statusText}\n\n` +
+                    `${typeof result === 'object' ? JSON.stringify(result, null, 2) : result}`;
+                    
+            } catch (error) {
+                responseElement.innerHTML = `Error: ${error.message}`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test URL Paths</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .test-container {
+            background-color: #f7f7f7;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .test-url {
+            font-family: monospace;
+            background-color: #eee;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .test-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 10px 5px 10px 0;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .test-button.secondary {
+            background-color: #2196F3;
+        }
+        .results {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #fff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test API Endpoint URLs</h1>
+    
+    <div class="test-container">
+        <div class="test-title">1. Test URL Paths:</div>
+        
+        <div>
+            <div class="test-url">/api/appointment-update/147/status</div>
+            <button class="test-button" onclick="testUrl('/api/appointment-update/147/status')">Test đường dẫn đúng (singular)</button>
+        </div>
+        
+        <div>
+            <div class="test-url">/api/appointments-update/147/status</div>
+            <button class="test-button secondary" onclick="testUrl('/api/appointments-update/147/status')">Test đường dẫn sai (plural + dash)</button>
+        </div>
+        
+        <div>
+            <div class="test-url">/api/appointments/147/status</div>
+            <button class="test-button secondary" onclick="testUrl('/api/appointments/147/status', 'PATCH')">Test đường dẫn PATCH cũ</button>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <div class="test-title">2. Authorization Token:</div>
+        <input type="text" id="token" placeholder="Bearer your-token" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+    </div>
+    
+    <div class="test-container">
+        <div class="test-title">3. Payload Options:</div>
+        <select id="status" style="padding: 8px; margin-bottom: 10px;">
+            <option value="confirmed">confirmed</option>
+            <option value="pending">pending</option>
+            <option value="completed">completed</option>
+            <option value="cancelled">cancelled</option>
+        </select>
+    </div>
+    
+    <h2>Results:</h2>
+    <div id="results" class="results">Results will appear here...</div>
+    
+    <script>
+        async function testUrl(path, method = 'POST') {
+            const resultsDiv = document.getElementById('results');
+            const status = document.getElementById('status').value;
+            const token = document.getElementById('token').value;
+            
+            resultsDiv.innerHTML = `<p>Testing: ${method} ${path} with status="${status}"...</p>`;
+            
+            try {
+                const url = `http://localhost:5000${path}`;
+                
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (token) {
+                    headers['Authorization'] = token;
+                }
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: headers,
+                    body: JSON.stringify({ status: status })
+                });
+                
+                const statusText = response.ok ? 
+                    `<span class="success">${response.status} ${response.statusText}</span>` : 
+                    `<span class="error">${response.status} ${response.statusText}</span>`;
+                    
+                resultsDiv.innerHTML += `<p>Response: ${statusText}</p>`;
+                
+                // Try to parse response as JSON
+                try {
+                    const data = await response.json();
+                    resultsDiv.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } catch (e) {
+                    // If not JSON, get as text
+                    const text = await response.text();
+                    resultsDiv.innerHTML += `<pre>${text}</pre>`;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

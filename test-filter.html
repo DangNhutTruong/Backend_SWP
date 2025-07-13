@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Appointment Filter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #28a745; background-color: #d4edda; }
+        .error { border-color: #dc3545; background-color: #f8d7da; }
+        .info { border-color: #17a2b8; background-color: #d1ecf1; }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .time-slot {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #e9ecef;
+        }
+        .time-slot.available { background: #d4edda; border-color: #28a745; }
+        .time-slot.booked { background: #f8d7da; border-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Appointment Filter Logic</h1>
+        
+        <div class="test-section info">
+            <h3>Hướng dẫn Test</h3>
+            <p>1. Kiểm tra logic filter slot đã đặt trong BookAppointment.jsx</p>
+            <p>2. Test với dữ liệu thực tế từ API</p>
+            <p>3. Verify các slot đã bị đặt sẽ không hiển thị trong UI</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Test Coach Availability API</h3>
+            <label>Coach ID: <input type="number" id="coachId" value="5" placeholder="Nhập Coach ID"></label>
+            <button onclick="testAvailabilityAPI()">Test API</button>
+            <div id="apiResult" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ Test Filter Logic</h3>
+            <button onclick="testFilterLogic()">Test Filter Logic</button>
+            <div id="filterResult" class="log"></div>
+            <div id="slotsDisplay"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📱 Frontend Test</h3>
+            <p>Để test trên frontend thực tế:</p>
+            <ol>
+                <li>Vào <a href="http://localhost:5175" target="_blank">http://localhost:5175</a></li>
+                <li>Login với tài khoản có membership</li>
+                <li>Vào trang Book Appointment</li>
+                <li>Chọn coach và ngày hôm nay</li>
+                <li>Kiểm tra các slot time có bị filter đúng không</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Copy logic từ BookAppointment.jsx để test
+        function generateTimeSlots(availability) {
+            const slots = [];
+            
+            availability.forEach(slot => {
+                const startTime = slot.start_time || slot.time_start;
+                const endTime = slot.end_time || slot.time_end;
+                
+                if (!startTime || !endTime) return;
+                
+                // Parse start and end times
+                const [startHour, startMin] = startTime.split(':').map(Number);
+                const [endHour, endMin] = endTime.split(':').map(Number);
+                
+                // Generate 2-hour slots between start and end time
+                let currentHour = startHour;
+                let currentMin = startMin;
+                
+                while (currentHour < endHour) {
+                    const timeString = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+                    
+                    // Calculate end time for this 2-hour slot
+                    let slotEndHour = currentHour + 2;
+                    let slotEndMin = currentMin;
+                    
+                    // Make sure we don't go past the availability end time
+                    if (slotEndHour > endHour || (slotEndHour === endHour && slotEndMin > endMin)) {
+                        slotEndHour = endHour;
+                        slotEndMin = endMin;
+                    }
+                    
+                    const slotEndTime = `${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}`;
+                    
+                    slots.push({
+                        time: timeString,
+                        displayTime: `${timeString} - ${slotEndTime}`,
+                        available: true
+                    });
+                    
+                    // Move to next slot (advance by 2 hours)
+                    currentHour += 2;
+                    
+                    // If we've reached or passed the end time, break
+                    if (currentHour >= endHour) {
+                        break;
+                    }
+                }
+            });
+            
+            return slots;
+        }
+
+        // Copy logic filter từ BookAppointment.jsx
+        function isSlotBooked(slotTime, bookedAppointments, selectedDate) {
+            if (!bookedAppointments || bookedAppointments.length === 0) return false;
+            
+            const selectedDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            return bookedAppointments.some(appointment => {
+                // Check if appointment is on the same date
+                const appointmentDate = appointment.date || appointment.appointment_date;
+                if (appointmentDate !== selectedDateStr) return false;
+                
+                // Check if appointment time conflicts with slot time
+                const appointmentTime = appointment.time || appointment.appointment_time;
+                if (!appointmentTime) return false;
+                
+                // Parse appointment time (could be HH:MM or full datetime)
+                let appointmentHour, appointmentMin;
+                if (appointmentTime.includes(':')) {
+                    [appointmentHour, appointmentMin] = appointmentTime.split(':').map(Number);
+                } else {
+                    // If it's a full datetime, extract time part
+                    const timeMatch = appointmentTime.match(/(\d{2}):(\d{2})/);
+                    if (timeMatch) {
+                        appointmentHour = parseInt(timeMatch[1]);
+                        appointmentMin = parseInt(timeMatch[2]);
+                    } else {
+                        return false;
+                    }
+                }
+                
+                // Parse slot time
+                const [slotHour, slotMin] = slotTime.split(':').map(Number);
+                
+                // Check if appointment time falls within this 2-hour slot
+                const appointmentMinutes = appointmentHour * 60 + appointmentMin;
+                const slotStartMinutes = slotHour * 60 + slotMin;
+                const slotEndMinutes = slotStartMinutes + 120; // 2 hours = 120 minutes
+                
+                return appointmentMinutes >= slotStartMinutes && appointmentMinutes < slotEndMinutes;
+            });
+        }
+
+        async function testAvailabilityAPI() {
+            const coachId = document.getElementById('coachId').value;
+            const resultDiv = document.getElementById('apiResult');
+            
+            resultDiv.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch(`http://localhost:5000/api/coaches/${coachId}/availability`);
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                
+                // Store for filter test
+                window.testData = data;
+                
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function testFilterLogic() {
+            const resultDiv = document.getElementById('filterResult');
+            const slotsDiv = document.getElementById('slotsDisplay');
+            
+            if (!window.testData) {
+                resultDiv.textContent = 'Vui lòng test API trước!';
+                return;
+            }
+            
+            // Test với ngày hôm nay
+            const today = new Date();
+            
+            // Generate all slots
+            const allSlots = generateTimeSlots(window.testData);
+            
+            // Get booked appointments
+            const bookedAppointments = window.testData[0]?.booked_appointments || [];
+            
+            // Filter available slots
+            const availableSlots = allSlots.filter(slot => {
+                return !isSlotBooked(slot.time, bookedAppointments, today);
+            });
+            
+            resultDiv.textContent = `
+Total slots: ${allSlots.length}
+Booked appointments: ${bookedAppointments.length}
+Available slots: ${availableSlots.length}
+Filtered out: ${allSlots.length - availableSlots.length}
+
+Booked appointments:
+${JSON.stringify(bookedAppointments, null, 2)}
+
+All slots:
+${allSlots.map(s => s.displayTime).join(', ')}
+
+Available slots:
+${availableSlots.map(s => s.displayTime).join(', ')}
+            `;
+            
+            // Display slots visually
+            slotsDiv.innerHTML = '';
+            allSlots.forEach(slot => {
+                const isBooked = isSlotBooked(slot.time, bookedAppointments, today);
+                const div = document.createElement('div');
+                div.className = `time-slot ${isBooked ? 'booked' : 'available'}`;
+                div.textContent = `${slot.displayTime} ${isBooked ? '(Đã đặt)' : '(Trống)'}`;
+                slotsDiv.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
