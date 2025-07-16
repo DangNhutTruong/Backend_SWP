@@ -9,31 +9,35 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import RequireMembership from "../components/RequireMembership";
 import "./BookAppointment.css";
+import api from "../utils/axiosConfig";
 
 // Mock data for coaches - Using database IDs
 const coaches = [
   {
-    id: 20, // Match database ID
-    name: "Nguyễn Văn A",
-    role: "Coach cai thuốc chuyên nghiệp",
-    rating: 4.8,
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+    id: 1,
+    name: "Lê Minh Gia Mẫn",
+    role: "Coach tư vấn cai thuốc",
+    rating: 5.0,
+    reviews: 1,
+    avatar: "/image/default-user-avatar.svg",
     available: true,
   },
   {
-    id: 21, // Match database ID
-    name: "Trần Thị B",
-    role: "Chuyên gia tâm lý",
-    rating: 4.9,
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+    id: 2,
+    name: "Nguyễn Gia Mỹ",
+    role: "Coach tư vấn cai thuốc",
+    rating: 5.0,
+    reviews: 0,
+    avatar: "/image/default-user-avatar.svg",
     available: true,
   },
   {
-    id: 22, // Match database ID
-    name: "Phạm Minh C",
-    role: "Bác sĩ phục hồi chức năng",
-    rating: 4.7,
-    avatar: "https://randomuser.me/api/portraits/men/64.jpg",
+    id: 3,
+    name: "Trần Anh Tuấn",
+    role: "Coach tư vấn cai thuốc",
+    rating: 5.0,
+    reviews: 0,
+    avatar: "/image/default-user-avatar.svg",
     available: true,
   },
 ];
@@ -168,8 +172,15 @@ function BookAppointment() {
     setSelectedDate(selectedDate);
     setStep(3);
   };
-  const handleSelectTime = async (time) => {
-    setSelectedTime(time);
+  const handleSelectTime = async (timeRange) => {
+    setSelectedTime(timeRange);
+
+    // Tách giờ bắt đầu và kết thúc từ chuỗi "08:00 - 10:00"
+    const [start, end] = timeRange.split(" - ");
+    const [startHour, startMinute] = start.split(":").map(Number);
+    const [endHour, endMinute] = end.split(":").map(Number);
+    const duration_minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    const appointmentTime = start; // chỉ gửi giờ bắt đầu
 
     try {
       // Tạo đối tượng lịch hẹn mới
@@ -177,26 +188,52 @@ function BookAppointment() {
         userId: user?.id, // Add userId for API call
         coachId: selectedCoach.id,
         appointmentDate: selectedDate.toISOString().split("T")[0], // Format: YYYY-MM-DD
-        appointmentTime: time, // Format: HH:MM
+        appointmentTime, // chỉ gửi giờ bắt đầu
+        duration_minutes, // gửi đúng duration
       };
 
-      // Gọi API để tạo lịch hẹn mới
       const token = localStorage.getItem("token");
-      const response = await fetch(
-        "http://localhost:5000/api/auth/appointments",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(appointmentData),
-        }
-      );
+      let response;
+      
+      if (isRescheduling && appointmentId) {
+        // Nếu đang thay đổi lịch hẹn, gọi API cập nhật
+        console.log("Rescheduling appointment:", appointmentId);
+        response = await api.put(
+          `/appointments/${appointmentId}`,
+          appointmentData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } else {
+        // Nếu đặt lịch mới, gọi API tạo mới
+        response = await api.post(
+          "/appointments",
+          appointmentData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
 
-      if (response.ok) {
-        const appointment = await response.json();
-        setAppointmentId(appointment.id);
+      if (response.data) {
+        // Nếu đang thay đổi lịch, sử dụng appointmentId hiện tại
+        // Nếu đặt lịch mới, lấy id từ response
+        setAppointmentId(isRescheduling ? appointmentId : response.data.appointmentId);
+        
+        // Thêm log chi tiết response từ API
+        console.log("=== APPOINTMENT " + (isRescheduling ? "UPDATED" : "CREATED") + " SUCCESSFULLY ===");
+        console.log("API Response:", response.data);
+        console.log("Appointment ID:", isRescheduling ? appointmentId : response.data.appointmentId);
+        console.log("Date:", selectedDate.toISOString().split("T")[0]);
+        console.log("Time:", appointmentTime);
+        console.log("Duration:", duration_minutes, "minutes");
+        console.log("Coach:", selectedCoach.name, "(ID:", selectedCoach.id, ")");
+        console.log("======================================");
 
         // Cập nhật thông tin coach cho user nếu chưa có
         if (user && !user.assignedCoachId) {
@@ -234,12 +271,11 @@ function BookAppointment() {
           navigate("/profile");
         }, 3000);
       } else {
-        const errorData = await response.json();
-        alert(`Lỗi khi đặt lịch hẹn: ${errorData.error || "Vui lòng thử lại"}`);
+        alert(`Lỗi khi ${isRescheduling ? "thay đổi" : "đặt"} lịch hẹn: ${response.data.error || "Vui lòng thử lại"}`);
       }
     } catch (error) {
-      console.error("Lỗi khi đặt lịch hẹn:", error);
-      alert("Lỗi khi đặt lịch hẹn. Vui lòng thử lại.");
+      console.error(`Lỗi khi ${isRescheduling ? "thay đổi" : "đặt"} lịch hẹn:`, error);
+      alert(`Lỗi khi ${isRescheduling ? "thay đổi" : "đặt"} lịch hẹn. Vui lòng thử lại.`);
     }
   };
 
@@ -251,16 +287,12 @@ function BookAppointment() {
           {coaches.map((coach) => (
             <div
               key={coach.id}
-              className={`coach-card ${
-                selectedCoach?.id === coach.id ? "selected" : ""
-              }`}
+              className={`coach-card ${selectedCoach?.id === coach.id ? "selected" : ""}`}
               onClick={() => handleSelectCoach(coach)}
             >
-              <div className="coach-avatar">
+              <div className="coach-avatar no-shadow">
                 <img src={coach.avatar} alt={coach.name} />
-                {coach.available && (
-                  <div className="coach-status available"></div>
-                )}
+                {coach.available && <div className="coach-status available"></div>}
               </div>
               <div className="coach-info">
                 <h3>{coach.name}</h3>
@@ -270,7 +302,8 @@ function BookAppointment() {
                     {"★".repeat(Math.floor(coach.rating))}
                     {coach.rating % 1 > 0 ? "☆" : ""}
                   </span>
-                  <span className="rating-value">{coach.rating}</span>
+                  <span className="rating-value">{coach.rating.toFixed(1)}</span>
+                  <span className="review-count">({coach.reviews} đánh giá)</span>
                 </div>
               </div>
             </div>
@@ -393,29 +426,19 @@ function BookAppointment() {
 
         <div className="time-slots-container">
           <div className="custom-time-container">
-            <p>Chọn giờ hẹn:</p>
-            <div className="time-dropdown-container">
-              <select
-                value={customTime}
-                onChange={(e) => setCustomTime(e.target.value)}
-                className="time-dropdown"
-                required
-              >
-                <option value="">-- Chọn giờ --</option>
-                {timeSlots.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => customTime && handleSelectTime(customTime)}
-                className="btn-submit-time"
-                disabled={!customTime}
-              >
-                Xác nhận giờ hẹn
-              </button>
+            <p>Chọn khung giờ còn trống:</p>
+            <div className="time-slots-grid">
+              {["08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00"].map((range) => (
+                <button
+                  key={range}
+                  className="time-slot-btn"
+                  onClick={() => handleSelectTime(range)}
+                  type="button"
+                >
+                  <span className="dot-icon"></span>
+                  {range}
+                </button>
+              ))}
             </div>
             <small className="time-helper-text">
               Giờ làm việc: 8:00 - 22:00

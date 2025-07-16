@@ -1,105 +1,54 @@
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
+import { pool } from './src/config/database.js';
+import { ensureTablesExist } from './src/controllers/authController.js';
 
-dotenv.config();
-
-const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
-
-async function checkDatabase() {
+async function checkAndCreateDatabase() {
+    console.log('🔍 Checking database connection and tables...');
+    
     try {
-        console.log('🔍 Checking database tables and data...\n');
+        // Test database connection
+        const connection = await pool.getConnection();
+        console.log('✅ Database connection successful');
         
-        // 1. List all tables
-        console.log('📋 AVAILABLE TABLES:');
-        console.log('═══════════════════════');
-        const [tables] = await pool.execute('SHOW TABLES');
-        tables.forEach(table => {
-            console.log(`📄 ${Object.values(table)[0]}`);
-        });
+        // Check and create tables
+        await ensureTablesExist();
+        console.log('✅ Database tables checked and created if needed');
         
-        // 2. Check appointment table structure
-        console.log('\n🏗️ APPOINTMENT TABLE STRUCTURE:');
-        console.log('═══════════════════════════════════');
-        try {
-            const [columns] = await pool.execute('DESCRIBE appointment');
-            columns.forEach(col => {
-                console.log(`📝 ${col.Field} | ${col.Type} | ${col.Null} | ${col.Key} | ${col.Default}`);
+        // Check appointments table specifically
+        const [appointmentsTable] = await connection.query(`
+            SHOW TABLES LIKE 'appointments'
+        `);
+        
+        if (appointmentsTable.length > 0) {
+            console.log('✅ Appointments table exists');
+            
+            // Check appointments table structure
+            const [appointmentsColumns] = await connection.query(`
+                DESCRIBE appointments
+            `);
+            
+            console.log('📋 Appointments table structure:');
+            appointmentsColumns.forEach(column => {
+                console.log(`   - ${column.Field}: ${column.Type} ${column.Null === 'YES' ? 'NULL' : 'NOT NULL'} ${column.Default ? `DEFAULT ${column.Default}` : ''}`);
             });
-        } catch (error) {
-            console.log('❌ Table "appointment" does not exist');
+            
+            // Check if there are any appointments
+            const [appointments] = await connection.query(`
+                SELECT COUNT(*) as count FROM appointments
+            `);
+            
+            console.log(`📊 Total appointments in database: ${appointments[0].count}`);
+        } else {
+            console.log('❌ Appointments table does not exist, will be created');
         }
         
-        // 3. Check appointments table structure (if exists)
-        console.log('\n🏗️ APPOINTMENTS TABLE STRUCTURE:');
-        console.log('════════════════════════════════════');
-        try {
-            const [columns] = await pool.execute('DESCRIBE appointments');
-            columns.forEach(col => {
-                console.log(`📝 ${col.Field} | ${col.Type} | ${col.Null} | ${col.Key} | ${col.Default}`);
-            });
-        } catch (error) {
-            console.log('❌ Table "appointments" does not exist');
-        }
-        
-        // 4. Check data in appointment table
-        console.log('\n📊 DATA IN APPOINTMENT TABLE:');
-        console.log('═══════════════════════════════');
-        try {
-            const [appointmentData] = await pool.execute('SELECT * FROM appointment ORDER BY created_at DESC LIMIT 5');
-            if (appointmentData.length > 0) {
-                console.log(`✅ Found ${appointmentData.length} records:`);
-                appointmentData.forEach((record, index) => {
-                    console.log(`\n📝 Record ${index + 1}:`);
-                    console.log(`   ID: ${record.id}`);
-                    console.log(`   Coach ID: ${record.coach_id}`);
-                    console.log(`   User ID: ${record.user_id}`);
-                    console.log(`   Appointment Time: ${record.appointment_time}`);
-                    console.log(`   Duration: ${record.duration_minutes} minutes`);
-                    console.log(`   Status: ${record.status}`);
-                    console.log(`   Created: ${record.created_at}`);
-                });
-            } else {
-                console.log('🔍 No records found in appointment table');
-            }
-        } catch (error) {
-            console.log('❌ Error reading appointment table:', error.message);
-        }
-        
-        // 5. Check data in appointments table (if exists)
-        console.log('\n📊 DATA IN APPOINTMENTS TABLE:');
-        console.log('════════════════════════════════');
-        try {
-            const [appointmentsData] = await pool.execute('SELECT * FROM appointments ORDER BY created_at DESC LIMIT 5');
-            if (appointmentsData.length > 0) {
-                console.log(`✅ Found ${appointmentsData.length} records:`);
-                appointmentsData.forEach((record, index) => {
-                    console.log(`\n📝 Record ${index + 1}:`);
-                    Object.keys(record).forEach(key => {
-                        console.log(`   ${key}: ${record[key]}`);
-                    });
-                });
-            } else {
-                console.log('🔍 No records found in appointments table');
-            }
-        } catch (error) {
-            console.log('❌ Error reading appointments table:', error.message);
-        }
+        connection.release();
+        console.log('✅ Database check completed successfully');
         
     } catch (error) {
-        console.error('❌ Database connection error:', error.message);
+        console.error('❌ Database check failed:', error);
     } finally {
-        await pool.end();
-        console.log('\n✅ Database check completed');
+        process.exit();
     }
 }
 
-checkDatabase();
+checkAndCreateDatabase();

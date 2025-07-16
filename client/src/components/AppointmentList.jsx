@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import "./AppointmentList.css";
 import ProtectedCoachChat from "./ProtectedCoachChat";
 import RequireMembership from "./RequireMembership";
+import api from "../utils/axiosConfig";
 
 // Component hiển thị cho thẻ lịch hẹn đã hủy
 const CancelledAppointmentCard = ({ appointment, onRebook, onDelete }) => {
@@ -50,7 +51,7 @@ const CancelledAppointmentCard = ({ appointment, onRebook, onDelete }) => {
       </div>
       <div className="cancelled-body">
         <img
-          src={appointment.coachAvatar}
+          src={appointment.coachAvatar || '/image/default-user-avatar.svg'}
           alt={appointment.coachName}
           className="coach-avatar"
         />
@@ -102,57 +103,147 @@ function AppointmentList() {
   const { user } = useAuth(); // Lấy thông tin user từ AuthContext
   const navigate = useNavigate();
 
+  // Function to refresh appointments list
+  const refreshAppointments = async () => {
+    setLoading(true);
+    try {
+      console.log("Refreshing appointments for user ID:", user?.id);
+      
+      const response = await api.get(`/api/auth/appointments?userId=${user?.id}`);
+
+      if (response.data.success) {
+        const result = response.data.data || response.data;
+        console.log("✅ Refreshed Appointments:", result);
+        const apiAppointments = result.data || result;
+        
+        // Transform và set lại danh sách lịch hẹn
+        const coachMapping = {
+          1: {
+            name: "Lê Minh Gia Mẫn",
+            role: "Coach tư vấn cai thuốc",
+            avatar: "/image/default-user-avatar.svg",
+          },
+          2: {
+            name: "Nguyễn Gia Mỹ",
+            role: "Coach tư vấn cai thuốc",
+            avatar: "/image/default-user-avatar.svg",
+          },
+          3: {
+            name: "Trần Anh Tuấn",
+            role: "Coach tư vấn cai thuốc",
+            avatar: "/image/default-user-avatar.svg",
+          },
+          20: {
+            name: "Nguyễn Văn A",
+            role: "Coach cai thuốc chuyên nghiệp",
+            avatar: "/image/default-user-avatar.svg",
+          },
+          21: {
+            name: "Trần Thị B",
+            role: "Chuyên gia tâm lý",
+            avatar: "/image/default-user-avatar.svg",
+          },
+          22: {
+            name: "Phạm Minh C",
+            role: "Bác sĩ phục hồi chức năng",
+            avatar: "/image/default-user-avatar.svg",
+          },
+        };
+
+        const transformedAppointments = apiAppointments.map((appointment) => {
+          console.log("Processing appointment:", appointment);
+          const coach = coachMapping[appointment.coach_id] || {
+            name: `Coach ${appointment.coach_id}`,
+            role: "Coach cai thuốc",
+            avatar: "/image/default-user-avatar.svg",
+          };
+
+          // Đảm bảo các trường quan trọng luôn có giá trị
+          const status = appointment.status || "pending";
+          const duration = appointment.duration_minutes || 120;
+
+          return {
+            id: appointment.id,
+            userId: appointment.user_id,
+            coachId: appointment.coach_id,
+            coachName: coach.name,
+            coachRole: coach.role,
+            coachAvatar: coach.avatar,
+            date: appointment.date, // Already in YYYY-MM-DD format
+            time: appointment.time, // Already in HH:MM format
+            status: status,
+            duration: duration,
+            notes: appointment.notes || "",
+            rating: appointment.rating,
+            reviewText: appointment.review_text,
+            createdAt: appointment.created_at,
+          };
+        });
+
+        console.log("Transformed appointments:", transformedAppointments);
+
+        // Sort appointments by date (newest first)
+        const sortedAppointments = transformedAppointments.sort((a, b) => {
+          const dateA = new Date(`${a.date}T${a.time}`);
+          const dateB = new Date(`${b.date}T${b.time}`);
+          return dateB - dateA;
+        });
+
+        setAppointments(sortedAppointments);
+      } else {
+        const errorData = response.data;
+        console.error("Error refreshing appointments:", errorData);
+      }
+    } catch (error) {
+      console.error("🚨 Error refreshing appointments:", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Fetch appointments from API
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(
-          `http://localhost:5000/api/auth/appointments?userId=${user?.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await api.get(`/api/auth/appointments?userId=${user?.id}`);
 
-        if (response.ok) {
-          const result = await response.json();
+        if (response.data.success) {
+          const result = response.data.data || response.data;
           console.log("✅ API Response:", result);
           const apiAppointments = result.data || result;
 
           // Coach mapping for display
           const coachMapping = {
             1: {
-              name: "Nguyên Văn A",
-              role: "Coach cai thuốc chuyên nghiệp",
-              avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+              name: "Lê Minh Gia Mẫn",
+              role: "Coach tư vấn cai thuốc",
+              avatar: "/image/default-user-avatar.svg",
             },
             2: {
-              name: "Trần Thị B",
-              role: "Chuyên gia tâm lý",
-              avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+              name: "Nguyễn Gia Mỹ",
+              role: "Coach tư vấn cai thuốc",
+              avatar: "/image/default-user-avatar.svg",
             },
             3: {
-              name: "Phạm Minh C",
-              role: "Bác sĩ phục hồi chức năng",
-              avatar: "https://randomuser.me/api/portraits/men/64.jpg",
+              name: "Trần Anh Tuấn",
+              role: "Coach tư vấn cai thuốc",
+              avatar: "/image/default-user-avatar.svg",
             },
             20: {
-              name: "Nguyên Văn A",
+              name: "Nguyễn Văn A",
               role: "Coach cai thuốc chuyên nghiệp",
-              avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+              avatar: "/image/default-user-avatar.svg",
             },
             21: {
               name: "Trần Thị B",
               role: "Chuyên gia tâm lý",
-              avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+              avatar: "/image/default-user-avatar.svg",
             },
             22: {
               name: "Phạm Minh C",
               role: "Bác sĩ phục hồi chức năng",
-              avatar: "https://randomuser.me/api/portraits/men/64.jpg",
+              avatar: "/image/default-user-avatar.svg",
             },
           };
 
@@ -164,6 +255,10 @@ function AppointmentList() {
               avatar: "https://randomuser.me/api/portraits/men/32.jpg",
             };
 
+            // Đảm bảo các trường quan trọng luôn có giá trị
+            const status = appointment.status || "pending";
+            const duration = appointment.duration_minutes || 30;
+
             return {
               id: appointment.id,
               userId: appointment.user_id,
@@ -173,13 +268,23 @@ function AppointmentList() {
               coachAvatar: coach.avatar,
               date: appointment.date, // Already in YYYY-MM-DD format
               time: appointment.time, // Already in HH:MM format
-              status: appointment.status,
-              duration: appointment.duration_minutes || 30,
-              notes: appointment.notes,
+              status: status,
+              duration: duration,
+              notes: appointment.notes || "",
               rating: appointment.rating,
               reviewText: appointment.review_text,
               createdAt: appointment.created_at,
             };
+          });
+
+          // Log chi tiết từng lịch hẹn để debug
+          console.log("=== DEBUG: CHI TIẾT LỊCH HẸN ===");
+          transformedAppointments.forEach((appointment, index) => {
+            const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
+            console.log(`[${index}] ID: ${appointment.id}, Coach: ${appointment.coachName}`);
+            console.log(`    Date: ${appointment.date}, Time: ${appointment.time}`);
+            console.log(`    Status: ${appointment.status}, Duration: ${appointment.duration} phút`);
+            console.log(`    Full DateTime: ${appointmentDate.toLocaleString()}`);
           });
 
           // Log ngày hiện tại để debug
@@ -211,7 +316,7 @@ function AppointmentList() {
 
           setAppointments(sortedAppointments);
         } else {
-          console.error("❌ API Failed:", response.status, response.statusText);
+          console.error("❌ API Failed:", response.data.message);
           // Fallback to localStorage for development
           const localAppointments = JSON.parse(
             localStorage.getItem("appointments") || "[]"
@@ -242,6 +347,146 @@ function AppointmentList() {
 
     fetchAppointments();
   }, [user?.id]); // Add user.id as dependency
+
+  // Thêm useEffect để refresh danh sách khi người dùng quay lại từ trang đặt lịch
+  useEffect(() => {
+    // Kiểm tra xem người dùng vừa đặt lịch thành công hay không
+    const activeTab = localStorage.getItem("activeProfileTab");
+    const shouldRefresh = activeTab === "appointments";
+    
+    if (shouldRefresh) {
+      console.log("Refreshing appointments after booking...");
+      // Xóa flag để không refresh liên tục
+      localStorage.removeItem("activeProfileTab");
+      
+      // Fetch lại danh sách lịch hẹn
+      const fetchAppointments = async () => {
+        setLoading(true);
+        try {
+          const response = await api.get(`/api/auth/appointments?userId=${user?.id}`);
+
+          if (response.data.success) {
+            const result = response.data.data || response.data;
+            console.log("✅ Refreshed Appointments:", result);
+            const apiAppointments = result.data || result;
+            
+            // Transform và set lại danh sách lịch hẹn
+            // (Sử dụng code transform tương tự như trên)
+            const coachMapping = {
+              1: {
+                name: "Lê Minh Gia Mẫn",
+                role: "Coach tư vấn cai thuốc",
+                avatar: "/image/default-user-avatar.svg",
+              },
+              2: {
+                name: "Nguyễn Gia Mỹ",
+                role: "Coach tư vấn cai thuốc",
+                avatar: "/image/default-user-avatar.svg",
+              },
+              3: {
+                name: "Trần Anh Tuấn",
+                role: "Coach tư vấn cai thuốc",
+                avatar: "/image/default-user-avatar.svg",
+              },
+              20: {
+                name: "Nguyễn Văn A",
+                role: "Coach cai thuốc chuyên nghiệp",
+                avatar: "/image/default-user-avatar.svg",
+              },
+              21: {
+                name: "Trần Thị B",
+                role: "Chuyên gia tâm lý",
+                avatar: "/image/default-user-avatar.svg",
+              },
+              22: {
+                name: "Phạm Minh C",
+                role: "Bác sĩ phục hồi chức năng",
+                avatar: "/image/default-user-avatar.svg",
+              },
+            };
+
+            const transformedAppointments = apiAppointments.map((appointment) => {
+              const coach = coachMapping[appointment.coach_id] || {
+                name: `Coach ${appointment.coach_id}`,
+                role: "Coach cai thuốc",
+                avatar: "/image/default-user-avatar.svg",
+              };
+
+              // Đảm bảo các trường quan trọng luôn có giá trị
+              const status = appointment.status || "pending";
+              const duration = appointment.duration_minutes || 30;
+
+              return {
+                id: appointment.id,
+                userId: appointment.user_id,
+                coachId: appointment.coach_id,
+                coachName: coach.name,
+                coachRole: coach.role,
+                coachAvatar: coach.avatar,
+                date: appointment.date, // Already in YYYY-MM-DD format
+                time: appointment.time, // Already in HH:MM format
+                status: status,
+                duration: duration,
+                notes: appointment.notes || "",
+                rating: appointment.rating,
+                reviewText: appointment.review_text,
+                createdAt: appointment.created_at,
+              };
+            });
+
+            // Log chi tiết từng lịch hẹn để debug
+            console.log("=== DEBUG: CHI TIẾT LỊCH HẸN ===");
+            transformedAppointments.forEach((appointment, index) => {
+              const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
+              console.log(`[${index}] ID: ${appointment.id}, Coach: ${appointment.coachName}`);
+              console.log(`    Date: ${appointment.date}, Time: ${appointment.time}`);
+              console.log(`    Status: ${appointment.status}, Duration: ${appointment.duration} phút`);
+              console.log(`    Full DateTime: ${appointmentDate.toLocaleString()}`);
+            });
+
+            // Log ngày hiện tại để debug
+            console.log("Ngày hiện tại:", new Date().toLocaleDateString("vi-VN"));
+            console.log(
+              "📊 Transformed appointments:",
+              transformedAppointments.length
+            );
+
+            // Sort appointments by date (newest first)
+            const sortedAppointments = transformedAppointments.sort((a, b) => {
+              const dateA = new Date(`${a.date}T${a.time}`);
+              const dateB = new Date(`${b.date}T${b.time}`);
+              return dateB - dateA;
+            });
+
+            // Check if there's a new appointment (most recently added)
+            if (sortedAppointments.length > 0) {
+              setNewAppointmentId(sortedAppointments[0].id);
+
+              // Set filter to "upcoming" to show the new appointment
+              setFilter("upcoming");
+
+              // After 5 seconds, remove the highlight
+              setTimeout(() => {
+                setNewAppointmentId(null);
+              }, 5000);
+            }
+
+            setAppointments(sortedAppointments);
+
+            // Tự động chuyển sang tab "Sắp tới" để hiển thị lịch hẹn mới
+            setFilter("upcoming");
+          }
+        } catch (error) {
+          console.error("🚨 Error refreshing appointments:", error.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchAppointments();
+    }
+  }, [user?.id]); // Dependency array
+  // Sửa lại logic filter
   const filteredAppointments = appointments.filter((appointment) => {
     // Lấy ngày giờ hiện tại
     const now = new Date();
@@ -258,34 +503,39 @@ function AppointmentList() {
     appointmentDay.setHours(0, 0, 0, 0);
 
     // Kiểm tra xem lịch hẹn đã hoàn thành chưa
-    const isCompleted =
-      appointment.status === "completed" || appointment.completed === true;
+    const isCompleted = appointment.status === "completed" || appointment.completed === true;
+    const isCancelled = appointment.status === "cancelled";
+    const isPending = appointment.status === "pending" || !appointment.status;
+    const isConfirmed = appointment.status === "confirmed";
 
-    // Đã hủy hoặc đã hoàn thành chỉ hiển thị trong "Tất cả" và "Đã qua", không hiển thị trong "Sắp tới"
-    if (appointment.status === "cancelled" || isCompleted) {
-      if (filter === "upcoming") {
-        return false; // Lịch đã hủy hoặc đã hoàn thành không hiển thị trong "Sắp tới"
-      } else if (filter === "past") {
-        return true; // Hiển thị trong "Đã qua"
-      } else {
-        return true; // Hiển thị trong "Tất cả"
-      }
-    }
+    // Log chi tiết filter để debug
+    console.log(`Filter debug - ID: ${appointment.id}, Status: ${appointment.status}, Filter: ${filter}`);
+    console.log(`  Date compare: appointmentDate (${appointmentDate.toLocaleString()}) vs now (${now.toLocaleString()})`);
+    console.log(`  Is future: ${appointmentDate >= now}, Is today: ${appointmentDay.getTime() === today.getTime()}`);
 
-    // Logic lọc dựa trên ngày, giờ và trạng thái cho các lịch hẹn chưa hoàn thành
+    // Logic filter theo tab đã chọn
     if (filter === "upcoming") {
-      // Filter "Sắp tới": Hiển thị tất cả lịch hẹn chưa hoàn thành có thời gian >= thời gian hiện tại
-      return appointmentDate >= now;
-    } else if (filter === "past") {
-      // Filter "Đã qua": Hiển thị lịch hẹn có thời gian < thời gian hiện tại hoặc đã hủy hoặc đã hoàn thành
-      return (
-        appointmentDate < now ||
-        appointment.status === "cancelled" ||
-        isCompleted
-      );
+      // Nếu lịch hẹn đã hủy hoặc đã hoàn thành, không hiển thị trong "Sắp tới"
+      if (isCancelled || isCompleted) {
+        return false;
+      }
+      
+      // Hiển thị tất cả lịch hẹn có status "pending" hoặc "confirmed"
+      // và có ngày >= ngày hiện tại (bao gồm cả ngày hôm nay)
+      const isToday = appointmentDay.getTime() === today.getTime();
+      const isFuture = appointmentDay > today;
+      
+      // Hiển thị lịch hẹn nếu: là ngày hôm nay hoặc tương lai, và có status là confirmed hoặc pending
+      return (isToday || isFuture) && (isConfirmed || isPending);
+    } 
+    else if (filter === "past") {
+      // Hiển thị lịch hẹn đã qua (ngày < ngày hiện tại) hoặc đã hủy hoặc đã hoàn thành
+      const isPast = appointmentDay < today;
+      return isPast || isCancelled || isCompleted;
     }
 
-    return true; // 'all' filter: hiển thị tất cả
+    // Filter "all": hiển thị tất cả lịch hẹn
+    return true;
   });
   // Format date for display
   const formatDate = (dateString) => {
@@ -349,33 +599,60 @@ function AppointmentList() {
   const handleCancelAppointment = async () => {
     if (appointmentToCancel) {
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(
-          `http://localhost:5000/api/auth/appointments/${appointmentToCancel}`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        console.log("Cancelling appointment ID:", appointmentToCancel);
+        
+        // Use the updateAppointmentStatus API with error handling
+        const response = await api.put(`/api/auth/appointments/${appointmentToCancel}/status`, {
+          status: "cancelled",
+          userId: user?.id,
+          notes: "Lịch hẹn đã bị hủy bởi người dùng"
+        }).catch(error => {
+          console.error("Error canceling appointment:", error);
+          
+          // Show detailed error message
+          if (error.response) {
+            console.error("Error response:", error.response.data);
+            console.error("Status code:", error.response.status);
+            
+            // Show specific error message based on status code
+            if (error.response.status === 404) {
+              alert("Không tìm thấy lịch hẹn này trong hệ thống. Vui lòng làm mới trang và thử lại.");
+            } else {
+              alert(`Lỗi khi hủy lịch hẹn: ${error.response.data.message || "Vui lòng thử lại"}`);
+            }
+          } else if (error.request) {
+            alert("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.");
+          } else {
+            alert("Lỗi khi hủy lịch hẹn. Vui lòng thử lại.");
           }
-        );
-
-        if (response.ok) {
-          // Cập nhật UI bằng cách remove appointment khỏi danh sách
-          const updatedAppointments = appointments.filter(
-            (appointment) => appointment.id !== appointmentToCancel
-          );
-          setAppointments(updatedAppointments);
+          
+          return null;
+        });
+        
+        if (response && response.data.success) {
+          console.log("Appointment cancelled successfully");
+          
+          // Refresh appointments list to get updated data
+          await refreshAppointments();
+          
           closeCancelModal();
-        } else {
-          alert("Lỗi khi hủy lịch hẹn. Vui lòng thử lại.");
+          
+          // Show success toast
+          setToastMessage("Lịch hẹn đã được hủy thành công!");
+          setShowToast(true);
+
+          // Hide toast after 3 seconds
+          setTimeout(() => {
+            setShowToast(false);
+          }, 3000);
         }
       } catch (error) {
-        console.error("Error canceling appointment:", error);
-        alert("Lỗi khi hủy lịch hẹn. Vui lòng thử lại.");
+        console.error("Unexpected error canceling appointment:", error);
+        alert("Lỗi không xác định khi hủy lịch hẹn. Vui lòng thử lại sau.");
       }
     }
-  }; // Handle reschedule or rebook appointment
+  };
+  // Handle reschedule or rebook appointment
   const handleRescheduleAppointment = (appointment) => {
     // Lưu thông tin lịch hẹn cần thay đổi vào localStorage
     localStorage.setItem(
@@ -385,14 +662,8 @@ function AppointmentList() {
 
     // Chuyển hướng đến trang đặt lịch với tham số reschedule=true
     navigate("/appointment?reschedule=true");
-
-    // Khi đặt lịch mới thành công, xóa lịch hẹn cũ
-    const existingAppointments =
-      JSON.parse(localStorage.getItem("appointments")) || [];
-    const updatedAppointments = existingAppointments.filter(
-      (app) => app.id !== appointment.id
-    );
-    localStorage.setItem("appointments", JSON.stringify(updatedAppointments));
+    
+    // Không cần xóa lịch hẹn cũ vì chúng ta sẽ cập nhật nó thay vì tạo mới
   };
   // Open rebook confirmation modal
   const openRebookModal = (appointment) => {
@@ -442,17 +713,9 @@ function AppointmentList() {
 
       try {
         const token = localStorage.getItem("token");
-        const response = await fetch(
-          `http://localhost:5000/api/auth/appointments/${appointmentToDelete.id}`,
-          {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await api.delete(`/appointments/${appointmentToDelete.id}`);
 
-        if (response.ok) {
+        if (response.data.success) {
           // Filter out the appointment to delete
           const updatedAppointments = appointments.filter(
             (appointment) => appointment.id !== appointmentToDelete.id
@@ -575,33 +838,40 @@ function AppointmentList() {
   // Handle complete appointment
   const handleCompleteAppointment = async (appointmentId) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/auth/appointments/${appointmentId}/status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: "completed" }),
-        }
-      );
-
-      if (response.ok) {
-        const updatedAppointments = appointments.map((appointment) => {
-          if (appointment.id === appointmentId) {
-            return {
-              ...appointment,
-              status: "completed",
-              completed: true,
-              completedAt: new Date().toISOString(),
-            };
+      console.log("Completing appointment ID:", appointmentId);
+      
+      const response = await api.put(`/api/auth/appointments/${appointmentId}/status`, {
+        status: "completed",
+        userId: user?.id,
+        notes: "Buổi tư vấn đã được hoàn thành"
+      }).catch(error => {
+        console.error("Error completing appointment:", error);
+        
+        // Show detailed error message
+        if (error.response) {
+          console.error("Error response:", error.response.data);
+          console.error("Status code:", error.response.status);
+          
+          // Show specific error message based on status code
+          if (error.response.status === 404) {
+            alert("Không tìm thấy lịch hẹn này trong hệ thống. Vui lòng làm mới trang và thử lại.");
+          } else {
+            alert(`Lỗi khi cập nhật trạng thái lịch hẹn: ${error.response.data.message || "Vui lòng thử lại"}`);
           }
-          return appointment;
-        });
+        } else if (error.request) {
+          alert("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.");
+        } else {
+          alert("Lỗi khi cập nhật trạng thái lịch hẹn. Vui lòng thử lại.");
+        }
+        
+        return null;
+      });
 
-        setAppointments(updatedAppointments);
+      if (response && response.data.success) {
+        console.log("Appointment marked as completed successfully");
+        
+        // Refresh appointments list to get updated data
+        await refreshAppointments();
 
         // Show toast notification
         setToastMessage("Buổi tư vấn đã được xác nhận hoàn thành!");
@@ -611,12 +881,63 @@ function AppointmentList() {
         setTimeout(() => {
           setShowToast(false);
         }, 3000);
-      } else {
-        alert("Lỗi khi cập nhật trạng thái lịch hẹn. Vui lòng thử lại.");
       }
     } catch (error) {
-      console.error("Error completing appointment:", error);
-      alert("Lỗi khi cập nhật trạng thái lịch hẹn. Vui lòng thử lại.");
+      console.error("Unexpected error completing appointment:", error);
+      alert("Lỗi không xác định khi cập nhật trạng thái lịch hẹn. Vui lòng thử lại sau.");
+    }
+  };
+
+  // Handle confirm appointment by user
+  const handleConfirmAppointment = async (appointmentId) => {
+    try {
+      console.log("Confirming appointment ID:", appointmentId);
+      
+      const response = await api.put(`/api/auth/appointments/${appointmentId}/status`, {
+        status: "confirmed",
+        userId: user?.id,
+        notes: "Lịch hẹn đã được xác nhận bởi người dùng"
+      }).catch(error => {
+        console.error("Error confirming appointment:", error);
+        
+        // Show detailed error message
+        if (error.response) {
+          console.error("Error response:", error.response.data);
+          console.error("Status code:", error.response.status);
+          
+          // Show specific error message based on status code
+          if (error.response.status === 404) {
+            alert("Không tìm thấy lịch hẹn này trong hệ thống. Vui lòng làm mới trang và thử lại.");
+          } else {
+            alert(`Lỗi khi xác nhận lịch hẹn: ${error.response.data.message || "Vui lòng thử lại"}`);
+          }
+        } else if (error.request) {
+          alert("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.");
+        } else {
+          alert("Lỗi khi xác nhận lịch hẹn. Vui lòng thử lại.");
+        }
+        
+        return null;
+      });
+
+      if (response && response.data.success) {
+        console.log("Appointment confirmed successfully");
+        
+        // Refresh appointments list to get updated data
+        await refreshAppointments();
+
+        // Show toast notification
+        setToastMessage("Lịch hẹn đã được xác nhận!");
+        setShowToast(true);
+
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+          setShowToast(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error("Unexpected error confirming appointment:", error);
+      alert("Lỗi không xác định khi xác nhận lịch hẹn. Vui lòng thử lại sau.");
     }
   };
 
@@ -708,7 +1029,7 @@ function AppointmentList() {
                 <div className="appointment-body">
                   <div className="coach-info">
                     <img
-                      src={appointment.coachAvatar}
+                      src={appointment.coachAvatar || '/image/default-user-avatar.svg'}
                       alt={appointment.coachName}
                       className="coach-avatar"
                     />
@@ -719,6 +1040,17 @@ function AppointmentList() {
                   </div>
 
                   <div className="appointment-details">
+                    <div className="status-badge">
+                      {appointment.status === "confirmed" ? (
+                        <><FaCheck className="status-icon confirmed" /> <span className="status-text confirmed">Đã xác nhận</span></>
+                      ) : appointment.status === "completed" ? (
+                        <><FaCheck className="status-icon completed" /> <span className="status-text completed">Đã hoàn thành</span></>
+                      ) : appointment.status === "cancelled" ? (
+                        <><FaTimes className="status-icon cancelled" /> <span className="status-text cancelled">Đã hủy</span></>
+                      ) : (
+                        <><span className="status-icon pending"></span> <span className="status-text pending">Chờ xác nhận</span></>
+                      )}
+                    </div>
                     <div className="detail-item">
                       <FaCalendarAlt />
                       <span>{formatDate(appointment.date)}</span>
@@ -750,86 +1082,60 @@ function AppointmentList() {
                   </div>
                 </div>{" "}
                 <div className="appointment-footer">
-                  {" "}
-                  {getStatusClass(appointment) === "confirmed" && (
+                  {/* For confirmed appointments */}
+                  {appointment.status === "confirmed" && (
                     <>
-                      <button
-                        className="reschedule-button"
-                        onClick={() => handleRescheduleAppointment(appointment)}
-                      >
+                      <button className="change-button" onClick={() => handleRescheduleAppointment(appointment)}>
                         Thay đổi lịch
                       </button>
-
-                      <button
-                        className="cancel-button"
-                        onClick={() => openCancelModal(appointment.id)}
-                      >
+                      <button className="cancel-button" onClick={() => openCancelModal(appointment.id)}>
                         Hủy lịch hẹn
                       </button>
-
-                      <button
-                        className={`chat-button ${
-                          !user?.membership || user?.membership === "free"
-                            ? "premium-feature"
-                            : ""
-                        }`}
-                        onClick={() => handleOpenChat(appointment)}
-                      >
-                        <FaComments className="chat-button-icon" />
-                        Nhắn tin
-                        {(!user?.membership || user?.membership === "free") && (
-                          <span className="premium-badge">Premium</span>
-                        )}
-                        {hasUnreadMessages(appointment.id) && (
-                          <span className="chat-notification">!</span>
-                        )}
+                      <button className="chat-button" onClick={() => handleOpenChat(appointment)}>
+                        <FaComments /> Nhắn tin
                       </button>
-
-                      {/* Nút xác nhận hoàn thành */}
-                      <button
-                        className="complete-button"
-                        onClick={() =>
-                          handleCompleteAppointment(appointment.id)
-                        }
-                      >
-                        <FaCheck className="complete-icon" /> Xác nhận hoàn
-                        thành
+                      <button className="confirm-complete-button" onClick={() => handleCompleteAppointment(appointment.id)}>
+                        <FaCheck /> Xác nhận hoàn thành
                       </button>
                     </>
-                  )}{" "}
-                  {getStatusClass(appointment) === "completed" && (
+                  )}
+                  
+                  {/* For pending appointments */}
+                  {(!appointment.status || appointment.status === "pending") && (
                     <>
-                      <button
-                        className="chat-button"
-                        onClick={() => handleOpenChat(appointment)}
-                      >
-                        <FaComments className="chat-button-icon" />
-                        Chat với Coach
-                        {hasUnreadMessages(appointment.id) && (
-                          <span className="chat-notification">!</span>
-                        )}
-                      </button>{" "}
-                      <button
-                        className="feedback-button"
-                        onClick={() => openRatingModal(appointment)}
-                      >
-                        {appointment.rating
-                          ? "Cập nhật đánh giá"
-                          : "Đánh giá Coach"}
+                      <button className="change-button" onClick={() => handleRescheduleAppointment(appointment)}>
+                        Thay đổi lịch
                       </button>
-                      <button
-                        className="rebook-button"
-                        onClick={() => openRebookModal(appointment)}
-                      >
+                      <button className="cancel-button" onClick={() => openCancelModal(appointment.id)}>
+                        Hủy lịch hẹn
+                      </button>
+                      <button className="chat-button" onClick={() => handleOpenChat(appointment)}>
+                        <FaComments /> Nhắn tin
+                      </button>
+                      <button className="confirm-button" onClick={() => handleConfirmAppointment(appointment.id)}>
+                        <FaCheck /> Xác nhận lịch hẹn
+                      </button>
+                    </>
+                  )}
+                  
+                  {/* For completed appointments */}
+                  {appointment.status === "completed" && (
+                    <>
+                      <button className="chat-button" onClick={() => handleOpenChat(appointment)}>
+                        <FaComments /> Nhắn tin
+                      </button>
+                      <button className="feedback-button" onClick={() => openRatingModal(appointment)}>
+                        {appointment.rating ? "Cập nhật đánh giá" : "Đánh giá Coach"}
+                      </button>
+                      <button className="rebook-button" onClick={() => openRebookModal(appointment)}>
                         Đặt lại lịch hẹn
                       </button>
                     </>
                   )}
-                  {getStatusClass(appointment) === "cancelled" && (
-                    <button
-                      className="rebook-button"
-                      onClick={() => openRebookModal(appointment)}
-                    >
+                  
+                  {/* For cancelled appointments */}
+                  {appointment.status === "cancelled" && (
+                    <button className="rebook-button" onClick={() => openRebookModal(appointment)}>
                       Đặt lại lịch hẹn
                     </button>
                   )}

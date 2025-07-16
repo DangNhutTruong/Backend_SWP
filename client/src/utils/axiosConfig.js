@@ -1,75 +1,62 @@
 import axios from 'axios';
 
-// Cấu hình mặc định cho axios
-const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/', // Sử dụng proxy trong Vite hoặc biến môi trường
-  timeout: 15000, // Tăng timeout lên 15s
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-  },
-  // Hiển thị full URL trong lỗi
-  validateStatus: function (status) {
-    return status >= 200 && status < 300; // default
   }
 });
 
-// Log để debug
-console.log('Axios instance created with:', {
-  baseURL: '/', 
-  proxyTarget: 'http://localhost:5000',
-  hasToken: Boolean(localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token'))
-});
-
-// Thêm interceptor để tự động gửi token authentication trong header
-axiosInstance.interceptors.request.use(
+// Add a request interceptor to include auth token
+api.interceptors.request.use(
   (config) => {
-    // Lấy token từ localStorage hoặc sessionStorage
-    const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
-    
-    // Nếu có token, thêm vào header Authorization
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
-    
     return config;
   },
   (error) => {
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Thêm interceptor để xử lý response
-axiosInstance.interceptors.response.use(
+// Add a response interceptor to handle common errors
+api.interceptors.response.use(
   (response) => {
-    // Log success calls
-    console.log(`✅ API Success: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-      status: response.status,
-      data: response.data ? '[data available]' : '[no data]'
-    });
     return response;
   },
   (error) => {
-    // Chi tiết lỗi 
-    console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      message: error.message,
-      data: error.response?.data || '[no data]'
-    });
+    console.error('API Error:', error);
     
-    // Xử lý lỗi 401 (Unauthorized)
-    if (error.response && error.response.status === 401) {
-      console.log('Unauthorized access. Please log in again.');
-      // Có thể redirect đến trang login hoặc thông báo cho người dùng
-    }
-    
-    // Xử lý lỗi 404 (Not Found) - có thể liên quan đến API endpoint
-    if (error.response && error.response.status === 404) {
-      console.error('API endpoint not found. Check your API URL configuration.');
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+      
+      // Handle unauthorized access (401)
+      if (error.response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Redirect to login page if not already there
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('Request made but no response received:', error.request);
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Error setting up request:', error.message);
     }
     
     return Promise.reject(error);
   }
 );
 
-export default axiosInstance;
+export default api;

@@ -33,6 +33,28 @@ export const ensureTablesExist = async () => {
             )
         `);
 
+        // Create appointments table if it doesn't exist
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS appointments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                coach_id INT NOT NULL,
+                date DATE NOT NULL,
+                time TIME NOT NULL,
+                duration_minutes INT DEFAULT 120,
+                status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending',
+                notes TEXT,
+                rating INT,
+                review_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_coach_id (coach_id),
+                INDEX idx_date (date),
+                INDEX idx_status (status)
+            )
+        `);
+
         // Add missing columns to users table if they don't exist
         try {
             await pool.execute(`
@@ -249,9 +271,10 @@ export const ensureTablesExist = async () => {
                 CigarettesPerDay INT,
                 YearsSmoked INT,
                 QuitDate DATE,
-                LastUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (UserID) REFERENCES users(id) ON DELETE CASCADE,
-                INDEX idx_user_id (UserID)
+                QuitReason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (UserID) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
@@ -1187,13 +1210,15 @@ export const createAppointment = async (req, res) => {
             userId,
             coachId,
             appointmentDate,
-            appointmentTime
+            appointmentTime,
+            duration_minutes
         } = req.body;
 
         console.log('🆔  User ID:', userId);
         console.log('👤  Coach ID:', coachId);
         console.log('📅  Date:', appointmentDate);
         console.log('🕒  Time:', appointmentTime);
+        console.log('⏱️  Duration:', duration_minutes || 120, 'minutes');
 
         // Validate required fields
         if (!coachId || !appointmentDate || !appointmentTime) {
@@ -1224,7 +1249,7 @@ export const createAppointment = async (req, res) => {
                 userId,
                 appointmentDate, // Separate date field
                 appointmentTime, // Separate time field  
-                30, // Default 30 minutes duration
+                duration_minutes || 120, // Default 2 hours (120 minutes) duration
                 'Cuộc hẹn tư vấn với coach' // Default notes
             ]
         );
@@ -1343,6 +1368,8 @@ export const updateAppointmentStatus = async (req, res) => {
         console.log('🆔  Appointment ID:', appointmentId);
         console.log('🆔  User ID:', userId);
         console.log('📝  New Status:', status);
+        console.log('📝  Notes:', notes || 'No notes provided');
+        console.log('📝  Request Body:', JSON.stringify(req.body));
 
         // Check appointment exists (remove user restriction for coach access)
         const [appointments] = await pool.execute(
@@ -1355,14 +1382,20 @@ export const updateAppointmentStatus = async (req, res) => {
             return sendError(res, 'Appointment not found', 404);
         }
 
-        // Update appointment status in appointments table
-        await pool.execute(
-            `UPDATE appointments 
-             SET status = ?, notes = COALESCE(?, notes), updated_at = NOW()
-             WHERE id = ?`,
-            [status, notes, appointmentId]
-        );
+        console.log('✅  Found appointment:', appointments[0]);
 
+        // Update appointment status in appointments table
+        const query = `UPDATE appointments 
+                       SET status = ?, notes = COALESCE(?, notes), updated_at = NOW()
+                       WHERE id = ?`;
+        const params = [status, notes, appointmentId];
+        
+        console.log('📝  Executing SQL:', query);
+        console.log('📝  With params:', params);
+        
+        const result = await pool.execute(query, params);
+        
+        console.log('📝  SQL Result:', result);
         console.log('✅  Appointment status updated successfully');
         console.log('🔄 ═══════════════════════════════════════\n');
 
@@ -1373,8 +1406,9 @@ export const updateAppointmentStatus = async (req, res) => {
         console.log('💥  UPDATE APPOINTMENT ERROR');
         console.log('❌ ═══════════════════════════════════════');
         console.error('🚨  Error:', error.message);
+        console.error('🚨  Error stack:', error.stack);
         console.log('❌ ═══════════════════════════════════════\n');
-        sendError(res, 'Failed to update appointment', 500);
+        sendError(res, 'Failed to update appointment: ' + error.message, 500);
     }
 };
 
@@ -1386,29 +1420,30 @@ export const cancelAppointment = async (req, res) => {
         console.log('❌ ═══════════════════════════════════════');
 
         const { appointmentId } = req.params;
-        const userId = req.user.id;
+        // For testing without authentication - get userId from request body or query params
+        const userId = req.query.userId || req.body.userId || (req.user && req.user.id);
 
         console.log('🆔  Appointment ID:', appointmentId);
         console.log('🆔  User ID:', userId);
 
-        // Verify appointment belongs to user and is not already cancelled
+        // Verify appointment exists and is not already cancelled
         const [appointments] = await pool.execute(
-            `SELECT * FROM appointment 
-             WHERE id = ? AND user_id = ? AND status != 'cancelled'`,
-            [appointmentId, userId]
+            `SELECT * FROM appointments 
+             WHERE id = ? AND status != 'cancelled'`,
+            [appointmentId]
         );
 
         if (appointments.length === 0) {
-            console.log('❌  Appointment not found, unauthorized, or already cancelled');
-            return sendError(res, 'Appointment not found, unauthorized, or already cancelled', 404);
+            console.log('❌  Appointment not found or already cancelled');
+            return sendError(res, 'Appointment not found or already cancelled', 404);
         }
 
         // Update appointment status to cancelled
         await pool.execute(
-            `UPDATE appointment 
+            `UPDATE appointments 
              SET status = 'cancelled', updated_at = NOW()
-             WHERE id = ? AND user_id = ?`,
-            [appointmentId, userId]
+             WHERE id = ?`,
+            [appointmentId]
         );
 
         console.log('✅  Appointment cancelled successfully');
@@ -1423,5 +1458,60 @@ export const cancelAppointment = async (req, res) => {
         console.error('🚨  Error:', error.message);
         console.log('❌ ═══════════════════════════════════════\n');
         sendError(res, 'Failed to cancel appointment', 500);
+    }
+};
+
+// Update appointment (reschedule)
+export const updateAppointment = async (req, res) => {
+    try {
+        console.log('\n🔄 ═══════════════════════════════════════');
+        console.log('📝  UPDATE APPOINTMENT (RESCHEDULE)');
+        console.log('🔄 ═══════════════════════════════════════');
+
+        const { appointmentId } = req.params;
+        const { appointmentDate, appointmentTime, duration_minutes } = req.body;
+        // For testing without authentication - get userId from request body or use bypass
+        const userId = req.body.userId || (req.user && req.user.id);
+
+        console.log('🆔  Appointment ID:', appointmentId);
+        console.log('🆔  User ID:', userId);
+        console.log('📅  New Date:', appointmentDate);
+        console.log('🕒  New Time:', appointmentTime);
+        console.log('⏱️  Duration:', duration_minutes || 120, 'minutes');
+
+        // Check appointment exists
+        const [appointments] = await pool.execute(
+            'SELECT * FROM appointments WHERE id = ?',
+            [appointmentId]
+        );
+
+        if (appointments.length === 0) {
+            console.log('❌  Appointment not found');
+            return sendError(res, 'Appointment not found', 404);
+        }
+
+        // Update appointment in appointments table
+        await pool.execute(
+            `UPDATE appointments 
+             SET date = ?, time = ?, duration_minutes = ?, status = 'pending', updated_at = NOW()
+             WHERE id = ?`,
+            [appointmentDate, appointmentTime, duration_minutes || 120, appointmentId]
+        );
+
+        console.log('✅  Appointment updated successfully');
+        console.log('🔄 ═══════════════════════════════════════\n');
+
+        sendSuccess(res, 'Appointment updated successfully', {
+            appointmentId,
+            status: 'pending'
+        });
+
+    } catch (error) {
+        console.log('\n❌ ═══════════════════════════════════════');
+        console.log('💥  UPDATE APPOINTMENT ERROR');
+        console.log('❌ ═══════════════════════════════════════');
+        console.error('🚨  Error:', error.message);
+        console.log('❌ ═══════════════════════════════════════\n');
+        sendError(res, 'Failed to update appointment', 500);
     }
 };

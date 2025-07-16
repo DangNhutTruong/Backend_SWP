@@ -133,6 +133,11 @@ router.get('/coach/appointments',
     authController.getCoachAppointments
 );
 
+router.put('/appointments/:appointmentId',
+    // authenticateToken, // Commented out for testing
+    authController.updateAppointment
+);
+
 router.put('/appointments/:appointmentId/status',
     // authenticateToken, // Commented out for testing
     authController.updateAppointmentStatus
