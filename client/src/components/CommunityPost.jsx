@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FaHeart, FaComment, FaShare, FaTrophy, FaRegHeart, FaEllipsisV, FaTrash, FaEdit } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { DeleteConfirmModal } from './CommunityPostCreator';
@@ -7,23 +7,17 @@ import '../styles/CommunityPost.css';
 /**
  * Component hiển thị bài viết cộng đồng
  */
-const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUserId }) => {
-  const { user } = useAuth();
+const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
+  const { user } = useAuth();  const [isLiked, setIsLiked] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [showComments, setShowComments] = useState(false);
 
   // Kiểm tra xem bài viết có thuộc về người dùng hiện tại không
-  const isOwnPost = user && post.user && post.user.id === user.id;
-  
-  // Kiểm tra xem người dùng đã thích bài viết chưa
-  const userId = currentUserId || (user ? user.id : 'anonymous');
-  const isLiked = post.likedBy && post.likedBy.includes(userId);
+  const isOwnPost = user && post.user.id === user.id;
 
   // Đóng menu khi click bên ngoài
-  useEffect(() => {
+  React.useEffect(() => {
     const handleClickOutside = (event) => {
       if (showOptionsMenu && !event.target.closest('.post-options')) {
         setShowOptionsMenu(false);
@@ -37,6 +31,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
   }, [showOptionsMenu]);
 
   const handleLike = () => {
+    setIsLiked(!isLiked);
     if (onLike) {
       onLike(post.id, !isLiked);
     }
@@ -60,7 +55,6 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
       return `${days} ngày trước`;
     }
   };
-  
   const handleDelete = () => {
     setShowOptionsMenu(false);
     setShowDeleteModal(true);
@@ -79,48 +73,21 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
   };
 
   const truncateText = (text, maxLength = 200) => {
-    if (!text) return '';
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   };
 
-  const handleCommentSubmit = (e) => {
-    e.preventDefault();
-    if (!commentText.trim() || !user) return;
-    
-    const newComment = {
-      id: Date.now(),
-      user: {
-        name: user.fullName || user.name || 'Người dùng',
-        avatar: user.avatar || '/image/hero/quit-smoking-2.png',
-        id: user.id
-      },
-      text: commentText,
-      timestamp: new Date()
-    };
-    
-    if (onComment) {
-      onComment(post.id, newComment);
-      setCommentText('');
-    }
-  };
-
-  const toggleComments = () => {
-    setShowComments(!showComments);
-  };
-
   return (
     <div className="community-post">
-      {/* Header */}      
-      <div className="post-header">
+      {/* Header */}      <div className="post-header">
         <div className="user-info">
           <img 
-            src={post.user?.avatar || '/image/hero/quit-smoking-2.png'} 
-            alt={post.user?.name || 'Người dùng'} 
+            src={post.user.avatar} 
+            alt={post.user.name} 
             className="user-avatar"
           />
           <div className="user-details">
-            <h3 className="user-name">{post.user?.name || 'Người dùng'}</h3>
+            <h3 className="user-name">{post.user.name}</h3>
             <span className="post-time">{formatTime(post.timestamp)}</span>
           </div>
         </div>
@@ -130,7 +97,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
           {post.achievements && post.achievements.length > 0 && (
             <div className="post-achievements">
               {post.achievements.map((achievement, index) => (
-                <div key={achievement.id || index} className="achievement-badge">
+                <div key={achievement.id} className="achievement-badge">
                   <span className="achievement-icon">{achievement.icon}</span>
                   <span className="achievement-name">{achievement.name}</span>
                 </div>
@@ -174,7 +141,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
               <p>{truncateText(post.content)}</p>
             )}
             
-            {post.content && post.content.length > 200 && (
+            {post.content.length > 200 && (
               <button 
                 className="show-more-btn"
                 onClick={() => setShowFullContent(!showFullContent)}
@@ -190,10 +157,10 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
           <div className={`post-images ${post.images.length === 1 ? 'single-image' : 'multiple-images'}`}>
             {post.images.slice(0, 4).map((image, index) => (
               <div 
-                key={image.id || index} 
+                key={image.id} 
                 className={`image-container ${index === 3 && post.images.length > 4 ? 'more-images' : ''}`}
               >
-                <img src={image.url} alt={`Hình ảnh ${index + 1}`} />
+                <img src={image.url} alt={`Post image ${index + 1}`} />
                 {index === 3 && post.images.length > 4 && (
                   <div className="more-overlay">
                     <span>+{post.images.length - 4}</span>
@@ -212,12 +179,12 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
           onClick={handleLike}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
-          <span>{post.likes || 0} lượt thích</span>
+          <span>{(post.likes || 0) + (isLiked ? 1 : 0)} cảm ơn</span>
         </button>
 
         <button 
           className="action-btn comment-btn"
-          onClick={toggleComments}
+          onClick={() => onComment && onComment(post.id)}
         >
           <FaComment />
           <span>{post.comments || 0} bình luận</span>
@@ -230,61 +197,12 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete, currentUser
           <FaShare />
           <span>Chia sẻ</span>
         </button>
-      </div>
-      
-      {/* Comment Section */}
-      {showComments && (
-        <div className="comments-section">
-          {post.commentsList && post.commentsList.length > 0 ? (
-            <div className="comments-list">
-              {post.commentsList.map(comment => (
-                <div key={comment.id} className="comment-item">
-                  <img 
-                    src={comment.user?.avatar || '/image/hero/quit-smoking-2.png'} 
-                    alt={comment.user?.name || 'Người dùng'} 
-                    className="comment-avatar" 
-                  />
-                  <div className="comment-content">
-                    <div className="comment-header">
-                      <span className="comment-author">{comment.user?.name || 'Người dùng'}</span>
-                      <span className="comment-time">{formatTime(comment.timestamp)}</span>
-                    </div>
-                    <p className="comment-text">{comment.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="no-comments">Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</p>
-          )}
-          
-          {user ? (
-            <form className="comment-form" onSubmit={handleCommentSubmit}>
-              <img 
-                src={user.avatar || '/image/hero/quit-smoking-2.png'} 
-                alt={user.fullName || user.name || 'Người dùng'} 
-                className="comment-avatar" 
-              />
-              <div className="comment-input-container">
-                <input
-                  type="text"
-                  placeholder="Viết bình luận..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  className="comment-input"
-                />
-                <button 
-                  type="submit" 
-                  className="comment-submit"
-                  disabled={!commentText.trim()}
-                >
-                  Gửi
-                </button>
-              </div>
-            </form>
-          ) : (
-            <p className="login-to-comment">Vui lòng đăng nhập để bình luận</p>
-          )}
+      </div>      {/* Comment Section Preview */}
+      {post.comments > 0 && (
+        <div className="comments-preview">
+          <button className="view-comments-btn">
+            Xem tất cả {post.comments} bình luận
+          </button>
         </div>
       )}
 
