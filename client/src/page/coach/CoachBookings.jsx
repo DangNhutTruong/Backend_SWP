@@ -1,17 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../context/AuthContext";
-import {
-  FaCalendarAlt,
-  FaUser,
-  FaClock,
-  FaCheck,
-  FaTimes,
-  FaEdit,
-  FaComments,
-  FaExclamationTriangle,
-} from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
-import "../../styles/CoachBookings.css";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { FaCalendarAlt, FaUser, FaClock, FaCheck, FaTimes, FaEdit, FaComments } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import '../../styles/CoachBookings.css';
+import { getCoachAppointments, updateAppointmentStatus } from '../../utils/coachApiIntegration';
 
 function CoachBookings() {
   const { user } = useAuth();
@@ -20,66 +12,80 @@ function CoachBookings() {
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [filter, setFilter] = useState("all"); // 'all', 'pending', 'upcoming', 'completed', 'cancelled'
   const [loading, setLoading] = useState(true);
-  const [serverError, setServerError] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false); // State để theo dõi quá trình cập nhật
 
-  const loadBookings = useCallback(async () => {
-    if (!user || user.role !== "coach") {
+  useEffect(() => {
+    loadBookings();
+  }, [user]);
+
+  useEffect(() => {
+    filterBookings();
+  }, [bookings, filter]);
+
+  const loadBookings = async () => {
+    if (!user || user.role !== 'coach') {
       setLoading(false);
       return;
     }
 
     try {
-      // Call API to get coach appointments
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/auth/coach/appointments?coachId=${user.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      setLoading(true);
+      console.log('🔍 Loading coach appointments...');
+      
+      // Lấy tất cả appointments từ API (không cần truyền user.id vì API lấy từ token)
+      const response = await getCoachAppointments();
+      console.log('📋 API response:', response);
+      
+      // Handle different response structures
+      let allAppointments = [];
+      if (response) {
+        if (response.data && Array.isArray(response.data)) {
+          allAppointments = response.data;
+        } else if (Array.isArray(response)) {
+          allAppointments = response;
+        } else if (response.success && response.data) {
+          allAppointments = Array.isArray(response.data) ? response.data : [];
         }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Coach appointments from API:", result);
-
-        // Transform API data to match component structure
-        const transformedBookings = result.data.map((appointment) => {
-          return {
-            id: appointment.id,
-            coachId: appointment.coach_id,
-            userId: appointment.user_id,
-            userName: appointment.user_name,
-            userEmail: appointment.user_email,
-            date: appointment.date, // Already separate date field
-            time: appointment.time, // Already separate time field
-            status: appointment.status,
-            createdAt: appointment.created_at,
-            duration: appointment.duration_minutes || 60,
-            notes: appointment.notes,
-            rating: appointment.rating,
-            reviewText: appointment.review_text,
-          };
-        });
-
-        // Sắp xếp theo ngày tạo mới nhất
-        const sortedBookings = transformedBookings.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        );
-
-        setBookings(sortedBookings);
-        setServerError(false);
-      } else {
-        console.error("Failed to fetch coach appointments");
-        setBookings([]);
-        setServerError(true);
       }
-      setLoading(false);
+      
+      // Thêm xử lý để chuẩn hóa dữ liệu
+      const processedAppointments = allAppointments.map(appointment => {
+        return {
+          ...appointment,
+          // Đảm bảo tên người dùng được lấy đúng từ các field khác nhau có thể có
+          userName: appointment.user_name || appointment.userName,
+          userEmail: appointment.user_email || appointment.userEmail,
+          // Đảm bảo trường status tồn tại
+          status: appointment.status || 'pending'
+        };
+      });
+      
+      console.log('📅 Processed appointments:', processedAppointments);
+      
+      // Sắp xếp theo ngày tạo mới nhất
+      const sortedBookings = processedAppointments.sort((a, b) => {
+        // Ưu tiên ngày tạo cho sắp xếp
+        const dateA = new Date(a.created_at || a.createdAt || a.date);
+        const dateB = new Date(b.created_at || b.createdAt || b.date);
+        return dateB - dateA;
+      });
+
+      setBookings(sortedBookings);
+      console.log(`✅ Loaded ${sortedBookings.length} appointments`);
+      
     } catch (error) {
-      console.error("Lỗi khi tải danh sách booking:", error);
+      console.error('❌ Error loading coach appointments:', error);
+      
+      // Set empty array on error
       setBookings([]);
-      setServerError(true);
+      
+      // Show user-friendly error message
+      console.warn('⚠️ Could not load appointments. This might be because:');
+      console.warn('1. You are not logged in as a coach');
+      console.warn('2. No appointments exist for this coach');
+      console.warn('3. API authentication failed');
+      
+    } finally {
       setLoading(false);
     }
   }, [user]);
@@ -114,54 +120,86 @@ function CoachBookings() {
     setFilteredBookings(filtered);
   }, [bookings, filter]);
 
-  useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
-
-  useEffect(() => {
-    filterBookings();
-  }, [filterBookings]);
-
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/auth/appointments/${bookingId}/status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            status: newStatus,
-            notes: `Trạng thái được cập nhật thành ${newStatus} bởi coach`,
-          }),
-        }
-      );
+      console.log(`🔄 Updating booking #${bookingId} status to ${newStatus}...`);
+      
+      // Sử dụng state được khai báo ở trên
+      setIsUpdating(true);
 
-      if (response.ok) {
-        console.log(`✅ Updated appointment ${bookingId} to ${newStatus}`);
-        // Reload bookings after update
+      // Hiển thị trạng thái tạm thời trong UI
+      setBookings(prev => 
+        prev.map(booking => 
+          booking.id === bookingId 
+            ? {...booking, status: 'updating...', _previousStatus: booking.status} 
+            : booking
+        )
+      );
+      
+      try {
+        // Thêm timeout để tránh lỗi network timeout
+        const updatePromise = updateAppointmentStatus(bookingId, newStatus);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout: Server không phản hồi')), 10000)
+        );
+        
+        // Sử dụng Promise.race để hủy sau timeout
+        const response = await Promise.race([updatePromise, timeoutPromise]);
+        console.log('✅ Status update response:', response);
+        
+        // Nếu cập nhật thành công, cập nhật UI ngay lập tức
+        setBookings(prev => 
+          prev.map(booking => 
+            booking.id === bookingId 
+              ? {...booking, status: newStatus, _previousStatus: undefined} 
+              : booking
+          )
+        );
+        
+        // Sau đó tải lại toàn bộ dữ liệu để đảm bảo tính nhất quán
         await loadBookings();
-      } else {
-        console.error("❌ Failed to update appointment status");
-        alert("Không thể cập nhật trạng thái cuộc hẹn. Vui lòng thử lại.");
+        
+        // Hiển thị thông báo thành công
+        alert(`Đã cập nhật trạng thái cuộc hẹn thành "${newStatus}"`);
+      } catch (updateError) {
+        console.error('❌ Lỗi khi cập nhật trạng thái booking:', updateError);
+        
+        // Khôi phục trạng thái trước đó trong UI
+        setBookings(prev => 
+          prev.map(booking => 
+            booking.id === bookingId && booking._previousStatus
+              ? {...booking, status: booking._previousStatus, _previousStatus: undefined} 
+              : booking
+          )
+        );
+        
+        // Chi tiết lỗi
+        console.error('Chi tiết lỗi:', {
+          bookingId,
+          newStatus,
+          errorMessage: updateError.message,
+          stack: updateError.stack
+        });
+        
+        // Hiển thị thông báo lỗi cho người dùng
+        alert(`Không thể cập nhật trạng thái cuộc hẹn. Lỗi: ${updateError.message || 'Không xác định'}`);
+      } finally {
+        setIsUpdating(false);
       }
     } catch (error) {
-      console.error("🚨 Error updating appointment status:", error);
-      alert("Lỗi kết nối. Vui lòng kiểm tra server và thử lại.");
+      console.error('❌ Lỗi ngoại lệ:', error);
+      alert('Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau.');
     }
   };
 
   const handleSendMessage = (booking) => {
-    // Chuyển hướng đến trang chat với thông tin người dùng
-    navigate("/coach/chat", {
+    // Chuyển hướng đến trang tin nhắn coach
+    navigate('/coach/messages', {
       state: {
         userId: booking.userId,
         userName: booking.userName,
-        userEmail: booking.userEmail,
-      },
+        userEmail: booking.userEmail
+      }
     });
   };
 
@@ -299,6 +337,12 @@ function CoachBookings() {
         </button>
       </div>
 
+      {isUpdating && (
+        <div className="updating-status">
+          <p>Đang cập nhật trạng thái, vui lòng đợi...</p>
+        </div>
+      )}
+
       <div className="bookings-list">
         {filteredBookings.length === 0 ? (
           <div className="empty-bookings">
@@ -331,8 +375,8 @@ function CoachBookings() {
                 <div className="booking-user">
                   <FaUser className="booking-icon" />
                   <div className="user-info">
-                    <h4>{booking.userName || "Người dùng"}</h4>
-                    <p>{booking.userEmail}</p>
+                    <h4>{booking.user_name || booking.userName || booking.user_id || 'Người dùng'}</h4>
+                    <p>{booking.userEmail || booking.user_email || ''}</p>
                   </div>
                 </div>
 

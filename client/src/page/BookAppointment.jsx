@@ -1,46 +1,12 @@
-import React, { useState, useEffect } from "react";
-import {
-  FaCalendarAlt,
-  FaArrowLeft,
-  FaArrowRight,
-  FaCheck,
-} from "react-icons/fa";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import RequireMembership from "../components/RequireMembership";
-import "./BookAppointment.css";
-import api from "../utils/axiosConfig";
-
-// Mock data for coaches - Using database IDs
-const coaches = [
-  {
-    id: 1,
-    name: "Lê Minh Gia Mẫn",
-    role: "Coach tư vấn cai thuốc",
-    rating: 5.0,
-    reviews: 1,
-    avatar: "/image/default-user-avatar.svg",
-    available: true,
-  },
-  {
-    id: 2,
-    name: "Nguyễn Gia Mỹ",
-    role: "Coach tư vấn cai thuốc",
-    rating: 5.0,
-    reviews: 0,
-    avatar: "/image/default-user-avatar.svg",
-    available: true,
-  },
-  {
-    id: 3,
-    name: "Trần Anh Tuấn",
-    role: "Coach tư vấn cai thuốc",
-    rating: 5.0,
-    reviews: 0,
-    avatar: "/image/default-user-avatar.svg",
-    available: true,
-  },
-];
+import React, { useState, useEffect } from 'react';
+import { FaCalendarAlt, FaArrowLeft, FaArrowRight, FaCheck, FaClock } from 'react-icons/fa';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import RequireMembership from '../components/RequireMembership';
+import './BookAppointment.css';
+import { createAppointment, updateAppointment, deleteAppointment } from '../utils/userAppointmentApi';
+import { getCoachAvailability } from '../services/coachService';
+import api from '../utils/api';
 
 function BookAppointment() {
   const [step, setStep] = useState(1); // 1: Choose coach, 2: Select date, 3: Select time
@@ -51,6 +17,11 @@ function BookAppointment() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [appointmentId, setAppointmentId] = useState(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [originalAppointment, setOriginalAppointment] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+  const [loadingCoaches, setLoadingCoaches] = useState(true);
+  const [coachAvailability, setCoachAvailability] = useState([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,8 +66,37 @@ function BookAppointment() {
     }
   }, [location]);
 
-  // Remove duplicate coaches definition  // Custom time selection
-  const [customTime, setCustomTime] = useState("");
+  // Load coaches from API
+  useEffect(() => {
+    const fetchCoaches = async () => {
+      setLoadingCoaches(true);
+      try {
+        console.log('👥 Fetching coaches from API...');
+        
+        // Coaches endpoint is public, no auth needed
+        const response = await api.fetch('/api/coaches');
+        
+        console.log('👥 Coaches API response:', response);
+        
+        if (response.success && response.data) {
+          console.log(`✅ Loaded ${response.data.length} coaches`);
+          setCoaches(response.data);
+        } else {
+          console.error('❌ Failed to load coaches:', response.message);
+          // Fallback to empty array
+          setCoaches([]);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching coaches:', error);
+        // Fallback to empty array
+        setCoaches([]);
+      } finally {
+        setLoadingCoaches(false);
+      }
+    };
+
+    fetchCoaches();
+  }, []);
 
   // Helper functions for calendar
   const getDaysInMonth = (year, month) =>
@@ -161,8 +161,8 @@ function BookAppointment() {
     setStep(2);
   };
 
-  const handleSelectDate = (dayObj) => {
-    if (!dayObj || !dayObj.day || dayObj.disabled) return;
+  const handleSelectDate = async (day) => {
+    if (!day) return;
 
     const selectedDate = new Date(
       currentMonth.getFullYear(),
@@ -170,54 +170,150 @@ function BookAppointment() {
       dayObj.day
     );
     setSelectedDate(selectedDate);
+    
+    // Fetch coach availability for selected date
+    await fetchCoachAvailability(selectedCoach.id, selectedDate);
+    
     setStep(3);
   };
-  const handleSelectTime = async (timeRange) => {
-    setSelectedTime(timeRange);
 
-    // Tách giờ bắt đầu và kết thúc từ chuỗi "08:00 - 10:00"
-    const [start, end] = timeRange.split(" - ");
-    const [startHour, startMinute] = start.split(":").map(Number);
-    const [endHour, endMinute] = end.split(":").map(Number);
-    const duration_minutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-    const appointmentTime = start; // chỉ gửi giờ bắt đầu
-
+  // Function to fetch coach availability for a specific date
+  const fetchCoachAvailability = async (coachId, date) => {
+    setLoadingAvailability(true);
     try {
-      // Tạo đối tượng lịch hẹn mới
+      console.log('🔍 Fetching availability for coach:', coachId, 'date:', date);
+      const availabilityData = await getCoachAvailability(coachId);
+      
+      console.log('📋 Raw availability data:', availabilityData);
+      
+      // Extract available_slots from the response
+      const availableSlots = availabilityData?.available_slots || [];
+      
+      // Filter availability for the selected date
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek];
+      
+      // Filter availability for selected day
+      const dayAvailability = availableSlots.filter(slot => 
+        slot.day_of_week?.toLowerCase() === dayName.toLowerCase() ||
+        slot.dayOfWeek?.toLowerCase() === dayName.toLowerCase()
+      );
+      
+      console.log('📅 Availability for', dayName, ':', dayAvailability);
+      
+      // Structure để lưu vào state - luôn bao gồm booked_appointments
+      const structuredAvailability = {
+        available_slots: dayAvailability,
+        booked_appointments: availabilityData.booked_appointments || [],
+        working_hours: availabilityData.working_hours || '08:00-22:00'
+      };
+      
+      // If no specific day availability found, create default slots from working hours
+      if (dayAvailability.length === 0 && availabilityData?.working_hours) {
+        console.log('🔄 No specific availability found, using working hours:', availabilityData.working_hours);
+        const workingHours = availabilityData.working_hours;
+        if (workingHours.includes('-')) {
+          const [startTime, endTime] = workingHours.split('-');
+          const defaultSlot = {
+            day_of_week: dayName,
+            time_start: startTime,
+            time_end: endTime,
+            start_time: startTime,
+            end_time: endTime
+          };
+          console.log('🔧 Created default slot from working hours:', defaultSlot);
+          structuredAvailability.available_slots = [defaultSlot];
+        }
+      }
+      
+      console.log('🎯 Final structured availability:', structuredAvailability);
+      setCoachAvailability(structuredAvailability);
+      
+    } catch (error) {
+      console.error('❌ Error fetching coach availability:', error);
+      setCoachAvailability({
+        available_slots: [],
+        booked_appointments: [],
+        working_hours: '08:00-22:00'
+      });
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+  const handleSelectTime = async (time) => {
+    setSelectedTime(time);
+    
+    try {
+      console.log('📅 Starting appointment creation process...');
+      
+      // Debug: Check authentication before creating appointment
+      const token = localStorage.getItem('nosmoke_token') || 
+                    sessionStorage.getItem('nosmoke_token') ||
+                    localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('❌ No authentication token found. User needs to login.');
+        alert('Bạn cần đăng nhập để đặt lịch hẹn. Vui lòng đăng nhập lại.');
+        navigate('/login');
+        return;
+      }
+      
+      console.log('🔑 Found token for appointment:', token.substring(0, 20) + '...');
+      console.log('👤 Current user:', user);
+      
+      // Chuẩn bị dữ liệu appointment
+      const appointmentDateTime = new Date(selectedDate);
+      const [hours, minutes] = time.split(':');
+      appointmentDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
       const appointmentData = {
-        userId: user?.id, // Add userId for API call
-        coachId: selectedCoach.id,
-        appointmentDate: selectedDate.toISOString().split("T")[0], // Format: YYYY-MM-DD
-        appointmentTime, // chỉ gửi giờ bắt đầu
-        duration_minutes, // gửi đúng duration
+        coach_id: selectedCoach.id,
+        appointment_time: appointmentDateTime.toISOString(),
+        duration_minutes: 60, // Default 60 minutes
+        notes: `Cuộc hẹn với ${selectedCoach.full_name || selectedCoach.username}`
       };
 
-      const token = localStorage.getItem("token");
-      let response;
-      
-      if (isRescheduling && appointmentId) {
-        // Nếu đang thay đổi lịch hẹn, gọi API cập nhật
-        console.log("Rescheduling appointment:", appointmentId);
-        response = await api.put(
-          `/appointments/${appointmentId}`,
-          appointmentData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+      console.log('📋 Appointment data:', appointmentData);
+
+      if (isRescheduling && originalAppointment) {
+        console.log('🔄 Updating existing appointment...');
+        // Nếu đang thay đổi lịch hẹn, cập nhật lịch hẹn cũ
+        await updateAppointment(originalAppointment.id, appointmentData);
+        setAppointmentId(originalAppointment.id);
+        
+        // Xóa thông tin lịch hẹn đang thay đổi từ localStorage
+        localStorage.removeItem('appointmentToReschedule');
       } else {
-        // Nếu đặt lịch mới, gọi API tạo mới
-        response = await api.post(
-          "/appointments",
-          appointmentData,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        console.log('➕ Creating new appointment...');
+        // Nếu đang đặt lịch hẹn mới
+        const response = await createAppointment(appointmentData);
+        console.log('✅ Appointment created successfully:', response);
+        setAppointmentId(response.data.id);
+      }
+
+      // Hiển thị thông báo thành công
+      setShowSuccess(true);
+
+      // Lưu trạng thái tab trong localStorage để Profile page hiển thị tab lịch hẹn
+      localStorage.setItem('activeProfileTab', 'appointments');
+
+      // Sau 3 giây chuyển hướng đến trang hồ sơ
+      setTimeout(() => {
+        navigate('/profile');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('❌ Error creating/updating appointment:', error);
+      
+      // More specific error handling
+      if (error.message.includes('Not authenticated')) {
+        alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        navigate('/login');
+      } else if (error.message.includes('No auth token')) {
+        alert('Không tìm thấy thông tin xác thực. Vui lòng đăng nhập lại.');
+        navigate('/login');
+      } else {
+        alert('Có lỗi xảy ra khi đặt lịch hẹn. Vui lòng thử lại.');
       }
 
       if (response.data) {
@@ -280,6 +376,29 @@ function BookAppointment() {
   };
 
   const renderCoachSelection = () => {
+    if (loadingCoaches) {
+      return (
+        <div className="coach-selection-container">
+          <h2>Chọn Coach</h2>
+          <div className="loading-coaches">
+            <div className="loading-spinner"></div>
+            <p>Đang tải danh sách coach...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (coaches.length === 0) {
+      return (
+        <div className="coach-selection-container">
+          <h2>Chọn Coach</h2>
+          <div className="no-coaches">
+            <p>Hiện tại không có coach nào khả dụng. Vui lòng thử lại sau.</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="coach-selection-container">
         <h2>Chọn Coach</h2>
@@ -290,20 +409,23 @@ function BookAppointment() {
               className={`coach-card ${selectedCoach?.id === coach.id ? "selected" : ""}`}
               onClick={() => handleSelectCoach(coach)}
             >
-              <div className="coach-avatar no-shadow">
-                <img src={coach.avatar} alt={coach.name} />
-                {coach.available && <div className="coach-status available"></div>}
+              <div className="coach-avatar">
+                <img 
+                  src={coach.avatar_url || coach.avatar || '/image/default-user-avatar.svg'} 
+                  alt={coach.full_name || coach.username || 'Coach'} 
+                  onError={(e) => {
+                    e.target.src = '/image/default-user-avatar.svg';
+                  }}
+                />
+                <div className="coach-status available"></div>
               </div>
               <div className="coach-info">
-                <h3>{coach.name}</h3>
-                <p>{coach.role}</p>
+                <h3>{coach.full_name || coach.username || 'Tên coach'}</h3>
+                <p>{coach.specialization || coach.bio || 'Coach tư vấn cai thuốc'}</p>
                 <div className="coach-rating">
-                  <span className="stars">
-                    {"★".repeat(Math.floor(coach.rating))}
-                    {coach.rating % 1 > 0 ? "☆" : ""}
-                  </span>
-                  <span className="rating-value">{coach.rating.toFixed(1)}</span>
-                  <span className="review-count">({coach.reviews} đánh giá)</span>
+                  <span className="stars">{'★'.repeat(Math.floor(parseFloat(coach.avg_rating || 5)))}{parseFloat(coach.avg_rating || 5) % 1 > 0 ? '☆' : ''}</span>
+                  <span className="rating-value">{parseFloat(coach.avg_rating || 5).toFixed(1)}</span>
+                  {coach.review_count && <span className="review-count">({coach.review_count} đánh giá)</span>}
                 </div>
               </div>
             </div>
@@ -323,12 +445,15 @@ function BookAppointment() {
         </div>
 
         <div className="selected-coach">
-          <img
-            src={selectedCoach.avatar}
-            alt={selectedCoach.name}
-            className="small-avatar"
+          <img 
+            src={selectedCoach.avatar_url || selectedCoach.avatar || '/image/default-user-avatar.svg'} 
+            alt={selectedCoach.full_name || selectedCoach.username || 'Coach'} 
+            className="small-avatar" 
+            onError={(e) => {
+              e.target.src = '/image/default-user-avatar.svg';
+            }}
           />
-          <span>{selectedCoach.name}</span>
+          <span>{selectedCoach.full_name || selectedCoach.username || 'Coach'}</span>
         </div>
 
         <div className="calendar-container">
@@ -384,18 +509,146 @@ function BookAppointment() {
     );
   };
   const renderTimeSelection = () => {
-    // Tạo danh sách thời gian dropdown từ 8:00 đến 22:00 (mỗi 30 phút)
-    const timeSlots = [];
-    for (let hour = 8; hour <= 22; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        if (hour === 22 && minute > 0) break; // Dừng ở 22:00
-        const timeString = `${hour.toString().padStart(2, "0")}:${minute
-          .toString()
-          .padStart(2, "0")}`;
-        timeSlots.push(timeString);
+    // Helper function to generate time slots from availability
+    const generateTimeSlots = (availability) => {
+      const slots = [];
+      
+      availability.forEach(slot => {
+        const startTime = slot.start_time || slot.time_start;
+        const endTime = slot.end_time || slot.time_end;
+        
+        if (!startTime || !endTime) return;
+        
+        // Parse start and end times
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        
+        // Generate 2-hour slots between start and end time
+        let currentHour = startHour;
+        let currentMin = startMin;
+        
+        while (currentHour < endHour) {
+          const timeString = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+          
+          // Calculate end time for this 2-hour slot
+          let slotEndHour = currentHour + 2;
+          let slotEndMin = currentMin;
+          
+          // Make sure we don't go past the availability end time
+          if (slotEndHour > endHour || (slotEndHour === endHour && slotEndMin > endMin)) {
+            slotEndHour = endHour;
+            slotEndMin = endMin;
+          }
+          
+          const slotEndTime = `${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}`;
+          
+          slots.push({
+            time: timeString,
+            displayTime: `${timeString} - ${slotEndTime}`,
+            available: true
+          });
+          
+          // Move to next slot (advance by 2 hours)
+          currentHour += 2;
+          
+          // If we've reached or passed the end time, break
+          if (currentHour >= endHour) {
+            break;
+          }
+        }
+      });
+      
+      return slots;
+    };
+
+    // Helper function to check if a time slot is booked
+    const isSlotBooked = (slotTime, bookedAppointments) => {
+      if (!bookedAppointments || bookedAppointments.length === 0) return false;
+      
+      const selectedDateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      return bookedAppointments.some(appointment => {
+        // Check if appointment is on the same date
+        const appointmentDate = appointment.date || appointment.appointment_date;
+        if (appointmentDate !== selectedDateStr) return false;
+        
+        // Check if appointment time conflicts with slot time
+        const appointmentTime = appointment.time || appointment.appointment_time;
+        if (!appointmentTime) return false;
+        
+        // Parse appointment time (could be HH:MM or full datetime)
+        let appointmentHour, appointmentMin;
+        if (appointmentTime.includes(':')) {
+          [appointmentHour, appointmentMin] = appointmentTime.split(':').map(Number);
+        } else {
+          // If it's a full datetime, extract time part
+          const timeMatch = appointmentTime.match(/(\d{2}):(\d{2})/);
+          if (timeMatch) {
+            appointmentHour = parseInt(timeMatch[1]);
+            appointmentMin = parseInt(timeMatch[2]);
+          } else {
+            return false;
+          }
+        }
+        
+        // Parse slot time
+        const [slotHour, slotMin] = slotTime.split(':').map(Number);
+        
+        // Check if appointment time falls within this 2-hour slot
+        const appointmentMinutes = appointmentHour * 60 + appointmentMin;
+        const slotStartMinutes = slotHour * 60 + slotMin;
+        const slotEndMinutes = slotStartMinutes + 120; // 2 hours = 120 minutes
+        
+        return appointmentMinutes >= slotStartMinutes && appointmentMinutes < slotEndMinutes;
+      });
+    };
+
+    // Get availability data from state
+    const availabilityData = coachAvailability;
+    console.log('🎯 Coach availability data for time slots:', availabilityData);
+    
+    // Extract slots and booked appointments from the structure
+    let availabilitySlots = [];
+    let bookedAppointments = [];
+    
+    if (availabilityData && typeof availabilityData === 'object') {
+      // If it's a structured object with available_slots and booked_appointments
+      if (availabilityData.available_slots) {
+        availabilitySlots = availabilityData.available_slots;
+        bookedAppointments = availabilityData.booked_appointments || [];
+      }
+      // If it's an array (backward compatibility)
+      else if (Array.isArray(availabilityData)) {
+        availabilitySlots = availabilityData;
+        bookedAppointments = availabilityData[0]?.booked_appointments || [];
       }
     }
-
+    
+    console.log('📋 Availability slots:', availabilitySlots);
+    console.log('📅 Booked appointments:', bookedAppointments);
+    
+    // Generate all possible time slots
+    const allTimeSlots = generateTimeSlots(availabilitySlots);
+    
+    // Filter out booked slots
+    const availableTimeSlots = allTimeSlots.filter(slot => {
+      const isBooked = isSlotBooked(slot.time, bookedAppointments);
+      console.log(`⏰ Slot ${slot.displayTime}: ${isBooked ? 'BOOKED ❌' : 'AVAILABLE ✅'}`);
+      return !isBooked;
+    });
+    
+    console.log('📊 Slot Summary:');
+    console.log(`- Total possible slots: ${allTimeSlots.length}`);
+    console.log(`- Available slots: ${availableTimeSlots.length}`);
+    console.log(`- Blocked slots: ${allTimeSlots.length - availableTimeSlots.length}`);
+    console.log('✅ Available time slots after filtering:', availableTimeSlots.map(s => s.displayTime));
+    
+    // For debugging - log blocked slots
+    const blockedSlots = allTimeSlots.filter(slot => isSlotBooked(slot.time, bookedAppointments));
+    if (blockedSlots.length > 0) {
+      console.log('🚫 Blocked slots:', blockedSlots.map(s => s.displayTime));
+    }
+    
     return (
       <div className="time-selection-container">
         <div className="selection-header">
@@ -404,12 +657,15 @@ function BookAppointment() {
 
         <div className="selection-details">
           <div className="selected-coach">
-            <img
-              src={selectedCoach.avatar}
-              alt={selectedCoach.name}
-              className="small-avatar"
+            <img 
+              src={selectedCoach.avatar_url || selectedCoach.avatar || '/image/default-user-avatar.svg'} 
+              alt={selectedCoach.full_name || selectedCoach.username || 'Coach'} 
+              className="small-avatar" 
+              onError={(e) => {
+                e.target.src = '/image/default-user-avatar.svg';
+              }}
             />
-            <span>{selectedCoach.name}</span>
+            <span>{selectedCoach.full_name || selectedCoach.username || 'Coach'}</span>
           </div>
           <div className="selected-date">
             <FaCalendarAlt />
@@ -425,25 +681,41 @@ function BookAppointment() {
         </div>
 
         <div className="time-slots-container">
-          <div className="custom-time-container">
-            <p>Chọn khung giờ còn trống:</p>
-            <div className="time-slots-grid">
-              {["08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00"].map((range) => (
-                <button
-                  key={range}
-                  className="time-slot-btn"
-                  onClick={() => handleSelectTime(range)}
-                  type="button"
-                >
-                  <span className="dot-icon"></span>
-                  {range}
-                </button>
-              ))}
+          {loadingAvailability ? (
+            <div className="loading-availability">
+              <FaClock className="loading-icon" />
+              <p>Đang tải lịch trống của coach...</p>
             </div>
-            <small className="time-helper-text">
-              Giờ làm việc: 8:00 - 22:00
-            </small>
-          </div>
+          ) : availableTimeSlots.length > 0 ? (
+            <>
+              <p className="slots-instruction">Chọn khung giờ còn trống:</p>
+              <div className="time-slots-grid">
+                {availableTimeSlots.map((slot, index) => (
+                  <button
+                    key={index}
+                    className={`time-slot ${selectedTime === slot.time ? 'selected' : ''} ${!slot.available ? 'disabled' : ''}`}
+                    onClick={() => slot.available && handleSelectTime(slot.time)}
+                    disabled={!slot.available}
+                  >
+                    <FaClock className="time-icon" />
+                    {slot.displayTime}
+                  </button>
+                ))}
+              </div>
+              {allTimeSlots.length > availableTimeSlots.length && (
+                <div className="booked-info">
+                  <p>💡 {allTimeSlots.length - availableTimeSlots.length} khung giờ đã có người đặt</p>
+                  <small>Chỉ hiển thị các khung giờ còn trống để đặt lịch</small>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="no-availability">
+              <FaClock className="no-slots-icon" />
+              <p>Tất cả khung giờ trong ngày này đã được đặt</p>
+              <p className="suggestion">Vui lòng chọn ngày khác</p>
+            </div>
+          )}
         </div>
 
         <button onClick={() => setStep(2)} className="back-button">
@@ -460,22 +732,9 @@ function BookAppointment() {
         <div className="success-icon">
           <FaCheck />
         </div>
-        <h2>
-          {isRescheduling
-            ? "Thay đổi lịch thành công!"
-            : "Đặt lịch thành công!"}
-        </h2>{" "}
-        <p>
-          Bạn đã {isRescheduling ? "thay đổi lịch hẹn" : "đặt lịch hẹn"} với{" "}
-          <strong>{selectedCoach.name}</strong>
-        </p>
-        <p>
-          Vào ngày <strong>{selectedDate.toLocaleDateString("vi-VN")}</strong>{" "}
-          lúc <strong>{selectedTime}</strong>
-        </p>
-        <p>
-          Mã cuộc hẹn: <strong>#{appointmentId}</strong>
-        </p>
+        <h2>{isRescheduling ? 'Thay đổi lịch thành công!' : 'Đặt lịch thành công!'}</h2>        <p>Bạn đã {isRescheduling ? 'thay đổi lịch hẹn' : 'đặt lịch hẹn'} với <strong>{selectedCoach.full_name || selectedCoach.username}</strong></p>
+        <p>Vào ngày <strong>{selectedDate.toLocaleDateString('vi-VN')}</strong> lúc <strong>{selectedTime}</strong></p>
+        <p>Mã cuộc hẹn: <strong>#{appointmentId}</strong></p>
         <div className="pending-status-info">
           <p>
             <strong>⏳ Trạng thái:</strong> Đang chờ coach xác nhận

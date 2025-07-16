@@ -1,14 +1,16 @@
-import React from "react";
-import { createBrowserRouter } from "react-router-dom";
-import Home from "../page/Home";
-import Tools from "../page/Tools";
-import MembershipPackage from "../page/MembershipPackage";
-import SettingsPage from "../page/Settings";
-import Pay from "../page/Pay";
-import PaymentSuccess from "../page/PaymentSuccess";
-import CoachBookings from "../page/coach/CoachBookings";
-import CoachDashboard from "../page/coach/CoachDashboard";
-import Chat from "../page/Chat";
+import React from 'react';
+import { createBrowserRouter } from 'react-router-dom';
+import Home from '../page/Home';
+import Tools from '../page/Tools';
+import MembershipPackage from '../page/MembershipPackage';
+import SettingsPage from '../page/Settings';
+import Pay from '../page/Pay';
+import PaymentSuccess from '../page/PaymentSuccess';
+import CoachBookings from '../page/coach/CoachBookings';
+import CoachDashboard from '../page/coach/CoachDashboard';
+import CoachDashboardDemo from '../page/coach/CoachDashboardDemo';
+import CoachDashboardNew from '../page/coach/CoachDashboardNew';
+import Chat from '../page/Chat';
 
 /**
  * AppRoutes - Cung cấp cấu hình định tuyến (routing) cho toàn bộ ứng dụng
@@ -95,6 +97,14 @@ const router = createBrowserRouter([
         <CoachDashboard />
       </Layout>
     ),
+  },
+  {
+    path: "/coach-dashboard-demo",
+    element: <Layout><CoachDashboardDemo /></Layout>,
+  },
+  {
+    path: "/coach-dashboard-new",
+    element: <Layout><CoachDashboardNew /></Layout>,
   },
   {
     path: "/chat",
