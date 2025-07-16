@@ -9,6 +9,8 @@ import PaymentSuccess from "../page/PaymentSuccess";
 import CoachBookings from "../page/coach/CoachBookings";
 import CoachDashboard from "../page/coach/CoachDashboard";
 import Chat from "../page/Chat";
+import Blog from "../page/Blog";
+import ArticlePage from "../page/ArticlePage";
 
 /**
  * AppRoutes - Cung cấp cấu hình định tuyến (routing) cho toàn bộ ứng dụng
@@ -101,6 +103,22 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <Chat />
+      </Layout>
+    ),
+  },
+  {
+    path: "/blog",
+    element: (
+      <Layout>
+        <Blog />
+      </Layout>
+    ),
+  },
+  {
+    path: "/blog/:slug",
+    element: (
+      <Layout>
+        <ArticlePage />
       </Layout>
     ),
   },

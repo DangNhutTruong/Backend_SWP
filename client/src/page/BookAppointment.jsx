@@ -213,9 +213,9 @@ function BookAppointment() {
           "/appointments",
           appointmentData,
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           }
         );
       }
@@ -429,15 +429,15 @@ function BookAppointment() {
             <p>Chọn khung giờ còn trống:</p>
             <div className="time-slots-grid">
               {["08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00"].map((range) => (
-                <button
+              <button
                   key={range}
                   className="time-slot-btn"
                   onClick={() => handleSelectTime(range)}
-                  type="button"
-                >
+                type="button"
+              >
                   <span className="dot-icon"></span>
                   {range}
-                </button>
+              </button>
               ))}
             </div>
             <small className="time-helper-text">

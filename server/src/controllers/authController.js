@@ -1386,7 +1386,7 @@ export const updateAppointmentStatus = async (req, res) => {
 
         // Update appointment status in appointments table
         const query = `UPDATE appointments 
-                       SET status = ?, notes = COALESCE(?, notes), updated_at = NOW()
+             SET status = ?, notes = COALESCE(?, notes), updated_at = NOW()
                        WHERE id = ?`;
         const params = [status, notes, appointmentId];
         

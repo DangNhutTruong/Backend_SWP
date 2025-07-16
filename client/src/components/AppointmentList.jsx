@@ -514,7 +514,7 @@ function AppointmentList() {
     console.log(`  Is future: ${appointmentDate >= now}, Is today: ${appointmentDay.getTime() === today.getTime()}`);
 
     // Logic filter theo tab đã chọn
-    if (filter === "upcoming") {
+      if (filter === "upcoming") {
       // Nếu lịch hẹn đã hủy hoặc đã hoàn thành, không hiển thị trong "Sắp tới"
       if (isCancelled || isCompleted) {
         return false;
@@ -622,8 +622,8 @@ function AppointmentList() {
             }
           } else if (error.request) {
             alert("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.");
-          } else {
-            alert("Lỗi khi hủy lịch hẹn. Vui lòng thử lại.");
+        } else {
+          alert("Lỗi khi hủy lịch hẹn. Vui lòng thử lại.");
           }
           
           return null;
@@ -662,7 +662,7 @@ function AppointmentList() {
 
     // Chuyển hướng đến trang đặt lịch với tham số reschedule=true
     navigate("/appointment?reschedule=true");
-    
+
     // Không cần xóa lịch hẹn cũ vì chúng ta sẽ cập nhật nó thay vì tạo mới
   };
   // Open rebook confirmation modal
@@ -841,7 +841,7 @@ function AppointmentList() {
       console.log("Completing appointment ID:", appointmentId);
       
       const response = await api.put(`/api/auth/appointments/${appointmentId}/status`, {
-        status: "completed",
+              status: "completed",
         userId: user?.id,
         notes: "Buổi tư vấn đã được hoàn thành"
       }).catch(error => {
@@ -862,7 +862,7 @@ function AppointmentList() {
           alert("Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.");
         } else {
           alert("Lỗi khi cập nhật trạng thái lịch hẹn. Vui lòng thử lại.");
-        }
+          }
         
         return null;
       });
@@ -908,7 +908,7 @@ function AppointmentList() {
           // Show specific error message based on status code
           if (error.response.status === 404) {
             alert("Không tìm thấy lịch hẹn này trong hệ thống. Vui lòng làm mới trang và thử lại.");
-          } else {
+      } else {
             alert(`Lỗi khi xác nhận lịch hẹn: ${error.response.data.message || "Vui lòng thử lại"}`);
           }
         } else if (error.request) {

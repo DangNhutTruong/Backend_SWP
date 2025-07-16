@@ -114,3 +114,59 @@ export function addCommentToPost(posts, postId, comment) {
     return post;
   });
 }
+
+// Xóa bình luận khỏi bài viết
+export function removeCommentFromPost(posts, postId, commentId) {
+  return posts.map(post => {
+    if (post.id === postId && post.commentsList) {
+      const updatedComments = post.commentsList.filter(comment => comment.id !== commentId);
+      return {
+        ...post,
+        comments: updatedComments.length,
+        commentsList: updatedComments
+      };
+    }
+    return post;
+  });
+}
+
+// Lấy danh sách bình luận của bài viết
+export function getPostComments(post) {
+  return post?.commentsList || [];
+}
+
+// Sắp xếp bài viết theo thời gian mới nhất
+export function sortPostsByNewest(posts) {
+  return [...posts].sort((a, b) => {
+    const dateA = new Date(a.timestamp);
+    const dateB = new Date(b.timestamp);
+    return dateB - dateA;
+  });
+}
+
+// Lọc bài viết theo từ khóa
+export function filterPostsByKeyword(posts, keyword) {
+  if (!keyword) return posts;
+  
+  const lowercaseKeyword = keyword.toLowerCase();
+  return posts.filter(post => {
+    // Tìm trong nội dung bài viết
+    if (post.content && post.content.toLowerCase().includes(lowercaseKeyword)) {
+      return true;
+    }
+    
+    // Tìm trong tên người đăng
+    if (post.user?.name && post.user.name.toLowerCase().includes(lowercaseKeyword)) {
+      return true;
+    }
+    
+    // Tìm trong huy hiệu
+    if (post.achievements && post.achievements.some(a => 
+      a.name.toLowerCase().includes(lowercaseKeyword)
+    )) {
+      return true;
+    }
+    
+    return false;
+  });
+}
