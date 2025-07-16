@@ -1,4 +1,10 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+} from "react";
 
 // Tạo context cho xác thực
 const AuthContext = createContext(null);
@@ -76,7 +82,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       // Kiểm tra xem có token trong localStorage không (tức là có ghi nhớ)
-      const hasRememberMe = localStorage.getItem('nosmoke_token');
+      const hasRememberMe = localStorage.getItem("nosmoke_token");
       if (hasRememberMe) {
         localStorage.setItem("nosmoke_user", JSON.stringify(user));
       } else {
@@ -140,11 +146,14 @@ export const AuthProvider = ({ children }) => {
         // Lưu token và user data (fake token for coach)
         const fakeToken = `coach_token_${coachAccount.id}`;
         if (rememberMe) {
-          localStorage.setItem('nosmoke_token', fakeToken);
-          localStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+          localStorage.setItem("nosmoke_token", fakeToken);
+          localStorage.setItem("nosmoke_user", JSON.stringify(normalizedUser));
         } else {
-          sessionStorage.setItem('nosmoke_token', fakeToken);
-          sessionStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+          sessionStorage.setItem("nosmoke_token", fakeToken);
+          sessionStorage.setItem(
+            "nosmoke_user",
+            JSON.stringify(normalizedUser)
+          );
         }
 
         setUser(normalizedUser);
@@ -175,13 +184,16 @@ export const AuthProvider = ({ children }) => {
 
         // Lưu token và user data
         if (rememberMe) {
-          localStorage.setItem('nosmoke_token', token);
-          localStorage.setItem('refresh_token', refreshToken);
-          localStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+          localStorage.setItem("nosmoke_token", token);
+          localStorage.setItem("refresh_token", refreshToken);
+          localStorage.setItem("nosmoke_user", JSON.stringify(normalizedUser));
         } else {
-          sessionStorage.setItem('nosmoke_token', token);
-          sessionStorage.setItem('refresh_token', refreshToken);
-          sessionStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+          sessionStorage.setItem("nosmoke_token", token);
+          sessionStorage.setItem("refresh_token", refreshToken);
+          sessionStorage.setItem(
+            "nosmoke_user",
+            JSON.stringify(normalizedUser)
+          );
         }
 
         setUser(normalizedUser);
@@ -202,12 +214,12 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     // Xóa thông tin user và token khỏi cả localStorage và sessionStorage
-    localStorage.removeItem('nosmoke_user');
-    localStorage.removeItem('nosmoke_token');
-    localStorage.removeItem('refresh_token');
-    sessionStorage.removeItem('nosmoke_user');
-    sessionStorage.removeItem('nosmoke_token');
-    sessionStorage.removeItem('refresh_token');
+    localStorage.removeItem("nosmoke_user");
+    localStorage.removeItem("nosmoke_token");
+    localStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("nosmoke_user");
+    sessionStorage.removeItem("nosmoke_token");
+    sessionStorage.removeItem("refresh_token");
     return { success: true };
   };
 
@@ -300,10 +312,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Đảm bảo đồng bộ giữa membership và membershipType
-      if (
-        "membership" in updatedData &&
-        !("membershipType" in updatedData)
-      ) {
+      if ("membership" in updatedData && !("membershipType" in updatedData)) {
         updatedData.membershipType = updatedData.membership;
         console.log(
           "Tự động đồng bộ membershipType:",
@@ -311,10 +320,7 @@ export const AuthProvider = ({ children }) => {
         );
       }
 
-      if (
-        "membershipType" in updatedData &&
-        !("membership" in updatedData)
-      ) {
+      if ("membershipType" in updatedData && !("membership" in updatedData)) {
         updatedData.membership = updatedData.membershipType;
         console.log("Tự động đồng bộ membership:", updatedData.membership);
       }
