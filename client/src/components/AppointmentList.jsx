@@ -29,7 +29,6 @@ const CancelledAppointmentCard = ({ appointment, onRebook, onDelete }) => {
       year: "numeric",
     });
   };
-
   // Gọi hàm mở modal đặt lại lịch hẹn
   const handleRebookClick = () => {
     onRebook(appointment);

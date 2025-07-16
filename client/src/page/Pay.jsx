@@ -1,361 +1,278 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Pay.css';
-import { FaCreditCard, FaWallet, FaMoneyBillWave, FaPaypal } from 'react-icons/fa';
+import axios from '../utils/axiosConfig.js';
 
 const Pay = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { updateUser } = useAuth();
+
   const [selectedPackage, setSelectedPackage] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('zalopay'); // Default payment method
-  const [cardInfo, setCardInfo] = useState({
-    cardName: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
-  });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
 
   useEffect(() => {
-    // Kiểm tra nếu có dữ liệu từ trang chọn gói
-    if (location.state && location.state.package) {
-      setSelectedPackage(location.state.package);
-    } else {
-      // Nếu không có dữ liệu, chuyển về trang chọn gói
-      navigate('/membership');
-    }
-  }, [location, navigate]);
-
-  // Xử lý thay đổi phương thức thanh toán
-  const handlePaymentMethodChange = (method) => {
-    setPaymentMethod(method);
-  };
-
-  // Xử lý thay đổi thông tin thẻ
-  const handleCardInfoChange = (e) => {
-    const { name, value } = e.target;
-    setCardInfo({
-      ...cardInfo,
-      [name]: value
-    });
-  };  // Xử lý khi nhấn nút thanh toán
-  const handlePayment = (e) => {
-    e.preventDefault();
+    console.log('Pay.jsx useEffect - Kiểm tra dữ liệu gói');
     
-    if (!termsAccepted) {
-      alert('Vui lòng đồng ý với điều khoản sử dụng dịch vụ');
+    // Thử lấy package từ location.state
+    let pkg = location.state?.package;
+    console.log('Dữ liệu từ location.state:', pkg);
+    
+    // Nếu không có trong location.state, thử lấy từ localStorage
+    if (!pkg) {
+      try {
+        const storedPackage = localStorage.getItem('selectedPackage');
+        console.log('Dữ liệu raw từ localStorage:', storedPackage);
+        
+        if (storedPackage) {
+          pkg = JSON.parse(storedPackage);
+          console.log('Dữ liệu parsed từ localStorage:', pkg);
+        }
+      } catch (e) {
+        console.error('Failed to parse selectedPackage from localStorage:', e);
+      }
+    }
+
+    // Nếu không có dữ liệu package, chuyển về trang membership
+    if (!pkg) {
+      console.log('Không tìm thấy dữ liệu gói, chuyển về trang membership');
+      navigate('/membership');
       return;
     }
-
-    // Hiển thị loading hoặc thông báo đang xử lý thanh toán dựa trên phương thức thanh toán
-    setIsProcessing(true);
     
-    // Hiển thị thông báo xử lý dựa vào phương thức thanh toán
-    let message = '';
-    switch(paymentMethod) {
-      case 'creditCard':
-        message = 'Đang xác thực thông tin thẻ...';
-        break;
-      case 'momo':
-        message = 'Đang chờ thanh toán từ ví Momo...';
-        break;
-      case 'zalopay':
-        message = 'Đang chờ thanh toán từ ZaloPay...';
-        break;
-      case 'paypal':
-        message = 'Đang chuyển hướng đến PayPal...';
-        break;
-      default:
-        message = 'Đang xử lý thanh toán...';
+    console.log('Dữ liệu gói trước khi xử lý:', pkg);
+
+    // Đảm bảo id luôn là số nguyên
+    let packageId;
+    
+    if (pkg.id !== undefined && pkg.id !== null) {
+      // Nếu có id, chuyển đổi sang number nếu cần
+      packageId = typeof pkg.id === 'string' ? parseInt(pkg.id) : pkg.id;
+      console.log('Package ID từ dữ liệu:', packageId);
+    } else {
+      // Nếu không có id, xác định dựa vào membershipType
+      packageId = pkg.membershipType === 'premium' ? 2 : 
+                 pkg.membershipType === 'pro' ? 3 : 1;
+      console.log('Package ID được xác định từ membershipType:', packageId);
     }
     
-    setProcessingMessage(message);
+    // Cập nhật đối tượng gói với ID đã xác nhận
+    const updatedPkg = {
+      ...pkg,
+      id: packageId
+    };
     
-    // Mô phỏng quá trình thanh toán (giả lập delay để tạo trải nghiệm thực tế hơn)
-    console.log(`Đang xử lý thanh toán gói ${selectedPackage.name} với giá ${selectedPackage.price.toLocaleString()}đ qua ${paymentMethod}`);
+    console.log('Dữ liệu gói sau khi xử lý:', updatedPkg);
     
-    // Mô phỏng thời gian xử lý thanh toán
-    setTimeout(() => {
-      // Cập nhật gói thành viên của người dùng
-      updateUser({ membershipType: selectedPackage.name.toLowerCase() });
-      
-      // Chuyển hướng người dùng sau khi thanh toán - sử dụng replace để không thể quay lại
-      navigate('/payment/success', { 
-        replace: true,
-        state: { 
-          package: selectedPackage,
-          paymentMethod: paymentMethod
-        } 
-      });
-    }, 2000); // Giả lập delay 2 giây
+    setSelectedPackage(updatedPkg);
+    localStorage.setItem('selectedPackage', JSON.stringify(updatedPkg));
+  }, [location, navigate]);
+
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    if (!termsAccepted) return alert('Vui lòng đồng ý với điều khoản sử dụng.');
+    if (!selectedPackage) return navigate('/membership');
+    
+    // Kiểm tra và đảm bảo thông tin gói hợp lệ
+    if (!selectedPackage.id || !selectedPackage.membershipType || !selectedPackage.name) {
+      console.error('Thông tin gói không đầy đủ:', selectedPackage);
+      alert('Thông tin gói không hợp lệ. Vui lòng chọn lại gói thành viên.');
+      return navigate('/membership');
+    }
+    
+    // Log thông tin gói trước khi xử lý
+    console.log('Thông tin gói thanh toán:', {
+      id: selectedPackage.id,
+      name: selectedPackage.name,
+      membershipType: selectedPackage.membershipType,
+      price: selectedPackage.price
+    });
+
+    setIsProcessing(true);
+    setProcessingMessage('Đang xử lý thanh toán qua ZaloPay...');
+
+    // Get token from both localStorage and sessionStorage to match AuthContext storage pattern
+    const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+    console.log('Token status:', token ? 'Token found' : 'No token found');
+    if (!token) return alert('Bạn cần đăng nhập để thanh toán.');
+
+    try {
+      console.log('Bắt đầu xử lý thanh toán ZaloPay với gói:', selectedPackage);
+        
+        // Xác định packageId từ selectedPackage
+        let packageId = selectedPackage.id;
+        
+        console.log('Package ID trước khi xử lý:', packageId, 'type:', typeof packageId);
+        
+        // Đảm bảo packageId là số
+        if (typeof packageId === 'string') {
+          packageId = parseInt(packageId);
+          console.log('Package ID sau khi parse:', packageId);
+        }
+        
+        // Kiểm tra lại tính hợp lệ của packageId
+        if (isNaN(packageId) || packageId <= 0) {
+          console.warn('Package ID không hợp lệ:', packageId);
+          
+          // Xác định packageId dựa trên membershipType
+          if (selectedPackage.membershipType === 'premium') {
+            packageId = 2;
+          } else if (selectedPackage.membershipType === 'pro') {
+            packageId = 3;
+          } else {
+            packageId = 1; // Fallback là gói free
+          }
+          console.log('Package ID được gán lại dựa trên membershipType:', packageId);
+        }
+        
+        console.log(`Gói thanh toán: ${selectedPackage.name} (ID: ${packageId}, Type: ${selectedPackage.membershipType})`);
+        
+        // Không cho phép thanh toán gói free
+        if (packageId === 1 || selectedPackage.membershipType === 'free') {
+          alert('Không thể thanh toán gói miễn phí');
+          navigate('/membership');
+          return;
+        }
+        
+        // Đảm bảo packageId là số nguyên hợp lệ trước khi gửi lên server
+        const validPackageId = Number.isInteger(packageId) ? packageId : (
+          selectedPackage.membershipType === 'premium' ? 2 : 
+          selectedPackage.membershipType === 'pro' ? 3 : 1
+        );
+        
+        console.log(`PackageId trước khi gửi lên server: ${validPackageId} (${typeof validPackageId})`);
+        
+        const zaloPayData = {
+          packageId: validPackageId,
+          amount: selectedPackage.price,
+          redirectUrl: `${window.location.origin}/payment/success` // URL để chuyển hướng sau khi thanh toán
+        };
+
+        console.log('Gọi API ZaloPay với dữ liệu:', zaloPayData);
+        
+        const zaloPayRes = await axios.post('/api/payments/zalopay/create', zaloPayData, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        console.log('ZaloPay API response:', zaloPayRes.data);
+
+        if (zaloPayRes.data.success) {
+          // Lấy order_url từ đúng vị trí trong response
+          // Có thể order_url nằm trực tiếp trong data hoặc trong data.data
+          const order_url = zaloPayRes.data.order_url || (zaloPayRes.data.data && zaloPayRes.data.data.order_url);
+          
+          if (order_url) {
+            console.log('Chuyển hướng đến ZaloPay URL:', order_url);
+            // Đảm bảo thông tin gói có ID đúng trước khi lưu
+            const packageToSave = {
+              ...selectedPackage,
+              id: zaloPayRes.data.data?.packageId || packageId || selectedPackage.id // Lấy ID từ response, packageId đã xác định, hoặc từ selectedPackage
+            };
+            
+            // Đảm bảo ID là số
+            if (typeof packageToSave.id === 'string') {
+              packageToSave.id = parseInt(packageToSave.id);
+            }
+            
+            console.log('Lưu thông tin gói trước khi chuyển hướng:', packageToSave);
+            console.log('Chi tiết gói thanh toán:', {
+              id: packageToSave.id,
+              type: typeof packageToSave.id,
+              membershipType: packageToSave.membershipType,
+              name: packageToSave.name,
+              price: packageToSave.price
+            });
+            
+            // Lưu thông tin gói để sau khi thanh toán quay lại
+            const packageJson = JSON.stringify(packageToSave);
+            console.log('Chuỗi JSON trước khi lưu:', packageJson);
+            
+            localStorage.setItem('pendingPaymentPackage', packageJson);
+            localStorage.setItem('selectedPackage', packageJson);
+            
+            // Kiểm tra lại dữ liệu đã lưu
+            const savedPackage = localStorage.getItem('selectedPackage');
+            console.log('Dữ liệu đã lưu trong localStorage:', savedPackage);
+            
+            // Chuyển hướng người dùng đến trang thanh toán ZaloPay
+            window.location.href = order_url;
+            return;
+          } else {
+            console.error('ZaloPay response không có order_url:', zaloPayRes.data);
+            throw new Error('Không nhận được URL thanh toán từ ZaloPay');
+          }
+        } else {
+          throw new Error(zaloPayRes.data.message || 'Tạo thanh toán ZaloPay thất bại');
+        }
+    } catch (err) {
+      console.error('Payment error:', err);
+      alert(`Thanh toán thất bại: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  // Xử lý nút quay lại
-  const handleGoBack = () => {
-    navigate('/membership');
-  };
-    // Hiển thị loading khi chưa có dữ liệu gói
-  if (!selectedPackage) {
-    return (
-      <div className="payment-container">
-        <div className="payment-loading">
-          <div className="loading-spinner"></div>
-          <p>Đang tải thông tin...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Hiển thị màn hình xử lý thanh toán
-  if (isProcessing) {
-    return (
-      <div className="payment-container">
-        <div className="payment-processing">
-          <div className="processing-animation">
-            <div className="loading-spinner"></div>
-            {paymentMethod === 'creditCard' && <div className="credit-card-icon">💳</div>}
-            {paymentMethod === 'momo' && <div className="momo-icon">M</div>}
-            {paymentMethod === 'zalopay' && <div className="zalopay-icon">Z</div>}
-            {paymentMethod === 'paypal' && <div className="paypal-icon">P</div>}
-          </div>
-          <h2>{processingMessage}</h2>
-          <p>Vui lòng không đóng trang này trong quá trình xử lý...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleGoBack = () => navigate('/membership');
 
-  // Tính VAT và tổng tiền
-  const vat = selectedPackage.price * 0.1;
-  const totalAmount = selectedPackage.price + vat;
+  if (!selectedPackage) return <div>Đang tải thông tin gói...</div>;
+
+  if (isProcessing) return <div>{processingMessage}</div>;
+
+  const totalAmount = selectedPackage.price || 0;
 
   return (
     <div className="payment-container">
       <div className="payment-content">
         <div className="payment-methods-section">
           <h2>Phương thức thanh toán</h2>
-          
-          <div className="payment-method-options">
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                id="creditCard" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'creditCard'} 
-                onChange={() => handlePaymentMethodChange('creditCard')} 
-              />              <label htmlFor="creditCard">
-                <FaCreditCard style={{marginRight: '10px'}} /> Thẻ tín dụng/ghi nợ
-              </label>
-            </div>
-            
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                id="momo" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'momo'} 
-                onChange={() => handlePaymentMethodChange('momo')} 
+          <div className="zalopay-option">
+            <div className="zalopay-info">
+              <img 
+                src="https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png" 
+                alt="ZaloPay Logo" 
+                className="zalopay-logo"
               />
-              <label htmlFor="momo">
-                <FaWallet style={{marginRight: '10px'}} /> Ví Momo
-              </label>
-            </div>
-            
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                id="zalopay" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'zalopay'} 
-                onChange={() => handlePaymentMethodChange('zalopay')} 
-              />
-              <label htmlFor="zalopay">
-                <FaMoneyBillWave style={{marginRight: '10px'}} /> ZaloPay
-              </label>
-            </div>
-            
-            <div className="payment-option">
-              <input 
-                type="radio" 
-                id="paypal" 
-                name="paymentMethod" 
-                checked={paymentMethod === 'paypal'} 
-                onChange={() => handlePaymentMethodChange('paypal')} 
-              />
-              <label htmlFor="paypal">
-                <FaPaypal style={{marginRight: '10px'}} /> PayPal
-              </label>
+              <div className="zalopay-details">
+                <h3>ZaloPay</h3>
+                <p>Thanh toán an toàn và nhanh chóng qua ZaloPay</p>
+              </div>
             </div>
           </div>
-            {paymentMethod === 'creditCard' && (
-            <div className="card-info-form">
-              <h3>Thông tin thẻ</h3>
-              <div className="form-group">
-                <label htmlFor="cardName">Tên chủ thẻ</label>
-                <input 
-                  type="text" 
-                  id="cardName" 
-                  name="cardName" 
-                  placeholder="NGUYEN VAN A" 
-                  value={cardInfo.cardName}
-                  onChange={handleCardInfoChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="cardNumber">Số thẻ</label>
-                <input 
-                  type="text" 
-                  id="cardNumber" 
-                  name="cardNumber" 
-                  placeholder="1234 5678 9012 3456" 
-                  value={cardInfo.cardNumber}
-                  onChange={handleCardInfoChange}
-                  required
-                />
-              </div>
-              <div className="form-row">
-                <div className="form-group half-width">
-                  <label htmlFor="expiryDate">Ngày hết hạn</label>
-                  <input 
-                    type="text" 
-                    id="expiryDate" 
-                    name="expiryDate" 
-                    placeholder="MM/YY" 
-                    value={cardInfo.expiryDate}
-                    onChange={handleCardInfoChange}
-                    required
-                  />
-                </div>
-                <div className="form-group half-width">
-                  <label htmlFor="cvv">Mã CVV</label>
-                  <input 
-                    type="text" 
-                    id="cvv" 
-                    name="cvv" 
-                    placeholder="123" 
-                    value={cardInfo.cvv}
-                    onChange={handleCardInfoChange}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {paymentMethod === 'momo' && (
-            <div className="momo-payment-form">
-              <div className="qr-code-container">
-                <h3>Quét mã để thanh toán qua Ví Momo</h3>
-                <div className="qr-code">
-                  <div className="qr-image">
-                    {/* QR code placeholder - would be dynamic in real app */}
-                    <div className="qr-placeholder">
-                      <div className="qr-grid"></div>
-                    </div>
-                  </div>
-                  <p className="qr-instruction">Sử dụng ứng dụng Momo để quét mã QR</p>
-                </div>
-                <div className="payment-instructions">
-                  <h4>Hướng dẫn thanh toán:</h4>
-                  <ol>
-                    <li>Mở ứng dụng Momo trên điện thoại của bạn</li>
-                    <li>Chọn "Quét mã QR" trong ứng dụng</li>
-                    <li>Quét mã QR được hiển thị ở trên</li>
-                    <li>Xác nhận thanh toán trên ứng dụng Momo</li>
-                    <li>Đợi xác nhận thanh toán thành công</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {paymentMethod === 'zalopay' && (
-            <div className="zalopay-payment-form">
-              <div className="qr-code-container">
-                <h3>Quét mã để thanh toán qua ZaloPay</h3>
-                <div className="qr-code">
-                  <div className="qr-image zalopay">
-                    {/* QR code placeholder - would be dynamic in real app */}
-                    <div className="qr-placeholder">
-                      <div className="qr-grid"></div>
-                    </div>
-                  </div>
-                  <p className="qr-instruction">Sử dụng ứng dụng ZaloPay để quét mã QR</p>
-                </div>
-                <div className="payment-instructions">
-                  <h4>Hướng dẫn thanh toán:</h4>
-                  <ol>
-                    <li>Mở ứng dụng ZaloPay trên điện thoại của bạn</li>
-                    <li>Chọn "Quét mã QR" trong ứng dụng</li>
-                    <li>Quét mã QR được hiển thị ở trên</li>
-                    <li>Xác nhận thanh toán trên ứng dụng ZaloPay</li>
-                    <li>Đợi xác nhận thanh toán thành công</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {paymentMethod === 'paypal' && (
-            <div className="paypal-payment-form">
-              <h3>Thanh toán bằng PayPal</h3>
-              <div className="paypal-container">
-                <div className="paypal-logo">
-                  <div className="paypal-p">P</div>
-                  <div className="paypal-a">a</div>
-                  <div className="paypal-y">y</div>
-                  <div className="paypal-p2">P</div>
-                  <div className="paypal-a2">a</div>
-                  <div className="paypal-l">l</div>
-                </div>
-                <p className="paypal-instruction">Bạn sẽ được chuyển đến trang web PayPal để hoàn tất thanh toán.</p>                <button className="paypal-button" onClick={handlePayment}></button>
-                <div className="paypal-secure">
-                  <span className="lock-icon">🔒</span> Thanh toán an toàn qua PayPal
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-        
+
         <div className="payment-summary-section">
           <h2>Tóm tắt đơn hàng</h2>
           <div className="package-details">
             <div className="package-info">
               <span>Gói {selectedPackage.name}</span>
-              <span>{selectedPackage.price.toLocaleString()}đ</span>
-            </div>
-            <div className="tax-info">
-              <span>Thuế VAT (10%)</span>
-              <span>{vat.toLocaleString()}đ</span>
+              <span>{totalAmount.toLocaleString('vi-VN')}đ</span>
             </div>
             <div className="total-amount">
               <span>Tổng cộng</span>
-              <span>{totalAmount.toLocaleString()}đ</span>
+              <span>{totalAmount.toLocaleString('vi-VN')}đ</span>
             </div>
           </div>
-          
+
           <div className="payment-agreement">
-            <input 
-              type="checkbox" 
-              id="terms" 
+            <input
+              type="checkbox"
+              id="terms"
               checked={termsAccepted}
               onChange={() => setTermsAccepted(!termsAccepted)}
             />
-            <label htmlFor="terms">Tôi đồng ý với <a href="#">điều khoản</a> và <a href="#">điều kiện sử dụng dịch vụ</a></label>
+            <label htmlFor="terms">Tôi đồng ý với điều khoản và điều kiện sử dụng dịch vụ</label>
           </div>
-          
+
           <div className="payment-actions">
-            <button className="payment-button" onClick={handlePayment} disabled={!termsAccepted}>
-              Thanh toán ngay
-            </button>
-            <button className="back-button" onClick={handleGoBack}>
-              Quay lại
-            </button>
+            <button onClick={handlePayment} disabled={!termsAccepted}>Thanh toán ngay</button>
+            <button onClick={handleGoBack}>Quay lại</button>
           </div>
         </div>
       </div>

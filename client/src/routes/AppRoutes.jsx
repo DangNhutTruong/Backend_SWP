@@ -69,6 +69,10 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: "/payment/success",
+    element: <Layout><PaymentSuccess /></Layout>,
+  },
+  {
     path: "/coach",
     element: (
       <Layout>

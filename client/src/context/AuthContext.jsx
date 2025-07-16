@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 
 // Tạo context cho xác thực
 const AuthContext = createContext(null);
@@ -22,6 +22,7 @@ const COACH_ACCOUNTS = [
   {
     id: 21, // Match with database ID
     name: "Trần Thị B",
+    fullName: "Trần Thị B",
     email: "coach2@nosmoke.com",
     password: "coach123",
     role: "coach",
@@ -32,6 +33,7 @@ const COACH_ACCOUNTS = [
   {
     id: 22, // Match with database ID
     name: "Phạm Minh C",
+    fullName: "Phạm Minh C",
     email: "coach3@nosmoke.com",
     password: "coach123",
     role: "coach",
@@ -74,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       // Kiểm tra xem có token trong localStorage không (tức là có ghi nhớ)
-      const hasRememberMe = localStorage.getItem("auth_token");
+      const hasRememberMe = localStorage.getItem('nosmoke_token');
       if (hasRememberMe) {
         localStorage.setItem("nosmoke_user", JSON.stringify(user));
       } else {
@@ -82,12 +84,6 @@ export const AuthProvider = ({ children }) => {
       }
     }
   }, [user]);
-
-  // Hàm kiểm tra tài khoản đã tồn tại
-  const checkUserExists = (email) => {
-    const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
-    return users.some((user) => user.email === email);
-  };
 
   // Hàm đăng ký tài khoản mới
   const register = async (userData) => {
@@ -128,6 +124,35 @@ export const AuthProvider = ({ children }) => {
     setError(null);
 
     try {
+      // Check for hardcoded coach accounts first
+      const coachAccount = COACH_ACCOUNTS.find(
+        (coach) => coach.email === email && coach.password === password
+      );
+
+      if (coachAccount) {
+        // If it's a coach account, use hardcoded data
+        const normalizedUser = {
+          ...coachAccount,
+          name: coachAccount.name || coachAccount.fullName,
+          fullName: coachAccount.fullName || coachAccount.name,
+        };
+
+        // Lưu token và user data (fake token for coach)
+        const fakeToken = `coach_token_${coachAccount.id}`;
+        if (rememberMe) {
+          localStorage.setItem('nosmoke_token', fakeToken);
+          localStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+        } else {
+          sessionStorage.setItem('nosmoke_token', fakeToken);
+          sessionStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
+        }
+
+        setUser(normalizedUser);
+        setLoading(false);
+        return { success: true, user: normalizedUser };
+      }
+
+      // If not a coach, try API login
       const response = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: {
@@ -150,16 +175,13 @@ export const AuthProvider = ({ children }) => {
 
         // Lưu token và user data
         if (rememberMe) {
-          localStorage.setItem("auth_token", token);
-          localStorage.setItem("refresh_token", refreshToken);
-          localStorage.setItem("nosmoke_user", JSON.stringify(normalizedUser));
+          localStorage.setItem('nosmoke_token', token);
+          localStorage.setItem('refresh_token', refreshToken);
+          localStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
         } else {
-          sessionStorage.setItem("auth_token", token);
-          sessionStorage.setItem("refresh_token", refreshToken);
-          sessionStorage.setItem(
-            "nosmoke_user",
-            JSON.stringify(normalizedUser)
-          );
+          sessionStorage.setItem('nosmoke_token', token);
+          sessionStorage.setItem('refresh_token', refreshToken);
+          sessionStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
         }
 
         setUser(normalizedUser);
@@ -180,15 +202,41 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     // Xóa thông tin user và token khỏi cả localStorage và sessionStorage
-    localStorage.removeItem("nosmoke_user");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("refresh_token");
-    sessionStorage.removeItem("nosmoke_user");
-    sessionStorage.removeItem("auth_token");
-    sessionStorage.removeItem("refresh_token");
+    localStorage.removeItem('nosmoke_user');
+    localStorage.removeItem('nosmoke_token');
+    localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('nosmoke_user');
+    sessionStorage.removeItem('nosmoke_token');
+    sessionStorage.removeItem('refresh_token');
     return { success: true };
   };
-  // Đảm bảo rằng membership luôn là một giá trị hợp lệ
+
+  // Hàm refresh thông tin membership từ localStorage
+  const refreshMembership = useCallback(() => {
+    if (!user)
+      return { success: false, error: "Không có người dùng để cập nhật" };
+
+    try {
+      // Lấy thông tin user từ localStorage
+      const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
+      const storedUser = users.find((u) => u.id === user.id);
+
+      if (storedUser && storedUser.membership !== user.membership) {
+        // Cập nhật thông tin membership nếu có sự khác biệt
+        setUser({ ...user, membership: storedUser.membership });
+        return {
+          success: true,
+          user: { ...user, membership: storedUser.membership },
+        };
+      }
+
+      return { success: true, user };
+    } catch (err) {
+      console.error("Lỗi khi refresh membership:", err);
+      return { success: false, error: err.message };
+    }
+  }, [user, setUser]);
+
   useEffect(() => {
     if (user) {
       let needUpdate = false;
@@ -233,33 +281,8 @@ export const AuthProvider = ({ children }) => {
       refreshMembership();
       window.sessionStorage.removeItem("membership_refresh_needed");
     }
-  }, [user]);
+  }, [user, refreshMembership]);
 
-  // Hàm refresh thông tin membership từ localStorage
-  const refreshMembership = () => {
-    if (!user)
-      return { success: false, error: "Không có người dùng để cập nhật" };
-
-    try {
-      // Lấy thông tin user từ localStorage
-      const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
-      const storedUser = users.find((u) => u.id === user.id);
-
-      if (storedUser && storedUser.membership !== user.membership) {
-        // Cập nhật thông tin membership nếu có sự khác biệt
-        setUser({ ...user, membership: storedUser.membership });
-        return {
-          success: true,
-          user: { ...user, membership: storedUser.membership },
-        };
-      }
-
-      return { success: true, user };
-    } catch (err) {
-      console.error("Lỗi khi refresh membership:", err);
-      return { success: false, error: err.message };
-    }
-  };
   // Hàm cập nhật thông tin người dùng
   const updateUser = (updatedData) => {
     if (!user)
@@ -270,7 +293,7 @@ export const AuthProvider = ({ children }) => {
       const users = JSON.parse(localStorage.getItem("nosmoke_users") || "[]");
       // Đảm bảo membership hợp lệ nếu đang cập nhật membership
       if (
-        updatedData.hasOwnProperty("membership") &&
+        "membership" in updatedData &&
         !["free", "premium", "pro"].includes(updatedData.membership)
       ) {
         updatedData.membership = "free";
@@ -278,8 +301,8 @@ export const AuthProvider = ({ children }) => {
 
       // Đảm bảo đồng bộ giữa membership và membershipType
       if (
-        updatedData.hasOwnProperty("membership") &&
-        !updatedData.hasOwnProperty("membershipType")
+        "membership" in updatedData &&
+        !("membershipType" in updatedData)
       ) {
         updatedData.membershipType = updatedData.membership;
         console.log(
@@ -289,8 +312,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (
-        updatedData.hasOwnProperty("membershipType") &&
-        !updatedData.hasOwnProperty("membership")
+        "membershipType" in updatedData &&
+        !("membership" in updatedData)
       ) {
         updatedData.membership = updatedData.membershipType;
         console.log("Tự động đồng bộ membership:", updatedData.membership);
