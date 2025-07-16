@@ -1,145 +1,203 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FaCalendarAlt, FaEye, FaHeart, FaComment, FaCheckCircle, FaTimes, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
-import CommunityPostCreator, { EmptyState } from "../components/CommunityPostCreator.jsx";
+import {
+  FaCalendarAlt,
+  FaEye,
+  FaHeart,
+  FaComment,
+  FaCheckCircle,
+  FaTimes,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
+import CommunityPostCreator, {
+  EmptyState,
+} from "../components/CommunityPostCreator.jsx";
 import CommunityPost from "../components/CommunityPost.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { calculateDaysWithoutSmoking, generateAchievements } from "../utils/achievementUtils.js";
-import { getSavedPosts, savePosts, toggleLikePost, prepareShareContent } from "../utils/communityUtils.js";
+import {
+  calculateDaysWithoutSmoking,
+  generateAchievements,
+} from "../utils/achievementUtils.js";
+import {
+  getSavedPosts,
+  savePosts,
+  toggleLikePost,
+  prepareShareContent,
+} from "../utils/communityUtils.js";
 import "./Blog.css";
+import "../styles/CommunityPost.css";
 import "../styles/Toast.css";
 
-export default function Blog() {  const { user } = useAuth();
+// Simple modal component
+function Modal({ isOpen, onClose, children }) {
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>&times;</button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function Blog() {
+  const { user } = useAuth();
+  // Phân trang communityPosts
+  const POSTS_PER_PAGE = 5;
+  const [currentPage, setCurrentPage] = useState(1);
   const [communityPosts, setCommunityPosts] = useState([]);
   const [toasts, setToasts] = useState([]);
-  
+  // State for comment modal
+  const [isCommentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentTargetPost, setCommentTargetPost] = useState(null);
+  const [commentText, setCommentText] = useState("");
+  // Phân trang cho blog bài viết mới nhất
+  const BLOGS_PER_PAGE = 6;
+  const [blogPage, setBlogPage] = useState(1);
+  // ...existing code...
+
   // Quản lý toast notification
-  const showToast = (message, type = 'success', duration = 3000) => {
+  const showToast = (message, type = "success", duration = 3000) => {
     const id = Date.now() + Math.random();
     const newToast = { id, message, type, duration };
-    setToasts(prev => [...prev, newToast]);
+    setToasts((prev) => [...prev, newToast]);
   };
 
   const removeToast = (id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
-    // Lấy thông tin huy hiệu sử dụng utility function đồng bộ
+  // Lấy thông tin huy hiệu sử dụng utility function đồng bộ
   const getUserAchievements = () => {
     // Lấy activePlan từ localStorage (giống như trong Profile.jsx)
     let activePlan = null;
     try {
-      const completionData = localStorage.getItem('quitPlanCompletion');
+      const completionData = localStorage.getItem("quitPlanCompletion");
       if (completionData) {
         const parsedData = JSON.parse(completionData);
         activePlan = parsedData.userPlan;
       } else {
-        const savedPlan = localStorage.getItem('activePlan');
+        const savedPlan = localStorage.getItem("activePlan");
         if (savedPlan) {
           activePlan = JSON.parse(savedPlan);
         }
       }
     } catch (error) {
-      console.error('Lỗi khi đọc kế hoạch cai thuốc trong Blog:', error);
+      console.error("Lỗi khi đọc kế hoạch cai thuốc trong Blog:", error);
     }
-    
+
     // Nếu không có kế hoạch cai thuốc, không có huy hiệu nào
     if (!activePlan || !activePlan.startDate) {
-      console.log('Không có kế hoạch cai thuốc hợp lệ để tính huy hiệu');
+      console.log("Không có kế hoạch cai thuốc hợp lệ để tính huy hiệu");
       return [];
     }
-    
+
     // Tính số ngày cai thuốc sử dụng utility function
     const daysWithoutSmoking = calculateDaysWithoutSmoking(activePlan, user);
-    
+
     // Nếu chưa đủ một ngày thì không có huy hiệu nào
     if (daysWithoutSmoking <= 0) {
-      console.log('Chưa đủ 1 ngày cai thuốc (daysWithoutSmoking =', daysWithoutSmoking, ') → không có huy hiệu');
+      console.log(
+        "Chưa đủ 1 ngày cai thuốc (daysWithoutSmoking =",
+        daysWithoutSmoking,
+        ") → không có huy hiệu"
+      );
       return [];
     }
-    
+
     // Tạo danh sách huy hiệu sử dụng utility function
     const allAchievements = generateAchievements(daysWithoutSmoking);
-    
+
     // Lọc và chỉ trả về những huy hiệu thực sự đã hoàn thành
-    const completedAchievements = allAchievements.filter(achievement => achievement.completed === true);
-    console.log('Tìm thấy', completedAchievements.length, 'huy hiệu đã hoàn thành');
-    
+    const completedAchievements = allAchievements.filter(
+      (achievement) => achievement.completed === true
+    );
+    console.log(
+      "Tìm thấy",
+      completedAchievements.length,
+      "huy hiệu đã hoàn thành"
+    );
+
     return completedAchievements;
   };
-  
-  // Load bài viết từ localStorage khi component mount
+
   useEffect(() => {
     const savedPosts = getSavedPosts();
     if (savedPosts && savedPosts.length > 0) {
       setCommunityPosts(savedPosts);
     } else {
-      // Khởi tạo dữ liệu mẫu nếu chưa có bài viết nào
-      const initialPosts = [
-        {
-          id: 1,
-          user: {
-            name: "Lê Thu Thảo",
-            avatar: "/image/hero/quit-smoking-2.png",
-            id: "user_1"
-          },
-          content: "Hôm nay mình tự thưởng cho bản thân một món quà nhỏ sau 3 tuần không hút thuốc! Cảm giác tự hào thật sự.",
-          images: [{ id: "img_1", url: "/image/articles/a.jpg" }],
-          achievements: [{ id: 2, name: "1 tuần không hút", icon: "🏅", completed: true }],
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 giờ trước
-          likes: 22,
-          comments: 5,
-          shares: 2,
-          likedBy: []
-        },
-        {
-          id: 2,
-          user: {
-            name: "Trần An Nhiên",
-            avatar: "/image/hero/quit-smoking-2.png",
-            id: "user_2"
-          },
-          content: "Hôm nay mình đã cưỡng lại cảm dỗ khi bạn bè rủ hút, cảm giác thật tự hào và mạnh mẽ!",
-          achievements: [{ id: 1, name: "24 giờ đầu tiên", icon: "⭐", completed: true }],
-          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 ngày trước
-          likes: 43,
-          comments: 8,
-          shares: 1,
-          likedBy: []
-        }
-      ];
-      setCommunityPosts(initialPosts);
-      savePosts(initialPosts);
+      // ...existing code...
     }
   }, []);
-    // Xử lý khi người dùng tạo bài viết mới
+  const totalPages = Math.ceil(communityPosts.length / POSTS_PER_PAGE);
+  const paginatedPosts = communityPosts.slice(
+    (currentPage - 1) * POSTS_PER_PAGE,
+    currentPage * POSTS_PER_PAGE
+  );
+  const handlePageChange = (page) => setCurrentPage(page);
+  // Xử lý khi người dùng tạo bài viết mới
   const handlePostCreated = (newPost) => {
     const updatedPosts = [newPost, ...communityPosts];
     setCommunityPosts(updatedPosts);
     savePosts(updatedPosts);
-    showToast('Đã đăng bài viết thành công!', 'success');
+    showToast("Đã đăng bài viết thành công!", "success");
   };
 
   // Xử lý khi người dùng thích bài viết
   const handleLike = (postId, isLiked) => {
-    const userId = user?.id || 'anonymous';
+    const userId = user?.id || "anonymous";
     const updatedPosts = toggleLikePost(communityPosts, postId, userId);
     setCommunityPosts(updatedPosts);
     savePosts(updatedPosts);
   };
 
   // Xử lý khi người dùng muốn xem/thêm bình luận
-  const handleComment = (postId) => {
-    console.log('Open comments for post:', postId);
-    // Hiện tại chỉ log, sau này có thể mở modal bình luận
-    showToast('Tính năng bình luận sẽ sớm được cập nhật!', 'info');
+  const handleComment = (post) => {
+    setCommentTargetPost(post);
+    setCommentText("");
+    setCommentModalOpen(true);
   };
-  
-  // Xử lý khi người dùng xóa bài viết của họ
-  const handleDelete = (postId) => {
-    const updatedPosts = communityPosts.filter(post => post.id !== postId);
+
+  // Gửi bình luận
+  const handleSubmitComment = () => {
+    if (!commentText.trim()) return;
+    const updatedPosts = communityPosts.map((p) => {
+      if (p.id === commentTargetPost.id) {
+        const newComment = {
+          id: Date.now(),
+          user: user,
+          text: commentText,
+          date: new Date().toLocaleString(),
+        };
+        return {
+          ...p,
+          commentsList: p.commentsList ? [...p.commentsList, newComment] : [newComment],
+        };
+      }
+      return p;
+    });
     setCommunityPosts(updatedPosts);
     savePosts(updatedPosts);
-    showToast('Đã xóa bài viết thành công!', 'success');
+    setCommentModalOpen(false);
+    setCommentTargetPost(null);
+    setCommentText("");
+    showToast("Bình luận đã được thêm!");
+  };
+
+  // Đóng modal
+  const handleCloseModal = () => {
+    setCommentModalOpen(false);
+    setCommentTargetPost(null);
+    setCommentText("");
+  };
+
+  // Xử lý khi người dùng xóa bài viết của họ
+  const handleDelete = (postId) => {
+    const updatedPosts = communityPosts.filter((post) => post.id !== postId);
+    setCommunityPosts(updatedPosts);
+    savePosts(updatedPosts);
+    showToast("Đã xóa bài viết thành công!", "success");
   };
   // Quản lý toast notification được định nghĩa ở trên
 
@@ -148,23 +206,27 @@ export default function Blog() {  const { user } = useAuth();
     const shareContent = prepareShareContent(post);
 
     if (navigator.share) {
-      navigator.share({
-        title: 'Chia sẻ từ cộng đồng NoSmoke',
-        text: shareContent,
-      })
-      .then(() => {
-        showToast('Đã chia sẻ thành công!', 'success');
-      })
-      .catch((error) => {
-        console.log('Lỗi khi chia sẻ:', error);
-      });
+      navigator
+        .share({
+          title: "Chia sẻ từ cộng đồng NoSmoke",
+          text: shareContent,
+        })
+        .then(() => {
+          showToast("Đã chia sẻ thành công!", "success");
+        })
+        .catch((error) => {
+          console.log("Lỗi khi chia sẻ:", error);
+        });
     } else {
       try {
         navigator.clipboard.writeText(shareContent);
-        showToast('Đã sao chép nội dung! Bạn có thể dán và chia sẻ ngay bây giờ.', 'success');
+        showToast(
+          "Đã sao chép nội dung! Bạn có thể dán và chia sẻ ngay bây giờ.",
+          "success"
+        );
       } catch (err) {
-        console.log('Lỗi khi sao chép:', err);
-        showToast('Không thể sao chép tự động. Vui lòng thử lại.', 'error');
+        console.log("Lỗi khi sao chép:", err);
+        showToast("Không thể sao chép tự động. Vui lòng thử lại.", "error");
       }
     }
   };
@@ -280,7 +342,12 @@ export default function Blog() {  const { user } = useAuth();
       comments: "63",
       category: "tips",
       url: "/blog/dinh-duong-cai-thuoc",
-    },  ];
+    },
+  ];
+
+  // Blog pagination logic (must be after blogPosts is declared)
+  const totalBlogPages = Math.ceil(blogPosts.length / BLOGS_PER_PAGE);
+  const paginatedBlogPosts = blogPosts.slice((blogPage - 1) * BLOGS_PER_PAGE, blogPage * BLOGS_PER_PAGE);
 
   // Component bài viết thông thường
   const BlogPostCard = ({ post }) => (
@@ -325,81 +392,141 @@ export default function Blog() {  const { user } = useAuth();
       support: "Hỗ trợ cai thuốc",
     };
     return categories[category] || "Chung";
-  }  return (
-    <div className="blog-page">
+  }
+  return (
+    <div className="blog-page custom-bg">
       <div className="container blog-container">
         {/* Bài viết mới nhất */}
-        <div className="latest-posts-section">
-          <h2 className="section-title">Bài viết mới nhất</h2>
-
+        <div className="latest-posts-section card-section">
+          <h2 className="section-title main-title">Bài viết mới nhất</h2>
           <div className="blog-posts-grid">
-            {blogPosts.map((post) => (
-              <BlogPostCard key={post.id} post={post} />
+            {paginatedBlogPosts.map((post) => (
+              <Link
+                key={post.id}
+                to={post.url}
+                className="blog-post-card custom-card blog-post-card-link"
+              >
+                <div className="post-image card-img-top">
+                  <img src={post.image} alt={post.title} />
+                  <span className={`post-category-badge badge-${post.category}`}>{getCategoryName(post.category)}</span>
+                </div>
+                <div className="post-content">
+                  <h3 className="post-title">{post.title}</h3>
+                  <p className="post-excerpt">{post.excerpt}</p>
+                  <div className="post-meta">
+                    <span className="post-date">
+                      <FaCalendarAlt /> {post.date}
+                    </span>
+                    <div className="post-stats">
+                      <span>
+                        <FaEye /> {post.views}
+                      </span>
+                      <span>
+                        <FaHeart /> {post.likes}
+                      </span>
+                      <span>
+                        <FaComment /> {post.comments}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
-
-          <div className="pagination">
-            <button className="pagination-btn active">1</button>
-            <button className="pagination-btn">2</button>
-            <button className="pagination-btn">3</button>
-            <span>...</span>
-            <button className="pagination-btn">10</button>
-            <button className="pagination-btn next">Tiếp theo</button>
-          </div>
-        </div>        {/* Phần cộng đồng */}
-        <div className="community-section">
-          <h2 className="section-title">Chia sẻ từ cộng đồng</h2>
-          <div className="community-box">            {/* Component tạo bài viết */}
+          {/* Pagination for blog posts */}
+          {totalBlogPages > 1 && (
+            <div className="pagination blog-pagination">
+              {[...Array(totalBlogPages)].map((_, idx) => (
+                <button
+                  key={idx + 1}
+                  className={`pagination-btn${blogPage === idx + 1 ? ' active' : ''}`}
+                  onClick={() => setBlogPage(idx + 1)}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="community-section card-section">
+          <h2 className="section-title main-title">Chia sẻ từ cộng đồng</h2>
+          <div className="community-box custom-card">
+            {/* Component tạo bài viết */}
             {user ? (
-              <CommunityPostCreator 
+              <CommunityPostCreator
                 achievements={getUserAchievements()}
                 onPostCreated={handlePostCreated}
               />
             ) : (
               <div className="login-to-post">
                 <p>Vui lòng đăng nhập để chia sẻ hành trình của bạn</p>
-                <Link to="/login" className="login-btn">Đăng nhập</Link>
+                <Link to="/login" className="login-btn">
+                  Đăng nhập
+                </Link>
               </div>
             )}
-
             {/* Danh sách bài viết */}
             <div className="community-posts">
               {communityPosts.length > 0 ? (
-                communityPosts.map(post => (
+                paginatedPosts.map((post) => (
                   <CommunityPost
                     key={post.id}
                     post={post}
                     currentUserId={user?.id}
                     onLike={handleLike}
-                    onComment={handleComment}
+                    onComment={() => handleComment(post)}
                     onShare={() => handleShare(post)}
                     onDelete={handleDelete}
-                    canDelete={post.user?.id === user?.id || user?.role === 'admin'}
+                    canDelete={
+                      post.user?.id === user?.id || user?.role === "admin"
+                    }
                   />
                 ))
               ) : (
-                <EmptyState 
+                <EmptyState
                   title="Chưa có bài viết nào trong cộng đồng"
                   description="Hãy là người đầu tiên chia sẻ câu chuyện cai thuốc lá của bạn!"
                   actionText="Tạo bài viết đầu tiên"
-                  onAction={() => document.querySelector('.post-input')?.focus()}
+                  onAction={() =>
+                    document.querySelector(".post-input")?.focus()
+                  }
                 />
               )}
+            {/* Comment Modal (always rendered at root of community-box) */}
+            <Modal isOpen={isCommentModalOpen} onClose={handleCloseModal}>
+              <h3>Thêm bình luận</h3>
+              <textarea
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                placeholder="Nhập bình luận của bạn..."
+                rows={4}
+                style={{ width: '100%', marginBottom: 12 }}
+              />
+              <button className="submit-comment-btn" onClick={handleSubmitComment}>
+                Gửi bình luận
+              </button>
+            </Modal>
             </div>
-
-            {communityPosts.length > 5 && (
-              <div className="view-more">
-                <button className="view-more-btn">
-                  Xem thêm bài viết cộng đồng
-                </button>
+            {/* Pagination for community posts */}
+            {totalPages > 1 && (
+              <div className="pagination community-pagination">
+                {[...Array(totalPages)].map((_, idx) => (
+                  <button
+                    key={idx + 1}
+                    className={`pagination-btn${
+                      currentPage === idx + 1 ? " active" : ""
+                    }`}
+                    onClick={() => handlePageChange(idx + 1)}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
               </div>
             )}
-
             {/* Toast Notifications */}
             <ToastContainer toasts={toasts} removeToast={removeToast} />
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -408,7 +535,7 @@ export default function Blog() {  const { user } = useAuth();
 /**
  * Component hiển thị thông báo toast
  */
-const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
+const Toast = ({ message, type = "success", duration = 3000, onClose }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -422,11 +549,11 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
 
   const getIcon = () => {
     switch (type) {
-      case 'success':
+      case "success":
         return <FaCheckCircle />;
-      case 'error':
+      case "error":
         return <FaExclamationTriangle />;
-      case 'info':
+      case "info":
         return <FaInfoCircle />;
       default:
         return <FaCheckCircle />;
@@ -439,10 +566,12 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
   };
 
   return (
-    <div className={`toast toast-${type} ${isVisible ? 'toast-enter' : 'toast-exit'}`}>
-      <div className="toast-icon">
-        {getIcon()}
-      </div>
+    <div
+      className={`toast toast-${type} ${
+        isVisible ? "toast-enter" : "toast-exit"
+      }`}
+    >
+      <div className="toast-icon">{getIcon()}</div>
       <div className="toast-content">
         <p className="toast-message">{message}</p>
       </div>

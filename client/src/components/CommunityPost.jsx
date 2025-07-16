@@ -152,8 +152,8 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           </div>
         )}
 
-        {/* Hiển thị hình ảnh nếu có */}
-        {post.images && post.images.length > 0 && (
+        {/* Hiển thị hình ảnh nếu có, ngoại trừ post của Lê Thu Thảo (id: 1) */}
+        {post.images && post.images.length > 0 && post.id !== 1 && (
           <div className={`post-images ${post.images.length === 1 ? 'single-image' : 'multiple-images'}`}>
             {post.images.slice(0, 4).map((image, index) => (
               <div 
@@ -179,7 +179,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           onClick={handleLike}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
-          <span>{(post.likes || 0) + (isLiked ? 1 : 0)} cảm ơn</span>
+          <span>{(post.likes || 0) + (isLiked ? 1 : 0)} lượt thích</span>
         </button>
 
         <button 

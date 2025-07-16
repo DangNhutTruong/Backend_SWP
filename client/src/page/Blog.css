@@ -1,3 +1,212 @@
+.blog-post-card-link {
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, transform 0.2s, border 0.2s;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+}
+.blog-post-card-link:focus {
+  box-shadow: 0 0 0 3px #b6d0ff;
+  border-color: #2563eb;
+}
+.blog-post-card-link:hover {
+  box-shadow: 0 12px 36px 0 rgba(37, 99, 235, 0.18), 0 4px 12px 0 rgba(0,0,0,0.08);
+  transform: translateY(-4px) scale(1.015);
+  border: 1.5px solid #2563eb;
+  z-index: 2;
+}
+
+.post-category-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: #0ea5e9;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px 0 rgba(37,99,235,0.10);
+  letter-spacing: 0.2px;
+  z-index: 3;
+  pointer-events: none;
+}
+.badge-health,
+.badge-tips,
+.badge-experience,
+.badge-success,
+.badge-support {
+  background: #0ea5e9 !important;
+}
+.blog-post-card .post-image {
+  position: relative;
+}
+/* Custom harmonious blue/white/gray theme for Blog page */
+.custom-bg {
+  background: linear-gradient(135deg, #f5faff 0%, #e3eefd 100%);
+  min-height: 100vh;
+}
+
+.main-title {
+  color: #22223b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  margin-top: 40px;
+  padding-top: 12px;
+  position: relative;
+  display: inline-block;
+}
+
+.main-title::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 5px;
+  /* margin-top: 7px; */
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 100%);
+  box-shadow: 0 2px 8px 0 rgba(37,99,235,0.10);
+  transition: width 0.3s cubic-bezier(.4,1.3,.7,1);
+}
+.main-title:hover::after {
+  width: 80px;
+}
+
+.card-section {
+  margin-bottom: 40px;
+}
+
+.blog-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 28px 24px;
+  margin-bottom: 18px;
+}
+
+
+.custom-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px 0 rgba(37, 99, 235, 0.08), 0 1.5px 4px 0 rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  border: 2px solid #e3eefd;
+  padding: 0;
+  overflow: hidden;
+}
+.custom-card:hover, .custom-card:focus-within {
+  border-color: #2563eb;
+}
+
+.blog-post-card .post-image,
+.blog-post-card .post-image img {
+  border-radius: 0;
+}
+
+.blog-post-card .post-image {
+  /* No border-radius here, only on card */
+  overflow: hidden;
+  height: 180px;
+  background: #e3eefd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.blog-post-card .post-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+.blog-post-card .post-content {
+  padding: 18px 20px 16px 20px;
+}
+.blog-post-card .post-title {
+  color: #1e293b;
+  font-size: 1.18rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.blog-post-card .post-excerpt {
+  color: #475569;
+  font-size: 1rem;
+  margin-bottom: 14px;
+}
+.blog-post-card .post-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.97rem;
+  color: #64748b;
+}
+.blog-post-card .post-stats span {
+  margin-right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.blog-post-card .post-stats span:last-child {
+  margin-right: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pagination-btn {
+  background: #e3eefd;
+  color: #2563eb;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pagination-btn.active, .pagination-btn:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.community-section {
+  margin-top: 32px;
+}
+.community-box {
+  background: #f8fbff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px 0 rgba(37, 99, 235, 0.06);
+  border: 1px solid #e3eefd;
+  padding: 24px 18px 18px 18px;
+}
+.login-to-post {
+  background: #e3eefd;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.login-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 18px;
+  font-weight: 500;
+  margin-top: 8px;
+  display: inline-block;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.login-btn:hover {
+  background: #1746a2;
+}
+.community-posts {
+  margin-top: 18px;
+}
 /* Blog Page Styles */
 .blog-page {
   font-family: 'Nunito', sans-serif;
