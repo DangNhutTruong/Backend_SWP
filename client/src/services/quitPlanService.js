@@ -213,11 +213,75 @@ export const deletePlan = async (planId) => {
     }
 };
 
+// Get user's quit plans by user ID (for coach)
+export const getUserPlansBySmokerId = async (userId) => {
+    try {
+        logDebug('QuitPlan', `🚀 Fetching quit plans for user ${userId} from database...`);
+
+        // Try multiple endpoints to get user's plans
+        const endpoints = [
+            `${API_BASE_URL}/api/quit-plans/user/${userId}`,
+            `${API_BASE_URL}/api/quit-plans?userId=${userId}`,
+            `${API_BASE_URL}/api/quit-plans/by-user/${userId}`,
+            `${API_BASE_URL}/api/user/${userId}/quit-plans`,
+            `${API_BASE_URL}/api/quit-plans/all?user_id=${userId}`
+        ];
+
+        let lastError = null;
+        
+        for (const endpoint of endpoints) {
+            try {
+                logDebug('QuitPlan', `🔍 Trying endpoint: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    logDebug('QuitPlan', `✅ User ${userId} quit plans fetched from ${endpoint}`, data);
+                    
+                    const plansData = data.data || data.plans || data;
+                    
+                    if (Array.isArray(plansData) && plansData.length > 0) {
+                        logDebug('QuitPlan', `✅ Tìm thấy ${plansData.length} kế hoạch cho user ${userId}`);
+                        return plansData;
+                    } else if (Array.isArray(plansData)) {
+                        logDebug('QuitPlan', `ℹ️ Endpoint ${endpoint} trả về mảng rỗng`);
+                    } else {
+                        logDebug('QuitPlan', `⚠️ Endpoint ${endpoint} trả về dữ liệu không phải mảng:`, plansData);
+                    }
+                } else if (response.status === 404) {
+                    logDebug('QuitPlan', `⚠️ Endpoint ${endpoint} not found (404)`);
+                } else {
+                    const errorData = await response.json();
+                    logDebug('QuitPlan', `❌ Endpoint ${endpoint} failed:`, errorData);
+                    lastError = errorData;
+                }
+            } catch (fetchError) {
+                logDebug('QuitPlan', `❌ Error with endpoint ${endpoint}:`, fetchError);
+                lastError = fetchError;
+            }
+        }
+
+        // If no endpoint worked, log the issue and return empty array
+        logDebug('QuitPlan', `⚠️ All endpoints failed for user ${userId}. Last error:`, lastError, true);
+        logDebug('QuitPlan', `ℹ️ User ${userId} has no quit plans or endpoints not available`);
+        return [];
+        
+    } catch (error) {
+        logDebug('QuitPlan', `❌ Error fetching quit plans for user ${userId}:`, error, true);
+        return [];
+    }
+};
+
 export default {
     createQuitPlan,
     getUserPlans,
     getQuitPlan,
     getUserActivePlan,
+    getUserPlansBySmokerId,
     updateQuitPlan,
     deletePlan
 };
