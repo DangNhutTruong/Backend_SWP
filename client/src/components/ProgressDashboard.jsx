@@ -253,15 +253,20 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
       loadMilestones();
     }
   }, [dashboardStats, loadMilestones]);  const getAchievementProgress = () => {
-    // Nếu có giá trị từ bên ngoài, sử dụng nó
-    if (dashboardStats && dashboardStats.healthProgress !== undefined) {
-      return dashboardStats.healthProgress;
-    }
+    // Luôn tính toán dựa trên số ngày, không dùng giá trị từ bên ngoài
+    // Tính toán dựa trên (số ngày đã cai / số tuần cai * 7) * 100%
+    const daysSinceStart = externalStats?.noSmokingDays || dashboardStats?.daysSincePlanCreation || 0;
     
-    // Nếu không, tính toán từ milestone
-    if (!milestones || milestones.length === 0) return 0;
-    const achieved = milestones.filter(m => m.achieved).length;
-    return (achieved / milestones.length) * 100;
+    // Lấy tổng số tuần trong kế hoạch
+    const totalWeeks = userPlan?.weeks?.length || userPlan?.total_weeks || 8;
+    
+    // Chuyển đổi số tuần thành số ngày (1 tuần = 7 ngày)
+    const totalDays = totalWeeks * 7;
+    
+    // Tính phần trăm hoàn thành (giới hạn tối đa 100%)
+    const progress = Math.min(100, (daysSinceStart / totalDays) * 100);
+    
+    return progress;
   };
 
   // Add some debugging information
