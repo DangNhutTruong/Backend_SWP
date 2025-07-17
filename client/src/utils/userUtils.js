@@ -39,7 +39,7 @@ export const getCurrentUserId = () => {
 // Check if user is logged in
 export const isUserLoggedIn = () => {
     const userId = getCurrentUserId();
-    const token = getAuthToken();
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
     
     return !!(userId && token);
 };
@@ -60,12 +60,6 @@ export const getCurrentUser = () => {
     return null;
 };
 
-// Get current auth token consistently across the app
-export const getAuthToken = () => {
-    return localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') ||
-           localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-};
-
 // Fallback for development/testing - should not be used in production
 export const getDevelopmentUserId = () => {
     console.warn('🚨 Using development fallback user ID. This should not happen in production!');
@@ -77,6 +71,5 @@ export default {
     getCurrentUserId,
     isUserLoggedIn,
     getCurrentUser,
-    getAuthToken,
     getDevelopmentUserId
 };

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaCalendarAlt, FaUsers, FaCheckCircle, FaClock, FaEye } from 'react-icons/fa';
 import { getCoachAppointments, updateAppointmentStatus } from '../../utils/coachApiIntegration';
-import { getUserPlansBySmokerId } from '../../services/quitPlanService';
 import '../../styles/CoachDashboardNew.css';
 
 function CoachDashboardNew() {
@@ -126,45 +125,17 @@ function CoachDashboardNew() {
     const fetchPlanInfo = async () => {
       if (selectedAppointment && (selectedAppointment.user_id || selectedAppointment.userId)) {
         try {
-          const userId = selectedAppointment.user_id || selectedAppointment.userId;
-          console.log('🔍 COACH: Fetching plan info for user:', userId);
-          
-          const plans = await getUserPlansBySmokerId(userId);
-          console.log('✅ COACH: Plans fetched:', plans);
-          
-          if (Array.isArray(plans) && plans.length > 0) {
-            // Tìm kế hoạch active trước
-            let activePlan = plans.find(plan => 
-              plan.is_active === true || 
-              plan.status === 'active' || 
-              plan.active === true
-            );
-            
-            // Nếu không có active plan, lấy kế hoạch mới nhất
-            if (!activePlan) {
-              activePlan = plans.sort((a, b) => {
-                const dateA = new Date(a.created_at || a.start_date || 0);
-                const dateB = new Date(b.created_at || b.start_date || 0);
-                return dateB - dateA;
-              })[0];
-            }
-            
-            console.log('📋 COACH: Selected plan:', activePlan);
-            setPlanInfo(activePlan || {});
-          } else {
-            console.log('⚠️ COACH: No plans found for user:', userId);
-            setPlanInfo({});
-          }
-        } catch (error) {
-          console.error('❌ COACH: Error fetching plan info:', error);
+          const plans = await getUserPlansBySmokerId(selectedAppointment.user_id || selectedAppointment.userId);
+          // Lấy kế hoạch mới nhất
+          const plan = Array.isArray(plans) && plans.length > 0 ? plans[0] : null;
+          setPlanInfo(plan || {});
+        } catch (e) {
           setPlanInfo({});
         }
       } else {
-        console.log('⚠️ COACH: No user ID found in appointment:', selectedAppointment);
         setPlanInfo({});
       }
     };
-    
     fetchPlanInfo();
   }, [selectedAppointment]);
 
@@ -265,28 +236,8 @@ function CoachDashboardNew() {
               <div className="detail-row"><strong>Khách hàng:</strong> {selectedAppointment.user_name || selectedAppointment.userName}</div>
               <div className="detail-row"><strong>Email:</strong> {selectedAppointment.user_email || selectedAppointment.userEmail}</div>
               <div className="detail-row"><strong>Điện thoại:</strong> {selectedAppointment.user_phone || 'Chưa có'}</div>
-              
-              {/* Thông tin kế hoạch cai thuốc */}
-              {planInfo && Object.keys(planInfo).length > 0 ? (
-                <>
-                  <div className="detail-row"><strong>Kế hoạch cai thuốc:</strong> {planInfo.plan_name || planInfo.name || 'Kế hoạch cai thuốc'}</div>
-                  <div className="detail-row"><strong>Phương pháp:</strong> {planInfo.strategy || 'Cai thuốc hoàn toàn'}</div>
-                  <div className="detail-row"><strong>Ngày bắt đầu:</strong> {planInfo.start_date ? new Date(planInfo.start_date).toLocaleDateString('vi-VN') : 'Chưa bắt đầu'}</div>
-
-                  {/* Ngày tạo kế hoạch */}
-                  {planInfo.created_at && (
-                    <div className="detail-row"><strong>Ngày tạo:</strong> {new Date(planInfo.created_at).toLocaleDateString('vi-VN')}</div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="detail-row"><strong>Kế hoạch cai thuốc:</strong> <span style={{ color: '#ff9800', fontStyle: 'italic' }}>Khách hàng chưa tạo kế hoạch cai thuốc</span></div>
-                  <div className="detail-row" style={{ fontSize: 12, color: '#666' }}>
-                    <strong>Debug Info:</strong> User ID: {selectedAppointment.user_id || selectedAppointment.userId || 'Không có'}
-                  </div>
-                </>
-              )}
-              
+              <div className="detail-row"><strong>Kế hoạch cai thuốc:</strong> {planInfo.plan_name || planInfo.planName || 'Chưa có'}</div>
+              <div className="detail-row"><strong>Số năm hút thuốc:</strong> {planInfo.metadata?.smokingYears || planInfo.smoking_years || planInfo.smokingYears || 'Chưa rõ'}</div>
               <div className="detail-row"><strong>Ngày giờ:</strong> {formatDate(selectedAppointment.appointment_time || selectedAppointment.date)} lúc {formatTime(selectedAppointment.appointment_time || selectedAppointment.date)}</div>
               <div className="detail-row"><strong>Thời gian:</strong> {selectedAppointment.duration_minutes || 120} phút</div>
               <div className="detail-row"><strong>Trạng thái:</strong> <span className="status-badge" style={{ backgroundColor: getStatusColor(selectedAppointment.status), color: '#fff', borderRadius: 8, padding: '4px 12px', fontWeight: 500, fontSize: 14 }}>{getStatusText(selectedAppointment.status)}</span></div>

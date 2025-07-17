@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
-import { FaHeart, FaComment, FaShare, FaTrophy, FaRegHeart, FaEllipsisV, FaTrash, FaEdit } from 'react-icons/fa';
-import { useAuth } from '../context/AuthContext';
-import { DeleteConfirmModal } from './CommunityPostCreator';
-import '../styles/CommunityPost.css';
+import React, { useState } from "react";
+import {
+  FaHeart,
+  FaComment,
+  FaShare,
+  FaTrophy,
+  FaRegHeart,
+  FaEllipsisV,
+  FaTrash,
+  FaEdit,
+} from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
+import { DeleteConfirmModal } from "./CommunityPostCreator";
+import "../styles/CommunityPost.css";
 
 /**
  * Component hiển thị bài viết cộng đồng
  */
 const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
-  const { user } = useAuth();  const [isLiked, setIsLiked] = useState(false);
+  const { user } = useAuth();
+  const [isLiked, setIsLiked] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -19,14 +29,14 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
   // Đóng menu khi click bên ngoài
   React.useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showOptionsMenu && !event.target.closest('.post-options')) {
+      if (showOptionsMenu && !event.target.closest(".post-options")) {
         setShowOptionsMenu(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showOptionsMenu]);
 
@@ -43,7 +53,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
     const diffInSeconds = Math.floor((now - postTime) / 1000);
 
     if (diffInSeconds < 60) {
-      return 'Vừa xong';
+      return "Vừa xong";
     } else if (diffInSeconds < 3600) {
       const minutes = Math.floor(diffInSeconds / 60);
       return `${minutes} phút trước`;
@@ -74,16 +84,17 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
 
   const truncateText = (text, maxLength = 200) => {
     if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    return text.substring(0, maxLength) + "...";
   };
 
   return (
     <div className="community-post">
-      {/* Header */}      <div className="post-header">
+      {/* Header */}{" "}
+      <div className="post-header">
         <div className="user-info">
-          <img 
-            src={post.user.avatar} 
-            alt={post.user.name} 
+          <img
+            src={post.user.avatar}
+            alt={post.user.name}
             className="user-avatar"
           />
           <div className="user-details">
@@ -108,17 +119,17 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           {/* Menu options cho chủ bài viết */}
           {isOwnPost && (
             <div className="post-options">
-              <button 
+              <button
                 className="options-btn"
                 onClick={toggleOptionsMenu}
                 title="Tùy chọn"
               >
                 <FaEllipsisV />
               </button>
-              
+
               {showOptionsMenu && (
                 <div className="options-menu">
-                  <button 
+                  <button
                     className="option-item delete-option"
                     onClick={handleDelete}
                   >
@@ -130,7 +141,6 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           )}
         </div>
       </div>
-
       {/* Content */}
       <div className="post-content">
         {post.content && (
@@ -140,13 +150,13 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
             ) : (
               <p>{truncateText(post.content)}</p>
             )}
-            
+
             {post.content.length > 200 && (
-              <button 
+              <button
                 className="show-more-btn"
                 onClick={() => setShowFullContent(!showFullContent)}
               >
-                {showFullContent ? 'Thu gọn' : 'Xem thêm'}
+                {showFullContent ? "Thu gọn" : "Xem thêm"}
               </button>
             )}
           </div>
@@ -154,11 +164,17 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
 
         {/* Hiển thị hình ảnh nếu có, ngoại trừ post của Lê Thu Thảo (id: 1) */}
         {post.images && post.images.length > 0 && post.id !== 1 && (
-          <div className={`post-images ${post.images.length === 1 ? 'single-image' : 'multiple-images'}`}>
+          <div
+            className={`post-images ${
+              post.images.length === 1 ? "single-image" : "multiple-images"
+            }`}
+          >
             {post.images.slice(0, 4).map((image, index) => (
-              <div 
-                key={image.id} 
-                className={`image-container ${index === 3 && post.images.length > 4 ? 'more-images' : ''}`}
+              <div
+                key={image.id}
+                className={`image-container ${
+                  index === 3 && post.images.length > 4 ? "more-images" : ""
+                }`}
               >
                 <img src={image.url} alt={`Post image ${index + 1}`} />
                 {index === 3 && post.images.length > 4 && (
@@ -171,18 +187,17 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           </div>
         )}
       </div>
-
       {/* Actions */}
       <div className="post-actions">
-        <button 
-          className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
+        <button
+          className={`action-btn like-btn ${isLiked ? "liked" : ""}`}
           onClick={handleLike}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
           <span>{(post.likes || 0) + (isLiked ? 1 : 0)} lượt thích</span>
         </button>
 
-        <button 
+        <button
           className="action-btn comment-btn"
           onClick={() => onComment && onComment(post.id)}
         >
@@ -190,14 +205,15 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           <span>{post.comments || 0} bình luận</span>
         </button>
 
-        <button 
+        <button
           className="action-btn share-btn"
           onClick={() => onShare && onShare(post)}
         >
           <FaShare />
           <span>Chia sẻ</span>
         </button>
-      </div>      {/* Comment Section Preview */}
+      </div>{" "}
+      {/* Comment Section Preview */}
       {post.comments > 0 && (
         <div className="comments-preview">
           <button className="view-comments-btn">
@@ -205,9 +221,8 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           </button>
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal 
+      <DeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDelete}

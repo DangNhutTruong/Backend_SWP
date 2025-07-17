@@ -34,8 +34,10 @@ function Modal({ isOpen, onClose, children }) {
   if (!isOpen) return null;
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>&times;</button>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>
+          &times;
+        </button>
         {children}
       </div>
     </div>
@@ -172,7 +174,9 @@ export default function Blog() {
         };
         return {
           ...p,
-          commentsList: p.commentsList ? [...p.commentsList, newComment] : [newComment],
+          commentsList: p.commentsList
+            ? [...p.commentsList, newComment]
+            : [newComment],
         };
       }
       return p;
@@ -347,7 +351,10 @@ export default function Blog() {
 
   // Blog pagination logic (must be after blogPosts is declared)
   const totalBlogPages = Math.ceil(blogPosts.length / BLOGS_PER_PAGE);
-  const paginatedBlogPosts = blogPosts.slice((blogPage - 1) * BLOGS_PER_PAGE, blogPage * BLOGS_PER_PAGE);
+  const paginatedBlogPosts = blogPosts.slice(
+    (blogPage - 1) * BLOGS_PER_PAGE,
+    blogPage * BLOGS_PER_PAGE
+  );
 
   // Component bài viết thông thường
   const BlogPostCard = ({ post }) => (
@@ -408,7 +415,11 @@ export default function Blog() {
               >
                 <div className="post-image card-img-top">
                   <img src={post.image} alt={post.title} />
-                  <span className={`post-category-badge badge-${post.category}`}>{getCategoryName(post.category)}</span>
+                  <span
+                    className={`post-category-badge badge-${post.category}`}
+                  >
+                    {getCategoryName(post.category)}
+                  </span>
                 </div>
                 <div className="post-content">
                   <h3 className="post-title">{post.title}</h3>
@@ -439,7 +450,9 @@ export default function Blog() {
               {[...Array(totalBlogPages)].map((_, idx) => (
                 <button
                   key={idx + 1}
-                  className={`pagination-btn${blogPage === idx + 1 ? ' active' : ''}`}
+                  className={`pagination-btn${
+                    blogPage === idx + 1 ? " active" : ""
+                  }`}
                   onClick={() => setBlogPage(idx + 1)}
                 >
                   {idx + 1}
@@ -492,20 +505,23 @@ export default function Blog() {
                   }
                 />
               )}
-            {/* Comment Modal (always rendered at root of community-box) */}
-            <Modal isOpen={isCommentModalOpen} onClose={handleCloseModal}>
-              <h3>Thêm bình luận</h3>
-              <textarea
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                placeholder="Nhập bình luận của bạn..."
-                rows={4}
-                style={{ width: '100%', marginBottom: 12 }}
-              />
-              <button className="submit-comment-btn" onClick={handleSubmitComment}>
-                Gửi bình luận
-              </button>
-            </Modal>
+              {/* Comment Modal (always rendered at root of community-box) */}
+              <Modal isOpen={isCommentModalOpen} onClose={handleCloseModal}>
+                <h3>Thêm bình luận</h3>
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Nhập bình luận của bạn..."
+                  rows={4}
+                  style={{ width: "100%", marginBottom: 12 }}
+                />
+                <button
+                  className="submit-comment-btn"
+                  onClick={handleSubmitComment}
+                >
+                  Gửi bình luận
+                </button>
+              </Modal>
             </div>
             {/* Pagination for community posts */}
             {totalPages > 1 && (

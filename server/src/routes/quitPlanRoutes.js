@@ -18,60 +18,6 @@ router.post('/', authenticateToken, createQuitPlan);
 // Get all quit plans for a user
 router.get('/user', authenticateToken, getUserPlans);
 
-// Get quit plans for a specific user (for coach dashboard)
-router.get('/user/:userId', authenticateToken, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        
-        // Lấy tất cả kế hoạch của user
-        const [plans] = await pool.execute(
-            'SELECT * FROM quit_smoking_plan WHERE smoker_id = ? ORDER BY created_at DESC',
-            [userId]
-        );
-        
-        if (plans.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: `User ${userId} has no quit plans`
-            });
-        }
-        
-        // Parse weeks data và plan_details nếu có
-        const processedPlans = plans.map(plan => {
-            if (plan.weeks && typeof plan.weeks === 'string') {
-                try {
-                    plan.weeks = JSON.parse(plan.weeks);
-                } catch (e) {
-                    console.error('Error parsing weeks data:', e);
-                }
-            }
-            
-            if (plan.plan_details && typeof plan.plan_details === 'string') {
-                try {
-                    plan.plan_details = JSON.parse(plan.plan_details);
-                } catch (e) {
-                    console.error('Error parsing plan_details:', e);
-                }
-            }
-            
-            return plan;
-        });
-        
-        return res.json({
-            success: true,
-            message: 'Quit plans retrieved successfully',
-            data: processedPlans
-        });
-    } catch (error) {
-        console.error('Error fetching user quit plans:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch user quit plans',
-            error: error.message
-        });
-    }
-});
-
 // Get quit plan templates
 router.get('/templates', getPlanTemplates);
 

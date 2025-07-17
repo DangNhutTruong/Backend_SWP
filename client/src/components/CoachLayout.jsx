@@ -30,6 +30,11 @@ function CoachLayout() {
     <div className="coach-layout">
       <div className="coach-sidebar">
         <div className="coach-profile">
+          <img 
+            src={user.avatar || 'https://via.placeholder.com/60'} 
+            alt={user.name} 
+            className="coach-avatar"
+          />
           <h3>{user.name}</h3>
           <p>{user.specialization}</p>
           <div className="coach-rating">
