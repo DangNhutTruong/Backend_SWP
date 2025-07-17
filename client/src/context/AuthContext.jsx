@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       // Kiểm tra xem có token trong localStorage không (tức là có ghi nhớ)
-      const hasRememberMe = localStorage.getItem('auth_token');
+      const hasRememberMe = localStorage.getItem('nosmoke_token');
       if (hasRememberMe) {
         localStorage.setItem('nosmoke_user', JSON.stringify(user));
       } else {
@@ -141,11 +141,11 @@ export const AuthProvider = ({ children }) => {
 
         // Lưu token và user data
         if (rememberMe) {
-          localStorage.setItem('auth_token', token);
+          localStorage.setItem('nosmoke_token', token);
           localStorage.setItem('refresh_token', refreshToken);
           localStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
         } else {
-          sessionStorage.setItem('auth_token', token);
+          sessionStorage.setItem('nosmoke_token', token);
           sessionStorage.setItem('refresh_token', refreshToken);
           sessionStorage.setItem('nosmoke_user', JSON.stringify(normalizedUser));
         }
@@ -169,10 +169,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     // Xóa thông tin user và token khỏi cả localStorage và sessionStorage
     localStorage.removeItem('nosmoke_user');
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('nosmoke_token');
     localStorage.removeItem('refresh_token');
     sessionStorage.removeItem('nosmoke_user');
-    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('nosmoke_token');
     sessionStorage.removeItem('refresh_token');
     return { success: true };
   };
@@ -350,6 +350,7 @@ export const AuthProvider = ({ children }) => {
     register,
     updateUser,
     refreshMembership,
+    refreshUserFromAPI,
     setUser,
     verifyEmail,
     resendVerificationCode,
@@ -358,5 +359,211 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+  // Hàm cập nhật thông tin người dùng
+  const updateUser = async (updatedData) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔄 AuthContext - updateUser called with:', updatedData);
+      
+      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      
+      if (!currentToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentToken}`
+        },
+        body: JSON.stringify(updatedData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Update failed');
+      }
+
+      // Process the updated user data
+      const processedUser = {
+        ...data.data,
+        quitReason: data.data.quitReason || data.data.quit_reason,
+        quit_reason: data.data.quitReason || data.data.quit_reason,
+        dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
+        date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
+        fullName: data.data.fullName || data.data.full_name,
+        full_name: data.data.fullName || data.data.full_name
+      };
+
+      setUser(processedUser);
+
+      // Update storage
+      if (rememberMe) {
+        localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+      } else {
+        sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+      }
+
+      // Dispatch custom event for other components
+      window.dispatchEvent(new CustomEvent('user-updated', {
+        detail: { user: processedUser }
+      }));
+
+      console.log('✅ AuthContext - User updated successfully:', processedUser);
+      return { success: true, message: data.message, user: processedUser };
+    } catch (err) {
+      console.error('❌ AuthContext - Update user error:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm tải lên avatar người dùng
+  const uploadAvatar = async (file) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🖼️ AuthContext - uploadAvatar called with file:', file.name);
+      
+      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      
+      if (!currentToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch(`${API_BASE_URL}/users/upload-avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentToken}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Avatar upload failed');
+      }
+
+      // Update user with new avatar URL
+      const updatedUser = {
+        ...user,
+        profile_image: data.data.avatarUrl
+      };
+
+      setUser(updatedUser);
+
+      // Update storage
+      if (rememberMe) {
+        localStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
+      } else {
+        sessionStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
+      }
+
+      console.log('✅ AuthContext - Avatar uploaded successfully:', data.data.avatarUrl);
+      return { success: true, avatarUrl: data.data.avatarUrl, message: data.message };
+    } catch (err) {
+      console.error('❌ AuthContext - Upload avatar error:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm refresh thông tin user từ API (fetch latest user data)
+  const refreshUserFromAPI = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔄 AuthContext - refreshUserFromAPI called');
+      
+      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      
+      if (!currentToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentToken}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to fetch user info');
+      }
+
+      // Process the user data
+      const processedUser = {
+        ...data.data,
+        quitReason: data.data.quitReason || data.data.quit_reason,
+        quit_reason: data.data.quitReason || data.data.quit_reason,
+        dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
+        date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
+        fullName: data.data.fullName || data.data.full_name,
+        full_name: data.data.fullName || data.data.full_name,
+        name: data.data.name || data.data.fullName || data.data.full_name || data.data.username
+      };
+
+      setUser(processedUser);
+
+      // Update storage based on where token is stored
+      const hasRememberMe = localStorage.getItem('nosmoke_token');
+      if (hasRememberMe) {
+        localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+      } else {
+        sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+      }
+
+      // Dispatch custom event for other components
+      window.dispatchEvent(new CustomEvent('user-updated', {
+        detail: { user: processedUser }
+      }));
+
+      console.log('✅ AuthContext - User refreshed successfully:', processedUser);
+      return { success: true, user: processedUser };
+    } catch (err) {
+      console.error('❌ AuthContext - Refresh user error:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // return (
+  //   <AuthContext.Provider value={{ 
+  //     user, 
+  //     token, 
+  //     loading, 
+  //     error, 
+  //     login, 
+  //     logout, 
+  //     setUser, 
+  //     updateUser, 
+  //     uploadAvatar,
+  //     refreshUserFromAPI,
+  //     isAuthenticated: !!user && !!token 
+  //   }}>
+  //     {children}
+  //   </AuthContext.Provider>
+  // );
 
 export default AuthContext;

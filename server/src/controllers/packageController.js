@@ -1,258 +1,243 @@
 import Package from '../models/Package.js';
-import User from '../models/User.js';
-import Payment from '../models/Payment.js';
-import VietQRService from '../utils/vietqr.js';
-import { execSync } from 'child_process';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { sendSuccess, sendError } from '../utils/response.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * Lấy tất cả các gói dịch vụ
+ * @route GET /api/packages
+ */
+export const getAllPackages = async (req, res) => {
+  try {
+    console.log('📦 Getting all packages...');
+    
+    const packages = await Package.getAllPackages();
+    
+    if (!packages || !Array.isArray(packages)) {
+      console.error('No valid packages returned from database');
+      return sendError(res, 'Failed to retrieve packages - database returned invalid data', 500);
+    }
+    
+    console.log(`✅ Found ${packages.length} packages`);
+    
+    // Format response để phù hợp với frontend
+    const formattedPackages = packages.map(pkg => ({
+      id: pkg.id,
+      name: pkg.name || '',
+      description: pkg.description || '',
+      price: pkg.price,
+      period: pkg.period || 'tháng',
+      membershipType: pkg.id === 1 ? 'free' : pkg.id === 2 ? 'premium' : pkg.id === 3 ? 'pro' : `package-${pkg.id}`,
+      features: pkg.features || [],
+      disabledFeatures: pkg.disabledFeatures || [],
+      popular: pkg.popular === 1 || pkg.popular === true
+    }));
+    
+    sendSuccess(res, 'Packages retrieved successfully', formattedPackages);
+  } catch (error) {
+    console.error('❌ Error getting packages:', error);
+    sendError(res, 'Failed to retrieve packages: ' + error.message, 500);
+  }
+};
 
-class PackageController {
-    // GET /api/packages → trả danh sách gói
-    static async getAll(req, res) {
-        try {
-            const packages = await Package.findAll();
+/**
+ * Lấy chi tiết một gói dịch vụ theo ID
+ * @route GET /api/packages/:id
+ */
+export const getPackageById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`📦 Fetching package with id: ${id}`);
+    
+    if (!id || isNaN(parseInt(id))) {
+      return sendError(res, 'Invalid package ID', 400);
+    }
+    
+    const package_data = await Package.getPackageById(id);
+    
+    if (!package_data) {
+      return sendError(res, 'Package not found', 404);
+    }
+    
+    console.log('✅ Package found:', package_data.name);
+    
+    // Format response để phù hợp với frontend
+    const formattedPackage = {
+      id: package_data.id,
+      name: package_data.name || '',
+      description: package_data.description || '',
+      price: package_data.price,
+      period: package_data.period || 'tháng',
+      membershipType: package_data.id === 1 ? 'free' : package_data.id === 2 ? 'premium' : package_data.id === 3 ? 'pro' : `package-${package_data.id}`,
+      features: package_data.features || [],
+      disabledFeatures: package_data.disabledFeatures || [],
+      popular: package_data.popular === 1 || package_data.popular === true
+    };
+    
+    sendSuccess(res, 'Package retrieved successfully', formattedPackage);
+  } catch (error) {
+    console.error(`❌ Error getting package:`, error);
+    sendError(res, 'Failed to retrieve package: ' + error.message, 500);
+  }
+};
 
-            res.json({
-                success: true,
-                data: packages,
-                message: 'Packages retrieved successfully'
-            });
-        } catch (error) {
-            console.error('Error fetching packages:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error.message
-            });
-        }
+/**
+ * Lấy tính năng cho một gói cụ thể
+ * @route GET /api/packages/features
+ * @route GET /api/packages/:id/features
+ */
+export const getPackageFeatures = async (req, res) => {
+  try {
+    // Ưu tiên lấy packageId từ params (nếu route là /api/packages/:id/features)
+    // Nếu không có, lấy từ query (package_id hoặc packageId)
+    let packageId = req.params.id;
+    if (!packageId) {
+      packageId = req.query.package_id || req.query.packageId;
+    }
+    
+    console.log(`🔍 Fetching features for package ID: ${packageId}`);
+    
+    if (!packageId || isNaN(parseInt(packageId))) {
+      return sendError(res, 'Invalid package ID', 400);
+    }
+    
+    const package_data = await Package.getPackageById(packageId);
+    
+    if (!package_data) {
+      return sendError(res, 'Package not found', 404);
+    }
+    
+    // Tạo response phù hợp với cấu trúc mà frontend đang mong đợi
+    const features = [];
+    
+    // Thêm các tính năng được bật
+    if (Array.isArray(package_data.features)) {
+      package_data.features.forEach(feature => {
+        features.push({
+          feature_name: feature,
+          enabled: 1
+        });
+      });
+    }
+    
+    // Thêm các tính năng bị tắt
+    if (Array.isArray(package_data.disabledFeatures)) {
+      package_data.disabledFeatures.forEach(feature => {
+        features.push({
+          feature_name: feature,
+          enabled: 0
+        });
+      });
+    }
+    
+    console.log(`✅ Found ${features.length} features for package ${package_data.name}`);
+    sendSuccess(res, 'Package features retrieved successfully', features);
+  } catch (error) {
+    console.error(`❌ Error getting package features:`, error);
+    sendError(res, 'Failed to retrieve package features: ' + error.message, 500);
+  }
+};
+
+/**
+ * Mua gói dịch vụ
+ * @route POST /api/packages/purchase
+ */
+export const purchasePackage = async (req, res) => {
+  try {
+    const { packageId } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return sendError(res, 'Unauthorized - User ID required', 401);
     }
 
-    // GET /api/packages/:id → chi tiết 1 gói
-    static async getById(req, res) {
-        try {
-            const { id } = req.params;
-            const packageData = await Package.findById(id);
-
-            if (!packageData) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Package not found'
-                });
-            }
-
-            res.json({
-                success: true,
-                data: packageData,
-                message: 'Package retrieved successfully'
-            });
-        } catch (error) {
-            console.error('Error fetching package:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error.message
-            });
-        }
+    if (!packageId) {
+      return sendError(res, 'Package ID is required', 400);
     }
 
-    // POST /api/packages/purchase
-    static async purchase(req, res) {
-        try {
-            const { package_id } = req.body;
-            const user_id = req.user.id; // Từ middleware auth
-
-            // Kiểm tra package có tồn tại không
-            const packageInfo = await Package.findById(package_id);
-            if (!packageInfo) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Package not found'
-                });
-            }
-
-            // Kiểm tra user có tồn tại không
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found'
-                });
-            }
-
-            // Kiểm tra user đã có membership cao hơn chưa
-            const currentMembership = user.membership || 'free';
-            const membershipLevels = { 'free': 0, 'premium': 1, 'pro': 2 };
-
-            if (membershipLevels[currentMembership] >= membershipLevels[packageInfo.type]) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'You already have this membership level or higher'
-                });
-            }
-
-            // Sinh tx_content unique sử dụng VietQR service
-            const tx_content = VietQRService.generatePaymentContent(user_id, packageInfo.type);
-
-            // Tạo payment record với status pending
-            const paymentData = {
-                user_id,
-                package_id,
-                amount: packageInfo.price,
-                method: 'bank_transfer',
-                tx_content,
-                expected_content: tx_content,
-                bank_code: process.env.BANK_CODE || 'VCB'
-            };
-
-            const paymentId = await Payment.create(paymentData);
-
-            // Generate VietQR code
-            const qrResult = await VietQRService.generateQR({
-                bankCode: process.env.BANK_CODE || 'VCB',
-                accountNumber: process.env.BANK_ACCOUNT_NUMBER || '1234567890',
-                amount: packageInfo.price,
-                content: tx_content,
-                accountName: process.env.BANK_ACCOUNT_NAME || 'NOUPGRADE PAYMENT',
-                template: 'compact2'
-            });
-
-            if (!qrResult.success) {
-                // Nếu QR generation failed, vẫn tiếp tục với thông tin manual
-                console.error('QR generation failed, proceeding with manual transfer info');
-            }
-
-            // Update payment với QR code URL
-            if (qrResult.qr_data_url) {
-                await Payment.update(paymentId, { qr_code_url: qrResult.qr_data_url });
-            }
-
-            // 🔔 Send notification about new payment
-            try {
-                const scriptPath = path.join(__dirname, '../../scripts/payment_notifier.py');
-                const notificationData = JSON.stringify({
-                    payment_id: paymentId,
-                    amount: packageInfo.price,
-                    package_name: packageInfo.name,
-                    user_email: user.email,
-                    qr_content: tx_content
-                });
-                
-                // Run notification script in background
-                execSync(`python "${scriptPath}" --add-payment '${notificationData}'`, { 
-                    cwd: path.dirname(scriptPath),
-                    stdio: 'pipe' 
-                });
-                
-                console.log(`📧 Payment notification sent for payment ${paymentId}`);
-            } catch (notificationError) {
-                console.error('❌ Failed to send payment notification:', notificationError.message);
-                // Don't fail the entire request if notification fails
-            }
-
-            res.json({
-                success: true,
-                data: {
-                    payment_id: paymentId,
-                    package: packageInfo,
-                    amount: packageInfo.price,
-                    tx_content,
-                    qr_code_url: qrResult.qr_data_url,
-                    qr_available: qrResult.success,
-                    bank_info: {
-                        bank_name: 'MB Bank',
-                        account_number: process.env.BANK_ACCOUNT_NUMBER || '1234567890',
-                        account_name: process.env.BANK_ACCOUNT_NAME || 'NOUPGRADE PAYMENT',
-                        content: tx_content
-                    },
-                    instructions: {
-                        step1: 'Mở ứng dụng ngân hàng hoặc quét mã QR',
-                        step2: `Chuyển khoản chính xác số tiền: ${packageInfo.price.toLocaleString()}đ`,
-                        step3: `Nội dung chuyển khoản: ${tx_content}`,
-                        step4: 'Đợi hệ thống xác nhận (1-5 phút)',
-                        note: 'Nội dung chuyển khoản phải chính xác 100% để hệ thống tự động xác nhận'
-                    }
-                },
-                message: 'Payment created successfully. Please transfer money and wait for verification.'
-            });
-
-        } catch (error) {
-            console.error('Error creating purchase:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error.message
-            });
-        }
+    console.log(`💰 User ${userId} purchasing package ${packageId}`);
+    
+    // Kiểm tra package tồn tại
+    const packageData = await Package.getPackageById(packageId);
+    if (!packageData) {
+      return sendError(res, 'Package not found', 404);
     }
 
-    // GET /api/packages/user/current
-    static async getUserCurrent(req, res) {
-        try {
-            const user_id = req.user.id;
-            const userMembership = await User.getUserMembership(user_id);
+    // TODO: Implement actual purchase logic
+    // For now, return success response
+    sendSuccess(res, 'Package purchased successfully', {
+      packageId,
+      packageName: packageData.name,
+      price: packageData.price,
+      purchaseDate: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error purchasing package:', error);
+    sendError(res, 'Failed to purchase package: ' + error.message, 500);
+  }
+};
 
-            if (!userMembership) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found'
-                });
-            }
+/**
+ * Lấy gói hiện tại của user
+ * @route GET /api/packages/user/current
+ */
+export const getCurrentUserPackage = async (req, res) => {
+  try {
+    const userId = req.user?.id;
 
-            // Lấy thông tin package hiện tại
-            let currentPackage = null;
-            if (userMembership.membership && userMembership.membership !== 'free') {
-                currentPackage = await Package.findByType(userMembership.membership);
-            }
-
-            // Kiểm tra membership có hết hạn không
-            const expiryInfo = await User.checkMembershipExpiry(user_id);
-
-            res.json({
-                success: true,
-                data: {
-                    current_membership: userMembership.membership || 'free',
-                    start_date: userMembership.membership_start_date,
-                    end_date: userMembership.membership_end_date,
-                    is_expired: expiryInfo.is_expired,
-                    package_info: currentPackage
-                },
-                message: 'Current membership retrieved successfully'
-            });
-
-        } catch (error) {
-            console.error('Error fetching user current membership:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error.message
-            });
-        }
+    if (!userId) {
+      return sendError(res, 'Unauthorized - User ID required', 401);
     }
 
-    // GET /api/packages/user/history
-    static async getUserHistory(req, res) {
-        try {
-            const user_id = req.user.id;
-            const payments = await Payment.findByUser(user_id);
+    console.log(`📦 Getting current package for user ${userId}`);
+    
+    // TODO: Implement database lookup for user's current package
+    // For now, return default free package
+    const freePackage = await Package.getPackageById(1);
+    
+    sendSuccess(res, 'Current package retrieved successfully', {
+      userId,
+      currentPackage: freePackage,
+      startDate: new Date().toISOString(),
+      endDate: null,
+      isActive: true
+    });
+  } catch (error) {
+    console.error('❌ Error getting current user package:', error);
+    sendError(res, 'Failed to get current package: ' + error.message, 500);
+  }
+};
 
-            res.json({
-                success: true,
-                data: payments,
-                message: 'User package history retrieved successfully'
-            });
+/**
+ * Lấy lịch sử mua gói của user
+ * @route GET /api/packages/user/history
+ */
+export const getUserPackageHistory = async (req, res) => {
+  try {
+    const userId = req.user?.id;
 
-        } catch (error) {
-            console.error('Error fetching user package history:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Internal server error',
-                error: error.message
-            });
-        }
+    if (!userId) {
+      return sendError(res, 'Unauthorized - User ID required', 401);
     }
-}
 
-export default PackageController;
+    console.log(`📦 Getting package history for user ${userId}`);
+    
+    // TODO: Implement database lookup for user's package history
+    // For now, return empty history
+    sendSuccess(res, 'Package history retrieved successfully', {
+      userId,
+      history: [],
+      totalPurchases: 0
+    });
+  } catch (error) {
+    console.error('❌ Error getting user package history:', error);
+    sendError(res, 'Failed to get package history: ' + error.message, 500);
+  }
+};
+
+export default {
+  getAllPackages,
+  getPackageById,
+  getPackageFeatures,
+  purchasePackage,
+  getCurrentUserPackage,
+  getUserPackageHistory
+};

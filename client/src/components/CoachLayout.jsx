@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaSignOutAlt, FaCalendarAlt, FaTachometerAlt, FaUser, FaComments } from 'react-icons/fa';
 import '../styles/CoachLayout.css';
@@ -7,6 +7,7 @@ import '../styles/CoachLayout.css';
 function CoachLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -29,11 +30,6 @@ function CoachLayout() {
     <div className="coach-layout">
       <div className="coach-sidebar">
         <div className="coach-profile">
-          <img 
-            src={user.avatar || 'https://via.placeholder.com/60'} 
-            alt={user.name} 
-            className="coach-avatar"
-          />
           <h3>{user.name}</h3>
           <p>{user.specialization}</p>
           <div className="coach-rating">
@@ -49,7 +45,7 @@ function CoachLayout() {
             <li>
               <button 
                 onClick={() => navigate('/coach')}
-                className="nav-btn"
+                className={`nav-btn${location.pathname === '/coach' ? ' active' : ''}`}
               >
                 <FaTachometerAlt /> Dashboard
               </button>
@@ -57,12 +53,18 @@ function CoachLayout() {
             <li>
               <button 
                 onClick={() => navigate('/coach/bookings')}
-                className="nav-btn"
+                className={`nav-btn${location.pathname.startsWith('/coach/bookings') ? ' active' : ''}`}
               >
                 <FaCalendarAlt /> Quản lý Booking
               </button>
             </li>
             <li>
+              <button 
+                onClick={() => navigate('/coach/messages')}
+                className={`nav-btn${location.pathname.startsWith('/coach/messages') ? ' active' : ''}`}
+              >
+                <FaComments /> Tin nhắn
+              </button>
             </li>
           </ul>
         </nav>

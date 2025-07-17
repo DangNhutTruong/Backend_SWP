@@ -1,12 +1,22 @@
+import { logDebug } from '../utils/debugHelpers';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 // Utility function to get auth headers
 const getAuthHeaders = () => {
-    // Tìm token từ cả localStorage và sessionStorage
-    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    // Tìm token từ cả localStorage và sessionStorage với đúng key
+    const token = localStorage.getItem('nosmoke_token') || 
+                 sessionStorage.getItem('nosmoke_token') ||
+                 localStorage.getItem('auth_token') || 
+                 sessionStorage.getItem('auth_token');
+    
+    if (!token) {
+        throw new Error('Access token is required');
+    }
+    
     return {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
+        'Authorization': `Bearer ${token}`
     };
 };
 
@@ -41,8 +51,6 @@ export const createQuitPlan = async (planData) => {
 };
 
 // Get all quit plans for the current user
-import { logDebug } from '../utils/debugHelpers';
-
 export const getUserPlans = async () => {
     try {
         logDebug('QuitPlan', '🚀 Fetching user quit plans from database...');
@@ -187,10 +195,84 @@ export const deletePlan = async (planId) => {
         }
 
         console.log('✅ Quit plan deleted successfully:', data);
+        
+        // Clear progress data khi xóa plan
+        try {
+            console.log('🔍 Attempting to clear progress data...');
+            const progressService = await import('./progressService');
+            await progressService.default.forceCleanAllProgress();
+            console.log('✅ Progress data cleared after deleting plan');
+        } catch (progressError) {
+            console.warn('⚠️ Could not clear progress data:', progressError);
+        }
+        
         return data.data || data;
     } catch (error) {
         console.error('❌ Error deleting quit plan:', error);
         throw error;
+    }
+};
+
+// Get user's quit plans by user ID (for coach)
+export const getUserPlansBySmokerId = async (userId) => {
+    try {
+        logDebug('QuitPlan', `🚀 Fetching quit plans for user ${userId} from database...`);
+
+        // Try multiple endpoints to get user's plans
+        const endpoints = [
+            `${API_BASE_URL}/api/quit-plans/user/${userId}`,
+            `${API_BASE_URL}/api/quit-plans?userId=${userId}`,
+            `${API_BASE_URL}/api/quit-plans/by-user/${userId}`,
+            `${API_BASE_URL}/api/user/${userId}/quit-plans`,
+            `${API_BASE_URL}/api/quit-plans/all?user_id=${userId}`
+        ];
+
+        let lastError = null;
+        
+        for (const endpoint of endpoints) {
+            try {
+                logDebug('QuitPlan', `🔍 Trying endpoint: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    logDebug('QuitPlan', `✅ User ${userId} quit plans fetched from ${endpoint}`, data);
+                    
+                    const plansData = data.data || data.plans || data;
+                    
+                    if (Array.isArray(plansData) && plansData.length > 0) {
+                        logDebug('QuitPlan', `✅ Tìm thấy ${plansData.length} kế hoạch cho user ${userId}`);
+                        return plansData;
+                    } else if (Array.isArray(plansData)) {
+                        logDebug('QuitPlan', `ℹ️ Endpoint ${endpoint} trả về mảng rỗng`);
+                    } else {
+                        logDebug('QuitPlan', `⚠️ Endpoint ${endpoint} trả về dữ liệu không phải mảng:`, plansData);
+                    }
+                } else if (response.status === 404) {
+                    logDebug('QuitPlan', `⚠️ Endpoint ${endpoint} not found (404)`);
+                } else {
+                    const errorData = await response.json();
+                    logDebug('QuitPlan', `❌ Endpoint ${endpoint} failed:`, errorData);
+                    lastError = errorData;
+                }
+            } catch (fetchError) {
+                logDebug('QuitPlan', `❌ Error with endpoint ${endpoint}:`, fetchError);
+                lastError = fetchError;
+            }
+        }
+
+        // If no endpoint worked, log the issue and return empty array
+        logDebug('QuitPlan', `⚠️ All endpoints failed for user ${userId}. Last error:`, lastError, true);
+        logDebug('QuitPlan', `ℹ️ User ${userId} has no quit plans or endpoints not available`);
+        return [];
+        
+    } catch (error) {
+        logDebug('QuitPlan', `❌ Error fetching quit plans for user ${userId}:`, error, true);
+        return [];
     }
 };
 
@@ -199,6 +281,7 @@ export default {
     getUserPlans,
     getQuitPlan,
     getUserActivePlan,
+    getUserPlansBySmokerId,
     updateQuitPlan,
     deletePlan
 };
