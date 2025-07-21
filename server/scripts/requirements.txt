@@ -1,9 +1,0 @@
-# Python requirements for MBBank checker
-requests>=2.31.0
-python-dotenv>=1.0.0
-
-# For real MBBank integration
-beautifulsoup4>=4.12.0
-
-# Optional: For web scraping if API fails
-# selenium>=4.15.0
