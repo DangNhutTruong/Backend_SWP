@@ -1,0 +1,54 @@
+/* Styles to prevent navigation bar from covering the Jitsi Meeting */
+
+.jitsi-container {
+  /* Make sure it covers everything */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background-color: #000;
+}
+
+/* Hide navigation and other elements when Jitsi is active */
+body.jitsi-meeting-active nav,
+body.jitsi-meeting-active header,
+body.jitsi-meeting-active footer,
+body.jitsi-meeting-active .navbar,
+body.jitsi-meeting-active .bottom-navigation {
+  display: none !important;
+}
+
+/* Prevent scrolling and touch events on the body */
+body.jitsi-meeting-active {
+  overflow: hidden !important;
+  touch-action: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* Make sure the meeting container is visible and on top */
+.jitsi-container iframe {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Ensure fullscreen works properly */
+.jitsi-container:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Rotate to landscape on mobile if needed */
+@media screen and (max-width: 768px) and (orientation: portrait) {
+  .jitsi-container {
+    transform-origin: center center;
+    transform: rotate(-90deg);
+    width: 100vh;
+    height: 100vw;
+    overflow: hidden;
+  }
+}
