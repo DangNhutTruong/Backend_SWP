@@ -625,7 +625,10 @@ function BookAppointment() {
         <div className="success-icon">
           <FaCheck />
         </div>
-        <h2>{isRescheduling ? 'Thay đổi lịch thành công!' : 'Đặt lịch thành công!'}</h2>        <p>Bạn đã {isRescheduling ? 'thay đổi lịch hẹn' : 'đặt lịch hẹn'} với <strong>{selectedCoach.full_name || selectedCoach.username}</strong></p>
+        <div className="success-title" style={{textAlign: 'center', fontWeight: 'bold', fontSize: '1.5rem', margin: '1rem 0'}}>
+          {isRescheduling ? 'Thay đổi lịch thành công!' : 'Đặt lịch thành công!'}
+        </div>
+        <p>Bạn đã {isRescheduling ? 'thay đổi lịch hẹn' : 'đặt lịch hẹn'} với <strong>{selectedCoach.full_name || selectedCoach.username}</strong></p>
         <p>Vào ngày <strong>{selectedDate.toLocaleDateString('vi-VN')}</strong> lúc <strong>{selectedTime}</strong></p>
         <p>Mã cuộc hẹn: <strong>#{appointmentId}</strong></p>
         <div className="pending-status-info">
