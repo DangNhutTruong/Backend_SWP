@@ -3,9 +3,13 @@ import { FaArrowUp } from 'react-icons/fa';
 import '../styles/BackToTop.css';
 
 export default function BackToTop() {
-  const [isVisible, setIsVisible] = useState(true); // Mặc định hiển thị
+  // Đã vô hiệu hóa nút này theo yêu cầu - trả về null để không hiển thị
+  return null;
+  
+  // Code gốc giữ lại để tham khảo sau này nếu cần
+  /*
+  const [isVisible, setIsVisible] = useState(true);
 
-  // Xử lý sự kiện cuộn lên đầu trang
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -13,7 +17,6 @@ export default function BackToTop() {
     });
   };
 
-  // Chỉ ẩn nút khi ở đầu trang
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.scrollY === 0) {
@@ -22,14 +25,12 @@ export default function BackToTop() {
         setIsVisible(true);
       }
     };
-
-    // Gọi ngay để đặt trạng thái ban đầu
+    
     toggleVisibility();
-
     window.addEventListener('scroll', toggleVisibility);
     return () => window.removeEventListener('scroll', toggleVisibility);
   }, []);
-  // Luôn render nút, chỉ ẩn bằng CSS khi không isVisible
+
   return (
     <button
       onClick={scrollToTop}
@@ -39,4 +40,5 @@ export default function BackToTop() {
       <FaArrowUp className="back-to-top-icon" />
     </button>
   );
+  */
 }
