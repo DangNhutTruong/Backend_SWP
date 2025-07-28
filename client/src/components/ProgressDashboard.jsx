@@ -94,7 +94,7 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
 
     // Nếu có thống kê từ bên ngoài, sử dụng nó thay vì tính toán lại
     if (externalStats && Object.keys(externalStats).length > 0) {
-      console.log("🔍 Sử dụng thống kê từ Progress.jsx:", externalStats);
+      console.log("🔍 Sử dụng thống kê từ Progress.jsx (từ database):", externalStats);
       setDashboardStats({
         daysSincePlanCreation: externalStats.noSmokingDays || 0, 
         cigarettesSaved: externalStats.savedCigarettes || 0,
@@ -308,14 +308,30 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
           <div className="stat-icon">
             <FaCalendarCheck />
           </div>          <div className="stat-content">
-            <h3>{externalStats?.noSmokingDays || dashboardStats?.daysSincePlanCreation || 0}</h3>
+            <h3>{(() => {
+              const days = externalStats?.noSmokingDays || dashboardStats?.daysSincePlanCreation || 0;
+              console.log("🔍 ProgressDashboard - Days display:", {
+                externalStats: externalStats?.noSmokingDays,
+                dashboardStats: dashboardStats?.daysSincePlanCreation,
+                final: days
+              });
+              return days;
+            })()}</h3>
             <p>Ngày theo dõi</p>
           </div>
         </div>        <div className="stat-card success">
           <div className="stat-icon">
             <FaLeaf />
           </div>          <div className="stat-content">
-            <h3>{(externalStats?.savedCigarettes || dashboardStats?.cigarettesSaved || 0).toLocaleString()}</h3>
+            <h3>{(() => {
+              const savedCigs = externalStats?.savedCigarettes || dashboardStats?.cigarettesSaved || 0;
+              console.log("🔍 ProgressDashboard - Cigarettes saved display:", {
+                externalStats: externalStats?.savedCigarettes,
+                dashboardStats: dashboardStats?.cigarettesSaved,
+                final: savedCigs
+              });
+              return savedCigs.toLocaleString();
+            })()}</h3>
             <p>Điếu thuốc đã tránh</p>       
           </div>
         </div>
@@ -325,7 +341,15 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
             <FaCoins />
           </div>
           <div className="stat-content">
-            <h3>{((externalStats?.savedMoney || dashboardStats?.moneySaved || 0) / 1000).toFixed(0)}K</h3>
+            <h3>{(() => {
+              const savedMoney = externalStats?.savedMoney || dashboardStats?.moneySaved || 0;
+              console.log("🔍 ProgressDashboard - Money saved display:", {
+                externalStats: externalStats?.savedMoney,
+                dashboardStats: dashboardStats?.moneySaved,
+                final: savedMoney
+              });
+              return (savedMoney / 1000).toFixed(0) + "K";
+            })()}</h3>
             <p>VNĐ đã tiết kiệm</p>
           </div>
         </div>
