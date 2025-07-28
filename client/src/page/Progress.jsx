@@ -38,6 +38,12 @@ export default function Progress() {
   useEffect(() => {
     loadUserPlanAndProgress();
     
+    // Debug: Kiểm tra dữ liệu ban đầu
+    console.log("🔍 useEffect đầu tiên - kiểm tra dữ liệu:", {
+      actualProgress: actualProgress?.length || 0,
+      dashboardStats: dashboardStats
+    });
+    
     // Lắng nghe thay đổi từ JourneyStepper
     const handleStorageChange = (event) => {
       console.log('🔄 Progress nhận thông báo thay đổi từ JourneyStepper:', event.detail);
@@ -132,6 +138,22 @@ export default function Progress() {
       window.removeEventListener('localStorageChanged', handleStorageChange);
     };
   }, []);
+
+  // Thêm useEffect để tính toán lại khi actualProgress thay đổi
+  useEffect(() => {
+    console.log("🔄 actualProgress đã thay đổi, tính toán lại thống kê...");
+    console.log("actualProgress mới:", actualProgress);
+    
+    if (actualProgress && actualProgress.length > 0) {
+      console.log(`✅ Có ${actualProgress.length} bản ghi, tiến hành tính toán thống kê`);
+      // Delay một chút để đảm bảo tất cả state đã được cập nhật
+      setTimeout(() => {
+        recalculateStatistics();
+      }, 100);
+    } else {
+      console.log("⚠️ actualProgress rỗng hoặc chưa có dữ liệu");
+    }
+  }, [actualProgress]);
   
   const loadUserPlanAndProgress = async () => {
     console.log("🔄 Loading user plan from DATABASE...");
@@ -142,14 +164,6 @@ export default function Progress() {
                       sessionStorage.getItem('nosmoke_token') ||
                       localStorage.getItem('auth_token') || 
                       sessionStorage.getItem('auth_token');
-    
-    console.log("🔐 Checking auth tokens in Progress:", {
-      nosmoke_token_local: !!localStorage.getItem('nosmoke_token'),
-      nosmoke_token_session: !!sessionStorage.getItem('nosmoke_token'),
-      auth_token_local: !!localStorage.getItem('auth_token'),
-      auth_token_session: !!sessionStorage.getItem('auth_token'),
-      final_token: !!auth_token
-    });
     
     if (!auth_token) {
       console.log("⚠️ Không có auth token, không thể tải từ database");
@@ -299,29 +313,44 @@ export default function Progress() {
     const actualData = [];
     const today = new Date();
     
-    // Log start of loading
-    console.log("🔄 Đang tải dữ liệu thực tế từ DATABASE...");
-    
-    // Lấy ngày bắt đầu kế hoạch từ activePlan
+    // Tìm ngày bắt đầu kế hoạch từ nhiều nguồn (ưu tiên userPlan từ database)
     let planStartDate = null;
     let activePlan = providedActivePlan;
+    
     try {
-      const activePlanData = localStorage.getItem('activePlan');
-      if (activePlanData) {
-        activePlan = JSON.parse(activePlanData);
-        planStartDate = activePlan.startDate ? new Date(activePlan.startDate) : null;
+      // Nguồn 1: userPlan từ database (ưu tiên cao nhất)
+      if (userPlan?.start_date) {
+        planStartDate = new Date(userPlan.start_date);
+        console.log(`✅ Lấy startDate từ userPlan (database): ${userPlan.start_date}`);
+      }
+      // Nguồn 2: providedActivePlan parameter
+      else if (providedActivePlan?.startDate) {
+        planStartDate = new Date(providedActivePlan.startDate);
+        console.log(`✅ Lấy startDate từ providedActivePlan: ${providedActivePlan.startDate}`);
+      }
+      // Nguồn 3: localStorage activePlan
+      else {
+        const activePlanData = localStorage.getItem('activePlan');
+        if (activePlanData) {
+          activePlan = JSON.parse(activePlanData);
+          if (activePlan?.startDate) {
+            planStartDate = new Date(activePlan.startDate);
+            console.log(`✅ Lấy startDate từ localStorage activePlan: ${activePlan.startDate}`);
+          } else if (activePlan?.start_date) {
+            planStartDate = new Date(activePlan.start_date);
+            console.log(`✅ Lấy start_date từ localStorage activePlan: ${activePlan.start_date}`);
+          }
+        }
       }
     } catch (error) {
-      console.error('Lỗi khi đọc ngày bắt đầu từ activePlan:', error);
+      console.error('❌ Lỗi khi đọc ngày bắt đầu:', error);
     }
     
-    // Nếu không có ngày bắt đầu, chỉ lấy dữ liệu từ hôm nay
-    if (!planStartDate) {
+    // Nếu vẫn không có ngày bắt đầu, sử dụng hôm nay (nhưng log warning)
+    if (!planStartDate || isNaN(planStartDate.getTime())) {
       planStartDate = new Date();
-      console.log("Không tìm thấy ngày bắt đầu kế hoạch, chỉ tải dữ liệu hôm nay");
+      console.warn("⚠️ Không tìm thấy ngày bắt đầu kế hoạch hợp lệ, sử dụng hôm nay");
     }
-    
-    console.log(`Kế hoạch bắt đầu từ: ${planStartDate.toISOString().split('T')[0]}`);
     
     // Tạo bảng tra cứu mục tiêu hàng ngày từ kế hoạch
     const dailyTargets = {};
@@ -342,23 +371,33 @@ export default function Progress() {
     // Thử load TẤT CẢ dữ liệu từ DATABASE trước
     let databaseData = {};
     try {
-      const userId = localStorage.getItem('user_id') || localStorage.getItem('userId') || 
-                    JSON.parse(localStorage.getItem('user') || '{}')?.id;
+      // Sử dụng getCurrentUserId thay vì tìm manual
+      const { getCurrentUserId } = await import('../utils/userUtils');
+      const userId = getCurrentUserId();
+      
+      console.log(`🔍 loadActualProgressFromCheckins - userId from getCurrentUserId:`, userId);
       
       if (userId) {
         console.log(`📊 Đang load tất cả dữ liệu progress từ database cho user ${userId}...`);
         const response = await fetch(`/api/progress/${userId}`);
         if (response.ok) {
           const result = await response.json();
+          console.log(`📊 Database response:`, result);
           if (result.success && result.data && result.data.length > 0) {
             // Chuyển đổi thành object với key là date để tra cứu nhanh
             result.data.forEach(item => {
               const dateStr = item.date.split('T')[0];
               databaseData[dateStr] = item;
             });
-            console.log(`✅ Đã load ${result.data.length} bản ghi từ database`);
+            console.log(`✅ Đã load ${result.data.length} bản ghi từ database:`, Object.keys(databaseData));
+          } else {
+            console.log(`⚠️ Database response không có data:`, result);
           }
+        } else {
+          console.log(`❌ Database response không OK:`, response.status);
         }
+      } else {
+        console.log(`❌ Không tìm thấy userId từ getCurrentUserId`);
       }
     } catch (dbError) {
       console.log(`ℹ️ Không thể load từ database:`, dbError.message);
@@ -369,19 +408,39 @@ export default function Progress() {
     const maxDaysToLoad = Math.max(0, daysSincePlanStart + 1);
     
     console.log(`Xử lý dữ liệu cho ${maxDaysToLoad} ngày từ khi bắt đầu kế hoạch`);
+    console.log(`📊 Database data available for dates:`, Object.keys(databaseData));
     
-    // Duyệt từ ngày bắt đầu kế hoạch đến hôm nay
-    for (let i = maxDaysToLoad - 1; i >= 0; i--) {
+    // Lấy tất cả ngày có trong database trước
+    const databaseDates = Object.keys(databaseData).sort();
+    console.log(`📅 Database dates:`, databaseDates);
+    
+    // Tạo danh sách các ngày cần xử lý (từ database + từ plan)
+    const datesToProcess = new Set();
+    
+    // Thêm tất cả ngày từ database
+    databaseDates.forEach(dateStr => datesToProcess.add(dateStr));
+    
+    // Thêm các ngày từ kế hoạch (từ startDate đến hôm nay)
+    for (let i = 0; i <= daysSincePlanStart; i++) {
+      const date = new Date(planStartDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      datesToProcess.add(dateStr);
+    }
+    
+    const sortedDates = Array.from(datesToProcess).sort();
+    console.log(`📅 All dates to process:`, sortedDates);
+    
+    // Duyệt qua tất cả các ngày cần xử lý
+    sortedDates.forEach(dateStr => {
       try {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateObj = new Date(dateStr);
         
         // Chỉ xử lý dữ liệu nếu ngày đó >= ngày bắt đầu kế hoạch
-        if (date >= planStartDate) {
+        if (dateObj >= planStartDate) {
           let checkinFound = false;
           
-          // Kiểm tra trong database data trước
+          // Kiểm tra trong database data trước (ưu tiên database)
           if (databaseData[dateStr]) {
             const dbData = databaseData[dateStr];
             const targetCigs = dbData.target_cigarettes || dailyTargets[dateStr] || 
@@ -393,7 +452,8 @@ export default function Progress() {
               targetCigarettes: targetCigs,
               mood: dbData.mood,
               achievements: dbData.achievements || [],
-              challenges: dbData.challenges || []
+              challenges: dbData.challenges || [],
+              source: 'database' // Đánh dấu nguồn dữ liệu
             });
             
             console.log(`✅ DATABASE: ${dateStr} -> ${dbData.actual_cigarettes} điếu (target: ${targetCigs})`);
@@ -413,7 +473,8 @@ export default function Progress() {
                 targetCigarettes: targetCigs,
                 mood: data.mood,
                 achievements: data.achievements || [],
-                challenges: data.challenges || []
+                challenges: data.challenges || [],
+                source: 'localStorage' // Đánh dấu nguồn dữ liệu
               });
               console.log(`📱 LOCALSTORAGE: ${dateStr} -> ${data.actualCigarettes} điếu (target: ${targetCigs})`);
               checkinFound = true;
@@ -432,12 +493,17 @@ export default function Progress() {
           }
         }
       } catch (error) {
-        console.error(`Error processing data for day -${i}:`, error);
+        console.error(`Error processing data for dateStr ${dateStr}:`, error);
       }
-    }
+    }); // Đóng forEach
     
     // Đảm bảo dữ liệu được sắp xếp theo ngày tăng dần
     actualData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Log thống kê nguồn dữ liệu
+    const databaseCount = actualData.filter(item => item.source === 'database').length;
+    const localStorageCount = actualData.filter(item => item.source === 'localStorage').length;
+    console.log(`📊 Data sources: ${databaseCount} from database, ${localStorageCount} from localStorage`);
     
     // Fix: Chuyển đổi định dạng dữ liệu cho phù hợp với QuitProgressChart
     const formattedActualData = actualData.map(item => ({
@@ -634,6 +700,17 @@ export default function Progress() {
     // Tính toán lại tất cả các thống kê và cập nhật state
   const recalculateStatistics = () => {
     console.log("======= BẮT ĐẦU TÍNH TOÁN THỐNG KÊ MỚI =======");
+    console.log(`📊 actualProgress hiện tại:`, actualProgress);
+    console.log(`📊 Số lượng bản ghi actualProgress: ${actualProgress?.length || 0}`);
+    
+    // Nếu không có dữ liệu actualProgress, thử load lại từ API
+    if (!actualProgress || actualProgress.length === 0) {
+      console.log("⚠️ Không có dữ liệu actualProgress, thử load lại từ API...");
+      loadUserPlanAndProgress();
+      return;
+    }
+    
+    console.log(`📊 Tính toán từ ${actualProgress.length} bản ghi actualProgress`);
     
     // Tính số ngày đã check-in (tính bằng số ngày đã lưu DailyCheckin)
     const currentDate = new Date();
@@ -702,20 +779,23 @@ export default function Progress() {
       // Số điếu đã tránh trong ngày = target theo plan - số điếu thực tế
       // Sử dụng targetCigarettes từ progress data thay vì userInitialCigarettes
       const targetForDay = dayRecord.targetCigarettes || dayRecord.target_cigarettes || userInitialCigarettes;
-      const daySaved = Math.max(0, targetForDay - dayRecord.actualCigarettes);
+      const actualForDay = dayRecord.actualCigarettes || dayRecord.actual_cigarettes || 0;
+      const daySaved = Math.max(0, targetForDay - actualForDay);
       totalSavedCigarettes += daySaved;
       
       // Ghi chi tiết để debug
-      detailedLog += `\n- Ngày ${dayRecord.date}: Target: ${targetForDay}, Actual: ${dayRecord.actualCigarettes} = Tránh được: ${daySaved} điếu`;
+      detailedLog += `\n- Ngày ${dayRecord.date}: Target: ${targetForDay}, Actual: ${actualForDay} = Tránh được: ${daySaved} điếu`;
       
       // Lưu thông tin chi tiết
       dailySavings.push({
         date: dayRecord.date,
-        actual: dayRecord.actualCigarettes,
+        actual: actualForDay,
         targetFromPlan: targetForDay,
         userInitialCigarettes: userInitialCigarettes,
         saved: daySaved
       });
+      
+      console.log(`📊 [${dayRecord.date}] Target: ${targetForDay}, Actual: ${actualForDay}, Saved: ${daySaved}`);
     });
     
     // Thiết lập giá trị cuối cùng
@@ -806,20 +886,22 @@ export default function Progress() {
     return newStats;
   };
   
-  // Debug logging trước khi render
-  console.log("🎨 Progress component render với:", {
-    isLoading,
-    hasPlan,
-    userPlan: userPlan ? {
-      id: userPlan.id,
-      plan_name: userPlan.plan_name || userPlan.planName,
-      initial_cigarettes: userPlan.initial_cigarettes || userPlan.initialCigarettes,
-      total_weeks: userPlan.total_weeks || userPlan.totalWeeks,
-      start_date: userPlan.start_date || userPlan.startDate
-    } : null,
-    userProgress: userProgress?.length || 0,
-    actualProgress: actualProgress?.length || 0
-  });
+  // Debug logging trước khi render (chỉ log một lần khi component mount)
+  if (isLoading) {
+    console.log("🎨 Progress component render với:", {
+      isLoading,
+      hasPlan,
+      userPlan: userPlan ? {
+        id: userPlan.id,
+        plan_name: userPlan.plan_name || userPlan.planName,
+        initial_cigarettes: userPlan.initial_cigarettes || userPlan.initialCigarettes,
+        total_weeks: userPlan.total_weeks || userPlan.totalWeeks,
+        start_date: userPlan.start_date || userPlan.startDate
+      } : null,
+      userProgress: userProgress?.length || 0,
+      actualProgress: actualProgress?.length || 0
+    });
+  }
   
   // Hiển thị loading trong khi tải dữ liệu
   if (isLoading) {
@@ -936,7 +1018,7 @@ export default function Progress() {
           userPlan={userPlan} 
           completionDate={completionData?.completionDate || new Date().toISOString()}
           dashboardStats={dashboardStats}
-          actualProgress={actualProgress} // Debug: {actualProgress?.length || 0} mục
+          actualProgress={actualProgress}
           onDataReset={() => {
             // Reset data & recalculate
             localStorage.removeItem('dashboardStats');
@@ -944,25 +1026,6 @@ export default function Progress() {
             recalculateStatistics();
           }}
         />
-        
-        {/* Debug info */}
-        {actualProgress && actualProgress.length > 0 && (
-          <div style={{
-            marginTop: '20px',
-            padding: '10px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '5px',
-            fontSize: '12px'
-          }}>
-            <strong>Debug - Dữ liệu actualProgress:</strong>
-            <br />
-            Tổng số mục: {actualProgress.length}
-            <br />
-            Mục đầu tiên: {actualProgress[0] ? `${actualProgress[0].date}: ${actualProgress[0].actualCigarettes}/${actualProgress[0].targetCigarettes}` : 'N/A'}
-            <br />
-            Mục cuối cùng: {actualProgress[actualProgress.length - 1] ? `${actualProgress[actualProgress.length - 1].date}: ${actualProgress[actualProgress.length - 1].actualCigarettes}/${actualProgress[actualProgress.length - 1].targetCigarettes}` : 'N/A'}
-          </div>
-        )}
     </div>
   );
 }
