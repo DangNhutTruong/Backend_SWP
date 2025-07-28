@@ -217,7 +217,7 @@ export const getUserTransactions = async (userId, options = {}) => {
       SELECT t.*, pkg.name as package_name, p.id as payment_id
       FROM payment_transactions t
       LEFT JOIN payments p ON t.payment_id = p.id
-      JOIN package pkg ON t.package_id = pkg.id
+      JOIN packages pkg ON t.package_id = pkg.id
       WHERE t.user_id = ?
     `;
     

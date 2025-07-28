@@ -53,7 +53,7 @@ export const getCurrentMembership = async (userId) => {
     const [memberships] = await pool.execute(`
       SELECT um.*, p.name as package_name, p.price, p.period
       FROM user_memberships um
-      JOIN package p ON um.package_id = p.id
+      JOIN packages p ON um.package_id = p.id
       WHERE um.user_id = ? AND um.status = 'active'
       ORDER BY um.created_at DESC
       LIMIT 1
@@ -77,7 +77,7 @@ export const purchasePackage = async (userId, packageId, paymentMethod) => {
     
     // Lấy thông tin gói
     const [packages] = await connection.execute(`
-      SELECT * FROM package WHERE id = ?
+      SELECT * FROM packages WHERE id = ?
     `, [packageId]);
     
     if (packages.length === 0) {
@@ -209,7 +209,7 @@ export const getMembershipHistory = async (userId) => {
       SELECT um.*, p.name as package_name, p.price, p.period, 
              pt.payment_method, pt.status as payment_status, pt.created_at as payment_date
       FROM user_memberships um
-      JOIN package p ON um.package_id = p.id
+      JOIN packages p ON um.package_id = p.id
       LEFT JOIN payment_transactions pt ON pt.user_id = um.user_id AND pt.package_id = um.package_id
       WHERE um.user_id = ?
       ORDER BY um.created_at DESC
