@@ -270,11 +270,9 @@ const RequireMembership = ({ allowedMemberships = [], showModal = false, feature
           <div className="membership-modal-footer">
             <button className="membership-cancel-button" onClick={() => navigate(-1)}>
               Quay lại
-            {/* //Tin start */}
-            {/* </button>            {userMembership === 'free' && ( */}
-            {/* //Tin end */}
             
-            //Huy start
+            
+            
             </button>
             
             {/* Show reload button for users with sufficient membership */}
