@@ -67,7 +67,7 @@ export default function Header() {
       <div className="container">
         <div className="logo">
           <Link to="/">
-            <span className="logo-text">No<span className="smoke">Smoke</span></span>
+            <img src="/image/articles/nm.png" alt="NoSmoke Logo" className="logo-img" style={{height: '50px'}} />
           </Link>
         </div>
         <div className="nav-actions">
@@ -158,4 +158,3 @@ export default function Header() {
     </header>
   );
 }
-//
