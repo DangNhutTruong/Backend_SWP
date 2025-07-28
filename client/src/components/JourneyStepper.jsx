@@ -701,6 +701,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -708,7 +709,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -753,6 +757,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -760,7 +765,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -805,6 +813,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -812,7 +821,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
