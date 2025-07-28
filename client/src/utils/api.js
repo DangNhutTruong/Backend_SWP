@@ -87,10 +87,10 @@ const fetchApi = async (url, options = {}) => {
       console.log(`Using API base URL: ${apiBaseUrl}`);
     }
     
-    const response = await fetch(fullUrl, {
+    const response = await fetch(fullUrl, addAuthHeader({
       ...options,
       credentials: API_CONFIG.credentials,
-    });
+    }));
     
     console.log(`API Response status: ${response.status} ${response.statusText}`);
     

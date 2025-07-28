@@ -14,7 +14,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Kiểm tra xem bài viết có thuộc về người dùng hiện tại không
-  const isOwnPost = user && post.user.id === user.id;
+  const isOwnPost = user && post.user_id === user.id;
 
   // Đóng menu khi click bên ngoài
   React.useEffect(() => {
@@ -82,13 +82,13 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
       {/* Header */}      <div className="post-header">
         <div className="user-info">
           <img 
-            src={post.user.avatar} 
-            alt={post.user.name} 
+            src={post.user_avatar || '/image/default-user-avatar.svg'} 
+            alt={post.user_name || 'User'} 
             className="user-avatar"
           />
           <div className="user-details">
-            <h3 className="user-name">{post.user.name}</h3>
-            <span className="post-time">{formatTime(post.timestamp)}</span>
+            <h3 className="user-name">{post.user_name || 'Anonymous'}</h3>
+            <span className="post-time">{formatTime(post.created_at)}</span>
           </div>
         </div>
 
@@ -153,21 +153,11 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
         )}
 
         {/* Hiển thị hình ảnh nếu có */}
-        {post.images && post.images.length > 0 && (
-          <div className={`post-images ${post.images.length === 1 ? 'single-image' : 'multiple-images'}`}>
-            {post.images.slice(0, 4).map((image, index) => (
-              <div 
-                key={image.id} 
-                className={`image-container ${index === 3 && post.images.length > 4 ? 'more-images' : ''}`}
-              >
-                <img src={image.url} alt={`Post image ${index + 1}`} />
-                {index === 3 && post.images.length > 4 && (
-                  <div className="more-overlay">
-                    <span>+{post.images.length - 4}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+        {post.thumbnail_url && (
+          <div className="post-images single-image">
+            <div className="image-container">
+              <img src={post.thumbnail_url} alt="Post thumbnail" />
+            </div>
           </div>
         )}
       </div>
@@ -179,7 +169,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           onClick={handleLike}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
-          <span>{(post.likes || 0) + (isLiked ? 1 : 0)} cảm ơn</span>
+          <span>{(post.likes_count || 0) + (isLiked ? 1 : 0)} cảm ơn</span>
         </button>
 
         <button 
@@ -187,7 +177,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           onClick={() => onComment && onComment(post.id)}
         >
           <FaComment />
-          <span>{post.comments || 0} bình luận</span>
+          <span>{post.comments_count || 0} bình luận</span>
         </button>
 
         <button 
@@ -198,10 +188,10 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           <span>Chia sẻ</span>
         </button>
       </div>      {/* Comment Section Preview */}
-      {post.comments > 0 && (
+      {post.comments_count > 0 && (
         <div className="comments-preview">
           <button className="view-comments-btn">
-            Xem tất cả {post.comments} bình luận
+            Xem tất cả {post.comments_count} bình luận
           </button>
         </div>
       )}

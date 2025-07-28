@@ -141,26 +141,21 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
       return;
     }
 
-    const newPost = {
-      id: Date.now(),
-      user: {
-        name: user?.fullName || user?.name || 'Người dùng',
-        avatar: user?.avatar || '/image/hero/quit-smoking-2.png',
-        id: user?.id
-      },
-      content: postText,
-      images: selectedImages,
-      achievements: selectedAchievements,
-      timestamp: new Date(),
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      likedBy: []  // Thêm mảng likedBy rỗng để tránh lỗi undefined
+    // Tạo title từ nội dung (lấy 50 ký tự đầu)
+    const title = postText.trim().length > 50 
+      ? postText.trim().substring(0, 50) + '...' 
+      : postText.trim() || 'Chia sẻ hình ảnh';
+
+    // Chuẩn bị dữ liệu cho API
+    const postData = {
+      title: title,
+      content: postText.trim(),
+      thumbnail_url: selectedImages.length > 0 ? selectedImages[0].url : null
     };
 
-    // Callback để thông báo bài viết mới được tạo
+    // Callback để thông báo bài viết mới được tạo (Blog.jsx sẽ xử lý API call)
     if (typeof onPostCreated === 'function') {
-      onPostCreated(newPost);
+      onPostCreated(postData);
     } else {
       console.error('onPostCreated is not a function:', onPostCreated);
     }

@@ -6,12 +6,16 @@ import CommunityPost from "../components/CommunityPost.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { calculateDaysWithoutSmoking, generateAchievements } from "../utils/achievementUtils.js";
 import { getSavedPosts, savePosts, toggleLikePost, prepareShareContent } from "../utils/communityUtils.js";
+import communityService from "../services/communityService.js";
 import "./Blog.css";
 import "../styles/Toast.css";
 
-export default function Blog() {  const { user } = useAuth();
+export default function Blog() {  
+  const { user } = useAuth();
   const [communityPosts, setCommunityPosts] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // Quản lý toast notification
   const showToast = (message, type = 'success', duration = 3000) => {
@@ -67,79 +71,80 @@ export default function Blog() {  const { user } = useAuth();
     return completedAchievements;
   };
   
-  // Load bài viết từ localStorage khi component mount
-  useEffect(() => {
-    const savedPosts = getSavedPosts();
-    if (savedPosts && savedPosts.length > 0) {
-      setCommunityPosts(savedPosts);
-    } else {
-      // Khởi tạo dữ liệu mẫu nếu chưa có bài viết nào
-      const initialPosts = [
-        {
-          id: 1,
-          user: {
-            name: "Lê Thu Thảo",
-            avatar: "/image/hero/quit-smoking-2.png",
-            id: "user_1"
-          },
-          content: "Hôm nay mình tự thưởng cho bản thân một món quà nhỏ sau 3 tuần không hút thuốc! Cảm giác tự hào thật sự.",
-          images: [{ id: "img_1", url: "/image/articles/a.jpg" }],
-          achievements: [{ id: 2, name: "1 tuần không hút", icon: "🏅", completed: true }],
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 giờ trước
-          likes: 22,
-          comments: 5,
-          shares: 2,
-          likedBy: []
-        },
-        {
-          id: 2,
-          user: {
-            name: "Trần An Nhiên",
-            avatar: "/image/hero/quit-smoking-2.png",
-            id: "user_2"
-          },
-          content: "Hôm nay mình đã cưỡng lại cảm dỗ khi bạn bè rủ hút, cảm giác thật tự hào và mạnh mẽ!",
-          achievements: [{ id: 1, name: "24 giờ đầu tiên", icon: "⭐", completed: true }],
-          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 ngày trước
-          likes: 43,
-          comments: 8,
-          shares: 1,
-          likedBy: []
-        }
-      ];
-      setCommunityPosts(initialPosts);
-      savePosts(initialPosts);
+  // Load bài viết từ API khi component mount
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await communityService.getAllPosts();
+      if (response.success) {
+        setCommunityPosts(response.data.posts || []);
+      } else {
+        throw new Error(response.message || 'Không thể tải bài viết');
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      setError(error.message);
+      showToast(error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-  }, []);
-    // Xử lý khi người dùng tạo bài viết mới
-  const handlePostCreated = (newPost) => {
-    const updatedPosts = [newPost, ...communityPosts];
-    setCommunityPosts(updatedPosts);
-    savePosts(updatedPosts);
-    showToast('Đã đăng bài viết thành công!', 'success');
   };
 
-  // Xử lý khi người dùng thích bài viết
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  // Xử lý khi người dùng tạo bài viết mới
+  const handlePostCreated = async (newPostData) => {
+    try {
+      const response = await communityService.createPost(newPostData);
+      if (response.success) {
+        setCommunityPosts(prev => [response.data, ...prev]);
+        showToast('Đã đăng bài viết thành công!', 'success');
+      } else {
+        throw new Error(response.message || 'Không thể tạo bài viết');
+      }
+    } catch (error) {
+      console.error('Error creating post:', error);
+      showToast(error.message, 'error');
+    }
+  };
+
+  // Xử lý khi người dùng thích bài viết (tạm thời dùng local state)
   const handleLike = (postId, isLiked) => {
-    const userId = user?.id || 'anonymous';
-    const updatedPosts = toggleLikePost(communityPosts, postId, userId);
-    setCommunityPosts(updatedPosts);
-    savePosts(updatedPosts);
+    setCommunityPosts(prev => prev.map(post => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          likes_count: isLiked ? (post.likes_count || 0) - 1 : (post.likes_count || 0) + 1,
+          isLiked: !isLiked
+        };
+      }
+      return post;
+    }));
   };
 
   // Xử lý khi người dùng muốn xem/thêm bình luận
   const handleComment = (postId) => {
     console.log('Open comments for post:', postId);
-    // Hiện tại chỉ log, sau này có thể mở modal bình luận
     showToast('Tính năng bình luận sẽ sớm được cập nhật!', 'info');
   };
   
   // Xử lý khi người dùng xóa bài viết của họ
-  const handleDelete = (postId) => {
-    const updatedPosts = communityPosts.filter(post => post.id !== postId);
-    setCommunityPosts(updatedPosts);
-    savePosts(updatedPosts);
-    showToast('Đã xóa bài viết thành công!', 'success');
+  const handleDelete = async (postId) => {
+    try {
+      const response = await communityService.deletePost(postId);
+      if (response.success) {
+        setCommunityPosts(prev => prev.filter(post => post.id !== postId));
+        showToast('Đã xóa bài viết thành công!', 'success');
+      } else {
+        throw new Error(response.message || 'Không thể xóa bài viết');
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      showToast(error.message, 'error');
+    }
   };
   // Quản lý toast notification được định nghĩa ở trên
 
@@ -364,7 +369,19 @@ export default function Blog() {  const { user } = useAuth();
 
             {/* Danh sách bài viết */}
             <div className="community-posts">
-              {communityPosts.length > 0 ? (
+              {loading ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <p>Đang tải bài viết...</p>
+                </div>
+              ) : error ? (
+                <div className="error-state">
+                  <FaExclamationTriangle />
+                  <h3>Có lỗi xảy ra</h3>
+                  <p>{error}</p>
+                  <button onClick={loadPosts} className="retry-btn">Thử lại</button>
+                </div>
+              ) : communityPosts.length > 0 ? (
                 communityPosts.map(post => (
                   <CommunityPost
                     key={post.id}

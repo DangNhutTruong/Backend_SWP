@@ -17,6 +17,7 @@ import appointmentRoutes from './routes/appointmentRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import testRoutes from './routes/testRoutes.js';
 import createAppointmentsStatusRoutes from './routes/appointmentsStatusRoutes.js';
+import communityRoutes from './routes/communityRoutes.js';
 import ensureTablesExist from './ensureTables.js';
 
 // Load environment variables
@@ -124,6 +125,7 @@ app.use('/api', healthRoutes);
 app.use('/api/coaches', coachRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/community', communityRoutes);
 app.use('/api/test', testRoutes);
 
 // Đăng ký route payments với debug chi tiết
