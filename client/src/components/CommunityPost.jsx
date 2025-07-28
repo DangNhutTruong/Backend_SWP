@@ -16,6 +16,22 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
   // Kiểm tra xem bài viết có thuộc về người dùng hiện tại không
   const isOwnPost = user && post.user_id === user.id;
 
+  // Đồng bộ avatar: nếu là bài viết của user hiện tại, sử dụng avatar từ context
+  const getPostAvatar = () => {
+    if (isOwnPost && user.avatar) {
+      return user.avatar;
+    }
+    return post.user_avatar || '/image/default-user-avatar.svg';
+  };
+
+  // Đồng bộ tên người dùng: nếu là bài viết của user hiện tại, sử dụng tên từ context
+  const getPostUserName = () => {
+    if (isOwnPost && user.name) {
+      return user.name;
+    }
+    return post.user_name || 'Anonymous';
+  };
+
   // Đóng menu khi click bên ngoài
   React.useEffect(() => {
     const handleClickOutside = (event) => {
@@ -82,12 +98,12 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
       {/* Header */}      <div className="post-header">
         <div className="user-info">
           <img 
-            src={post.user_avatar || '/image/default-user-avatar.svg'} 
+            src={getPostAvatar()} 
             alt={post.user_name || 'User'} 
             className="user-avatar"
           />
           <div className="user-details">
-            <h3 className="user-name">{post.user_name || 'Anonymous'}</h3>
+            <h3 className="user-name">{getPostUserName()}</h3>
             <span className="post-time">{formatTime(post.created_at)}</span>
           </div>
         </div>
@@ -169,16 +185,10 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
           onClick={handleLike}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
-          <span>{(post.likes_count || 0) + (isLiked ? 1 : 0)} cảm ơn</span>
+          
         </button>
 
-        <button 
-          className="action-btn comment-btn"
-          onClick={() => onComment && onComment(post.id)}
-        >
-          <FaComment />
-          <span>{post.comments_count || 0} bình luận</span>
-        </button>
+        
 
         <button 
           className="action-btn share-btn"

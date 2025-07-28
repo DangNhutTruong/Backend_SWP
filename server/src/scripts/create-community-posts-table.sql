@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS community_posts (
   smoker_id INT NOT NULL,
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,
-  thumbnail_url VARCHAR(255) DEFAULT NULL,
+  thumbnail_url LONGTEXT DEFAULT NULL,  -- Changed to LONGTEXT to support base64 images
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (smoker_id) REFERENCES users(id) ON DELETE CASCADE,

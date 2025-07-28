@@ -78,9 +78,12 @@ export const createPost = async (req, res) => {
         const { title, content, thumbnail_url } = req.body;
         const smoker_id = req.user.id; // From auth middleware
 
-        console.log('📥 Create post request:', { title, content: content?.substring(0, 50), thumbnail_url });
-        console.log('👤 User from token:', req.user);
-        console.log('🆔 Smoker ID:', smoker_id);
+        console.log('📥 Create post request:', { 
+            title, 
+            content: content?.substring(0, 50), 
+            thumbnail_size: thumbnail_url ? `${thumbnail_url.length} chars` : 'none',
+            smoker_id 
+        });
 
         // Validation
         if (!title || !content) {
@@ -97,6 +100,21 @@ export const createPost = async (req, res) => {
             });
         }
 
+        if (content.length > 5000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nội dung không được vượt quá 5000 ký tự'
+            });
+        }
+
+        // Validate thumbnail_url size if present
+        if (thumbnail_url && thumbnail_url.length > 2 * 1024 * 1024) { // 2MB base64
+            return res.status(400).json({
+                success: false,
+                message: 'Hình ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn.'
+            });
+        }
+
         const postData = {
             smoker_id,
             title: title.trim(),
@@ -105,7 +123,7 @@ export const createPost = async (req, res) => {
         };
 
         const newPost = await CommunityPost.create(postData);
-        console.log('📝 Created new post:', newPost);
+        console.log('📝 Created new post with ID:', newPost.id);
 
         res.status(201).json({
             success: true,
@@ -114,10 +132,27 @@ export const createPost = async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating post:', error);
+        
+        // Check for specific database errors
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Dữ liệu không hợp lệ',
+                details: error.errors?.map(e => e.message)
+            });
+        }
+        
+        if (error.code === 'ER_DATA_TOO_LONG') {
+            return res.status(400).json({
+                success: false,
+                message: 'Dữ liệu quá lớn. Vui lòng giảm kích thước hình ảnh hoặc nội dung.'
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Lỗi server khi tạo bài viết',
-            error: error.message
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

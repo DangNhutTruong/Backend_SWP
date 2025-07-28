@@ -16,16 +16,15 @@ class CommunityPost {
      */
     static async ensureTables() {
         try {
-            const sqlPath = path.join(__dirname, '..', 'scripts', 'create-community-posts-table.sql');
-            const sql = fs.readFileSync(sqlPath, 'utf8');
+            // Run database migration for thumbnail_url column
+            const migrationPath = path.join(__dirname, '..', 'scripts', 'update-community-posts-schema.sql');
             
-            // Split by semicolon and execute each statement
-            const statements = sql.split(';').filter(stmt => stmt.trim());
-            
-            for (const statement of statements) {
-                if (statement.trim()) {
-                    await pool.query(statement);
-                }
+            try {
+                const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+                await pool.query(migrationSql);
+                console.log('✅ Blog post table migration completed');
+            } catch (migrationError) {
+                console.log('ℹ️ Migration script not found or already applied');
             }
             
             console.log('✅ Community posts tables ensured');
@@ -48,7 +47,12 @@ class CommunityPost {
         try {
             const { smoker_id, title, content, thumbnail_url } = postData;
             
-            console.log('🔍 Creating post with data:', { smoker_id, title, content: content?.substring(0, 50), thumbnail_url });
+            console.log('🔍 Creating post with data:', { 
+                smoker_id, 
+                title, 
+                content: content?.substring(0, 50), 
+                thumbnail_size: thumbnail_url ? thumbnail_url.length : null 
+            });
             
             const [result] = await pool.query(
                 `INSERT INTO blog_post (smoker_id, title, content, thumbnail_url) 
@@ -64,14 +68,6 @@ class CommunityPost {
                 console.error('❌ No rows were inserted!');
                 throw new Error('Failed to insert post');
             }
-
-            // Verify the post was actually inserted
-            console.log('🔍 Verifying post insertion...');
-            const [verifyResult] = await pool.query(
-                'SELECT * FROM blog_post WHERE id = ?',
-                [result.insertId]
-            );
-            console.log('✅ Verification query result:', verifyResult);
 
             // Get the created post with user information
             const createdPost = await this.findById(result.insertId);
@@ -99,11 +95,7 @@ class CommunityPost {
                     bp.*,
                     u.username,
                     u.full_name,
-                    u.avatar_url,
-                    NULL as membership,
-                    NULL as membershipType,
-                    0 as likes_count,
-                    0 as comments_count
+                    u.avatar_url
                  FROM blog_post bp
                  LEFT JOIN users u ON bp.smoker_id = u.id
                  ORDER BY bp.created_at DESC
@@ -119,8 +111,8 @@ class CommunityPost {
                 thumbnail_url: post.thumbnail_url,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
-                likes_count: post.likes_count || 0,
-                comments_count: post.comments_count || 0,
+                likes_count: 0,
+                comments_count: 0,
                 user_id: post.smoker_id,
                 user_name: post.full_name || post.username || 'Anonymous',
                 user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
@@ -145,11 +137,7 @@ class CommunityPost {
                     bp.*,
                     u.username,
                     u.full_name,
-                    u.avatar_url,
-                    NULL as membership,
-                    NULL as membershipType,
-                    0 as likes_count,
-                    0 as comments_count
+                    u.avatar_url
                  FROM blog_post bp
                  LEFT JOIN users u ON bp.smoker_id = u.id
                  WHERE bp.id = ?`,
@@ -167,8 +155,8 @@ class CommunityPost {
                 thumbnail_url: post.thumbnail_url,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
-                likes_count: post.likes_count || 0,
-                comments_count: post.comments_count || 0,
+                likes_count: 0,
+                comments_count: 0,
                 user_id: post.smoker_id,
                 user_name: post.full_name || post.username || 'Anonymous',
                 user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
@@ -194,11 +182,7 @@ class CommunityPost {
                     bp.*,
                     u.username,
                     u.full_name,
-                    u.avatar_url,
-                    NULL as membership,
-                    NULL as membershipType,
-                    0 as likes_count,
-                    0 as comments_count
+                    u.avatar_url
                  FROM blog_post bp
                  LEFT JOIN users u ON bp.smoker_id = u.id
                  WHERE bp.smoker_id = ?
@@ -215,8 +199,8 @@ class CommunityPost {
                 thumbnail_url: post.thumbnail_url,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
-                likes_count: post.likes_count || 0,
-                comments_count: post.comments_count || 0,
+                likes_count: 0,
+                comments_count: 0,
                 user_id: post.smoker_id,
                 user_name: post.full_name || post.username || 'Anonymous',
                 user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
