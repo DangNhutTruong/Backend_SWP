@@ -365,7 +365,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                             
                             setToast({
                                 show: true,
-                                message: '🔄 Dữ liệu được khôi phục từ database',
+                                message: 'Hãy ghi nhận số điếu bạn hút hôm nay',
                                 type: 'success'
                             });
                             
@@ -513,7 +513,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
             setToast({ 
                 show: true, 
-                message: '✅ Đã lưu dữ liệu vào cơ sở dữ liệu!', 
+                message: '✅ Lưu thành công!', 
                 type: 'success' 
             });
             // Gọi callback cập nhật dashboard

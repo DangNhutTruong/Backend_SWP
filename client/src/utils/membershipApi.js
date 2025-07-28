@@ -12,7 +12,6 @@ export const getCurrentMembership = async () => {
     // Kiểm tra token trước khi gọi API
     const token = api.getAuthToken();
     if (!token) {
-      console.log('getCurrentMembership: No auth token available');
       return {
         success: false,
         message: 'Authentication required'
@@ -23,9 +22,7 @@ export const getCurrentMembership = async () => {
       method: 'GET'
     });
     
-    console.log('🔍 Fetching current membership from backend...');
     const response = await api.fetch('/api/packages/user/current', options);
-    console.log('📦 Membership API response:', response);
     
     // Update membership in storage if successful
     if (response.success && response.data) {
@@ -43,8 +40,6 @@ export const getCurrentMembership = async () => {
         }
       }
       
-      console.log('🏷️ Determined membership value:', membershipValue);
-      
       // Cập nhật cả trong localStorage và sessionStorage tùy theo remember me
       const isRememberMe = localStorage.getItem('nosmoke_remember') === 'true';
       
@@ -55,14 +50,12 @@ export const getCurrentMembership = async () => {
         currentUser.membershipType = membershipValue;
         currentUser.packageDetails = response.data;
         localStorage.setItem('nosmoke_user', JSON.stringify(currentUser));
-        console.log('💾 Updated membership in localStorage');
       } else {
         const currentUser = JSON.parse(sessionStorage.getItem('nosmoke_user') || '{}');
         currentUser.membership = membershipValue;
         currentUser.membershipType = membershipValue;
         currentUser.packageDetails = response.data;
         sessionStorage.setItem('nosmoke_user', JSON.stringify(currentUser));
-        console.log('💾 Updated membership in sessionStorage');
       }
       
       // Phát sự kiện để thông báo membership đã được cập nhật
@@ -96,7 +89,6 @@ export const getMembershipHistory = async () => {
     // Kiểm tra token trước khi gọi API
     const token = api.getAuthToken();
     if (!token) {
-      console.log('getMembershipHistory: No auth token available');
       return {
         success: false,
         message: 'Authentication required'
@@ -134,7 +126,7 @@ export const purchasePackage = async (packageId, paymentMethod) => {
     
     // If purchase successful, update local user data
     if (response.success && response.data) {
-      // Get membership value from package name
+      // Get membership value from package name or package ID
       let membershipValue = 'free';
       if (response.data.packageName) {
         const packageName = response.data.packageName.toLowerCase();
@@ -145,14 +137,37 @@ export const purchasePackage = async (packageId, paymentMethod) => {
         } else if (response.data.packageId !== 1) {
           membershipValue = 'premium'; // Default for non-free packages
         }
+      } else if (response.data.packageId) {
+        // Determine membership from package ID
+        membershipValue = response.data.packageId === 1 ? 'free' : 
+                         response.data.packageId === 2 ? 'premium' : 
+                         response.data.packageId === 3 ? 'pro' : 'premium';
       }
       
-      // Update user data in localStorage
-      const currentUser = JSON.parse(localStorage.getItem('nosmoke_user') || '{}');
-      currentUser.membership = membershipValue;
-      currentUser.membershipType = membershipValue;
-      currentUser.packageDetails = response.data;
-      localStorage.setItem('nosmoke_user', JSON.stringify(currentUser));
+      // Update user data in both localStorage and sessionStorage
+      const isRememberMe = localStorage.getItem('nosmoke_remember') === 'true';
+      
+      if (isRememberMe) {
+        const currentUser = JSON.parse(localStorage.getItem('nosmoke_user') || '{}');
+        currentUser.membership = membershipValue;
+        currentUser.membershipType = membershipValue;
+        currentUser.packageDetails = response.data;
+        localStorage.setItem('nosmoke_user', JSON.stringify(currentUser));
+      } else {
+        const currentUser = JSON.parse(sessionStorage.getItem('nosmoke_user') || '{}');
+        currentUser.membership = membershipValue;
+        currentUser.membershipType = membershipValue;
+        currentUser.packageDetails = response.data;
+        sessionStorage.setItem('nosmoke_user', JSON.stringify(currentUser));
+      }
+      
+      // Dispatch event to notify components
+      window.dispatchEvent(new CustomEvent('membership-purchased', { 
+        detail: { 
+          membership: membershipValue,
+          packageDetails: response.data
+        }
+      }));
     }
     
     return response;
@@ -174,7 +189,6 @@ export const checkFeatureAccessFromBackend = async (requiredMembership) => {
     // Kiểm tra token trước khi gọi API
     const token = api.getAuthToken();
     if (!token) {
-      console.log('checkFeatureAccessFromBackend: No auth token available');
       return {
         success: false,
         message: 'Authentication required',
@@ -209,11 +223,6 @@ export const checkFeatureAccessFromBackend = async (requiredMembership) => {
     
     const userMembership = normalizeMembership(rawUserMembership);
     
-    console.log('🔄 Backend membership normalization:', {
-      rawUserMembership,
-      normalizedUserMembership: userMembership
-    });
-    
     // Chuyển đổi requiredMembership thành mảng nếu là string
     const requiredMemberships = Array.isArray(requiredMembership) 
       ? requiredMembership 
@@ -232,8 +241,6 @@ export const checkFeatureAccessFromBackend = async (requiredMembership) => {
     
     // Người dùng có quyền nếu họ có membership cấp cao hơn hoặc bằng yêu cầu
     const hasAccess = userLevel >= requiredLevel;
-    
-    console.log(`Backend access check: User ${userMembership} (level ${userLevel}) accessing feature requiring ${minRequiredMembership} (level ${requiredLevel}) - Access ${hasAccess ? 'GRANTED' : 'DENIED'}`);
     
     return {
       success: true,
@@ -258,3 +265,4 @@ export default {
   purchasePackage,
   checkFeatureAccessFromBackend
 };
+
