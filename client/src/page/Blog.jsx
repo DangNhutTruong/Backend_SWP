@@ -4,15 +4,18 @@ import { FaCalendarAlt, FaEye, FaHeart, FaComment, FaCheckCircle, FaTimes, FaExc
 import CommunityPostCreator, { EmptyState } from "../components/CommunityPostCreator.jsx";
 import CommunityPost from "../components/CommunityPost.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { calculateDaysWithoutSmoking, generateAchievements } from "../utils/achievementUtils.js";
 import { getSavedPosts, savePosts, toggleLikePost, prepareShareContent } from "../utils/communityUtils.js";
 import communityService from "../services/communityService.js";
+import newsService from "../services/newsService.js";
 import "./Blog.css";
 import "../styles/Toast.css";
 
 export default function Blog() {  
   const { user } = useAuth();
   const [communityPosts, setCommunityPosts] = useState([]);
+  const [newsArticles, setNewsArticles] = useState([]); // State cho tin tức thực tế
+  const [loadingNews, setLoadingNews] = useState(true); // Loading state cho tin tức
+  const [newsError, setNewsError] = useState(null); // Error state cho tin tức
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,49 +29,6 @@ export default function Blog() {
 
   const removeToast = (id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
-    // Lấy thông tin huy hiệu sử dụng utility function đồng bộ
-  const getUserAchievements = () => {
-    // Lấy activePlan từ localStorage (giống như trong Profile.jsx)
-    let activePlan = null;
-    try {
-      const completionData = localStorage.getItem('quitPlanCompletion');
-      if (completionData) {
-        const parsedData = JSON.parse(completionData);
-        activePlan = parsedData.userPlan;
-      } else {
-        const savedPlan = localStorage.getItem('activePlan');
-        if (savedPlan) {
-          activePlan = JSON.parse(savedPlan);
-        }
-      }
-    } catch (error) {
-      console.error('Lỗi khi đọc kế hoạch cai thuốc trong Blog:', error);
-    }
-    
-    // Nếu không có kế hoạch cai thuốc, không có huy hiệu nào
-    if (!activePlan || !activePlan.startDate) {
-      console.log('Không có kế hoạch cai thuốc hợp lệ để tính huy hiệu');
-      return [];
-    }
-    
-    // Tính số ngày cai thuốc sử dụng utility function
-    const daysWithoutSmoking = calculateDaysWithoutSmoking(activePlan, user);
-    
-    // Nếu chưa đủ một ngày thì không có huy hiệu nào
-    if (daysWithoutSmoking <= 0) {
-      console.log('Chưa đủ 1 ngày cai thuốc (daysWithoutSmoking =', daysWithoutSmoking, ') → không có huy hiệu');
-      return [];
-    }
-    
-    // Tạo danh sách huy hiệu sử dụng utility function
-    const allAchievements = generateAchievements(daysWithoutSmoking);
-    
-    // Lọc và chỉ trả về những huy hiệu thực sự đã hoàn thành
-    const completedAchievements = allAchievements.filter(achievement => achievement.completed === true);
-    console.log('Tìm thấy', completedAchievements.length, 'huy hiệu đã hoàn thành');
-    
-    return completedAchievements;
   };
   
   // Load bài viết từ API khi component mount
@@ -91,8 +51,47 @@ export default function Blog() {
     }
   };
 
+  // Load tin tức thực tế từ RSS feeds
+  const loadNewsArticles = async () => {
+    try {
+      setLoadingNews(true);
+      setNewsError(null);
+      console.log('🔄 Đang tải tin tức thực tế...');
+      
+      const response = await newsService.getCombinedNews();
+      if (response.success) {
+        const articles = response.data || [];
+        console.log('✅ Đã tải được', articles.length, 'bài tin tức');
+        setNewsArticles(articles);
+        
+        // Hiển thị thông báo về nguồn dữ liệu
+        if (response.message) {
+          showToast(response.message, 'info', 2000);
+        }
+      } else {
+        throw new Error(response.message || 'Không thể tải tin tức');
+      }
+    } catch (error) {
+      console.error('❌ Lỗi khi tải tin tức:', error);
+      setNewsError(error.message);
+      
+      // Fallback: sử dụng mock data từ service
+      try {
+        const fallbackResponse = await newsService.getMockNews();
+        setNewsArticles(fallbackResponse.data || []);
+        showToast('Sử dụng dữ liệu mẫu do không thể kết nối RSS feeds', 'warning', 3000);
+      } catch (fallbackError) {
+        console.error('❌ Lỗi khi tải dữ liệu mẫu:', fallbackError);
+        showToast('Không thể tải tin tức', 'error');
+      }
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
   useEffect(() => {
     loadPosts();
+    loadNewsArticles(); // Tải tin tức thực tế
   }, []);
 
   // Xử lý khi người dùng tạo bài viết mới
@@ -173,152 +172,46 @@ export default function Blog() {
       }
     }
   };
-  const blogPosts = [
-    {
-      id: 1,
-      image: "/image/articles/OIP.jpg",
-      title: "7 ngày đầu không thuốc lá – Làm thế nào để vượt qua?",
-      excerpt:
-        "Tuần đầu tiên luôn là giai đoạn khó khăn nhất. Hãy tìm hiểu những phương pháp hiệu quả để vượt qua cơn thèm thuốc và duy trì quyết tâm cai thuốc lá của bạn.",
-      author: "BS. Nguyễn Minh",
-      date: "22 tháng 5, 2023",
-      views: "10.304",
-      likes: "826",
-      comments: "58",
-      category: "experience",
-      url: "/blog/7-ngay-dau",
-    },
-    {
-      id: 2,
-      image: "/image/articles/r.jpg",
-      title: "Chia sẻ từ một người đã bỏ thuốc 1 năm",
-      excerpt:
-        "Câu chuyện cảm động về hành trình 365 ngày không thuốc lá và những thay đổi tích cực trong cuộc sống, sức khỏe và mối quan hệ của một người đã thành công.",
-      author: "Lê Thu Thảo",
-      date: "3 tháng 4, 2023",
-      views: "8.214",
-      likes: "650",
-      comments: "47",
-      category: "success",
-      url: "/blog/chia-se-1-nam",
-    },
-    {
-      id: 3,
-      image: "/image/hero/quit-smoking-2.png",
-      title: "Thói quen thay thế giúp bạn không tái nghiện",
-      excerpt:
-        "Khám phá 10 thói quen lành mạnh có thể thay thế việc hút thuốc và giúp bạn duy trì lối sống không khói thuốc trong thời gian dài.",
-      author: "Trần An Nhiên",
-      date: "20 tháng 3, 2023",
-      views: "9.827",
-      likes: "712",
-      comments: "39",
-      category: "tips",
-      url: "/blog/thoi-quen-thay-the",
-    },
-    {
-      id: 4,
-      image: "/image/articles/th.jpg",
-      title: "Tác hại của thuốc lá điện tử - Sự thật bạn nên biết",
-      excerpt:
-        "Nhiều người nghĩ rằng thuốc lá điện tử an toàn hơn thuốc lá thông thường. Hãy cùng tìm hiểu sự thật về những tác hại của chúng.",
-      author: "BS. Nguyễn Văn Chung",
-      date: "15 tháng 3, 2023",
-      views: "12.102",
-      likes: "945",
-      comments: "86",
-      category: "health",
-      url: "/blog/tac-hai-thuoc-la-dien-tu",
-    },
-    {
-      id: 5,
-      image: "/image/articles/d.jpg",
-      title: "Lợi ích sức khỏe khi bỏ thuốc lá - Từng ngày một",
-      excerpt:
-        "Cơ thể bạn bắt đầu hồi phục ngay từ 20 phút đầu tiên sau khi bỏ thuốc lá. Hãy xem những thay đổi tích cực qua từng mốc thời gian.",
-      author: "BS. Lê Thị Mai",
-      date: "1 tháng 3, 2023",
-      views: "15.487",
-      likes: "1.203",
-      comments: "92",
-      category: "health",
-      url: "/blog/loi-ich-suc-khoe",
-    },
-    {
-      id: 6,
-      image: "/image/articles/c.jpg",
-      title: "Hỗ trợ người thân cai thuốc - Điều bạn nên và không nên làm",
-      excerpt:
-        "Khi người thân đang cố gắng cai thuốc lá, sự hỗ trợ từ gia đình rất quan trọng. Bài viết này sẽ giúp bạn biết cách đồng hành hiệu quả.",
-      author: "Phạm Hữu Phước",
-      date: "15 tháng 2, 2023",
-      views: "7.325",
-      likes: "518",
-      comments: "45",
-      category: "support",
-      url: "/blog/ho-tro-nguoi-than",
-    },
-    {
-      id: 7,
-      image: "/image/articles/e.jpg",
-      title: "Ứng dụng thiền và yoga trong quá trình cai thuốc lá",
-      excerpt:
-        "Thiền và yoga không chỉ giúp giảm stress mà còn hỗ trợ đáng kể trong việc kiểm soát cơn thèm thuốc. Tìm hiểu cách áp dụng hiệu quả.",
-      author: "Nguyễn Minh Tùng",
-      date: "28 tháng 1, 2023",
-      views: "6.843",
-      likes: "492",
-      comments: "37",
-      category: "tips",
-      url: "/blog/thien-yoga-cai-thuoc",
-    },
-    {
-      id: 8,
-      image: "/image/hero/quit-smoking-2.png",
-      title: "Chế độ dinh dưỡng giúp giảm cơn thèm thuốc lá",
-      excerpt:
-        "Một số thực phẩm có thể giúp giảm cơn thèm thuốc và hỗ trợ cơ thể thải độc. Tìm hiểu chế độ ăn phù hợp cho người đang cai thuốc lá.",
-      author: "BS. Trần Thị Hồng",
-      date: "5 tháng 1, 2023",
-      views: "9.123",
-      likes: "756",
-      comments: "63",
-      category: "tips",
-      url: "/blog/dinh-duong-cai-thuoc",
-    },  ];
 
-  // Component bài viết thông thường
-  const BlogPostCard = ({ post }) => (
-    <div className="blog-post-card">
-      <div className="post-image">
-        <img src={post.image} alt={post.title} />
-        <div className="post-category">{getCategoryName(post.category)}</div>
-      </div>
-      <div className="post-content">
-        <h3>{post.title}</h3>
-        <p className="post-excerpt">{post.excerpt}</p>
-        <div className="post-meta">
-          <span className="post-date">
-            <FaCalendarAlt /> {post.date}
-          </span>
-          <div className="post-stats">
-            <span>
-              <FaEye /> {post.views}
-            </span>
-            <span>
-              <FaHeart /> {post.likes}
-            </span>
-            <span>
-              <FaComment /> {post.comments}
-            </span>
-          </div>
+  // Component bài viết thông thường (hiển thị cả description)
+  const BlogPostCard = ({ post }) => {
+    // Xử lý format khác nhau từ API và hard code
+    const imageUrl = post.urlToImage || post.image || '/image/articles/default.jpg';
+    const postTitle = post.title;
+    const postDescription = post.description || post.excerpt || '';
+    const postUrl = post.url;
+    const sourceName = post.source?.name || '';
+
+    // Xử lý click vào card
+    const handleCardClick = () => {
+      if (postUrl.startsWith('http')) {
+        window.open(postUrl, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    return (
+      <div 
+        className={`blog-post-card ${postUrl.startsWith('http') ? 'clickable' : ''}`}
+        onClick={postUrl.startsWith('http') ? handleCardClick : undefined}
+        style={postUrl.startsWith('http') ? { cursor: 'pointer' } : {}}
+      >
+        <div className="post-image">
+          <img src={imageUrl} alt={postTitle} onError={(e) => {
+            e.target.src = '/image/articles/default.jpg';
+          }} />
+          {sourceName && (
+            <div className="post-source">{sourceName}</div>
+          )}
         </div>
-        <Link to={post.url} className="read-more-link">
-          Đọc tiếp
-        </Link>
+        <div className="post-content">
+          <h3 className="post-title">{postTitle}</h3>
+          {postDescription && (
+            <p className="post-description">{postDescription}</p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Lấy tên hiển thị cho danh mục
   function getCategoryName(category) {
@@ -335,14 +228,59 @@ export default function Blog() {
       <div className="container blog-container">
         {/* Bài viết mới nhất */}
         <div className="latest-posts-section">
-          <h2 className="section-title">Bài viết mới nhất</h2>
-
-          <div className="blog-posts-grid">
-            {blogPosts.map((post) => (
-              <BlogPostCard key={post.id} post={post} />
-            ))}
+          <div className="section-header-with-actions">
+            <h2 className="section-title" style={{ marginTop: '20px' }}>Tin tức mới nhất về cai thuốc lá</h2>
+            <button 
+              onClick={loadNewsArticles} 
+              className="refresh-news-btn"
+              disabled={loadingNews}
+              title="Tải tin tức mới"
+            >
+              {loadingNews ? 'Đang tải...' : 'Tải mới ↻'}
+            </button>
           </div>
+          
+          {/* Loading state cho tin tức */}
+          {loadingNews && (
+            <div className="loading-container">
+              <div className="loading-spinner"></div>
+              <p>Đang tải tin tức mới nhất...</p>
+            </div>
+          )}
+          
+          {/* Error state cho tin tức */}
+          {newsError && !loadingNews && (
+            <div className="error-container">
+              <FaExclamationTriangle />
+              <p>Không thể tải tin tức: {newsError}</p>
+              <button onClick={loadNewsArticles} className="retry-btn">
+                Thử lại
+              </button>
+            </div>
+          )}
 
+          {/* Hiển thị tin tức */}
+          {!loadingNews && !newsError && newsArticles.length > 0 && (
+            <div className="blog-posts-grid">
+              {newsArticles.map((post) => (
+                <BlogPostCard key={post.id} post={post} />
+              ))}
+            </div>
+          )}
+          
+          {/* Empty state */}
+          {!loadingNews && !newsError && newsArticles.length === 0 && (
+            <div className="empty-news-container">
+              <FaInfoCircle />
+              <p>Hiện tại chưa có tin tức mới. Hãy thử lại sau.</p>
+              <button onClick={loadNewsArticles} className="retry-btn">
+                Tải lại
+              </button>
+            </div>
+          )}
+
+          {/* Phân trang (tạm ẩn do sử dụng API) */}
+          {/*
           <div className="pagination">
             <button className="pagination-btn active">1</button>
             <button className="pagination-btn">2</button>
@@ -351,13 +289,14 @@ export default function Blog() {
             <button className="pagination-btn">10</button>
             <button className="pagination-btn next">Tiếp theo</button>
           </div>
+          */}
         </div>        {/* Phần cộng đồng */}
         <div className="community-section">
           <h2 className="section-title">Chia sẻ từ cộng đồng</h2>
           <div className="community-box">            {/* Component tạo bài viết */}
             {user ? (
               <CommunityPostCreator 
-                achievements={getUserAchievements()}
+                achievements={[]}
                 onPostCreated={handlePostCreated}
               />
             ) : (
@@ -489,120 +428,3 @@ const ToastContainer = ({ toasts = [], removeToast }) => {
   );
 };
 
-/**
- * Dữ liệu mẫu cho bài viết blog
- */
-const sampleBlogPosts = [
-  {
-    id: 1,
-    image: "/image/articles/OIP.jpg",
-    title: "7 ngày đầu không thuốc lá – Làm thế nào để vượt qua?",
-    excerpt:
-      "Tuần đầu tiên luôn là giai đoạn khó khăn nhất. Hãy tìm hiểu những phương pháp hiệu quả để vượt qua cơn thèm thuốc và duy trì quyết tâm cai thuốc lá của bạn.",
-    author: "BS. Nguyễn Minh",
-    date: "22 tháng 5, 2023",
-    views: "10.304",
-    likes: "826",
-    comments: "58",
-    category: "experience",
-    url: "/blog/7-ngay-dau",
-  },
-  {
-    id: 2,
-    image: "/image/articles/r.jpg",
-    title: "Chia sẻ từ một người đã bỏ thuốc 1 năm",
-    excerpt:
-      "Câu chuyện cảm động về hành trình 365 ngày không thuốc lá và những thay đổi tích cực trong cuộc sống, sức khỏe và mối quan hệ của một người đã thành công.",
-    author: "Lê Thu Thảo",
-    date: "3 tháng 4, 2023",
-    views: "8.214",
-    likes: "650",
-    comments: "47",
-    category: "success",
-    url: "/blog/chia-se-1-nam",
-  },
-  {
-    id: 3,
-    image: "/image/hero/quit-smoking-2.png",
-    title: "Thói quen thay thế giúp bạn không tái nghiện",
-    excerpt:
-      "Khám phá 10 thói quen lành mạnh có thể thay thế việc hút thuốc và giúp bạn duy trì lối sống không khói thuốc trong thời gian dài.",
-    author: "Trần An Nhiên",
-    date: "20 tháng 3, 2023",
-    views: "9.827",
-    likes: "712",
-    comments: "39",
-    category: "tips",
-    url: "/blog/thoi-quen-thay-the",
-  },
-  {
-    id: 4,
-    image: "/image/articles/th.jpg",
-    title: "Tác hại của thuốc lá điện tử - Sự thật bạn nên biết",
-    excerpt:
-      "Nhiều người nghĩ rằng thuốc lá điện tử an toàn hơn thuốc lá thông thường. Hãy cùng tìm hiểu sự thật về những tác hại của chúng.",
-    author: "BS. Nguyễn Văn Chung",
-    date: "15 tháng 3, 2023",
-    views: "12.102",
-    likes: "945",
-    comments: "86",
-    category: "health",
-    url: "/blog/tac-hai-thuoc-la-dien-tu",
-  },
-  {
-    id: 5,
-    image: "/image/articles/d.jpg",
-    title: "Lợi ích sức khỏe khi bỏ thuốc lá - Từng ngày một",
-    excerpt:
-      "Cơ thể bạn bắt đầu hồi phục ngay từ 20 phút đầu tiên sau khi bỏ thuốc lá. Hãy xem những thay đổi tích cực qua từng mốc thời gian.",
-    author: "BS. Lê Thị Mai",
-    date: "1 tháng 3, 2023",
-    views: "15.487",
-    likes: "1.203",
-    comments: "92",
-    category: "health",
-    url: "/blog/loi-ich-suc-khoe",
-  },
-  {
-    id: 6,
-    image: "/image/articles/c.jpg",
-    title: "Hỗ trợ người thân cai thuốc - Điều bạn nên và không nên làm",
-    excerpt:
-      "Khi người thân đang cố gắng cai thuốc lá, sự hỗ trợ từ gia đình rất quan trọng. Bài viết này sẽ giúp bạn biết cách đồng hành hiệu quả.",
-    author: "Phạm Hữu Phước",
-    date: "15 tháng 2, 2023",
-    views: "7.325",
-    likes: "518",
-    comments: "45",
-    category: "support",
-    url: "/blog/ho-tro-nguoi-than",
-  },
-  {
-    id: 7,
-    image: "/image/articles/e.jpg",
-    title: "Ứng dụng thiền và yoga trong quá trình cai thuốc lá",
-    excerpt:
-      "Thiền và yoga không chỉ giúp giảm stress mà còn hỗ trợ đáng kể trong việc kiểm soát cơn thèm thuốc. Tìm hiểu cách áp dụng hiệu quả.",
-    author: "Nguyễn Minh Tùng",
-    date: "28 tháng 1, 2023",
-    views: "6.843",
-    likes: "492",
-    comments: "37",
-    category: "tips",
-    url: "/blog/thien-yoga-cai-thuoc",
-  },
-  {
-    id: 8,
-    image: "/image/hero/quit-smoking-2.png",
-    title: "Chế độ dinh dưỡng giúp giảm cơn thèm thuốc lá",
-    excerpt:
-      "Một số thực phẩm có thể giúp giảm cơn thèm thuốc và hỗ trợ cơ thể thải độc. Tìm hiểu chế độ ăn phù hợp cho người đang cai thuốc lá.",
-    author: "BS. Trần Thị Hồng",
-    date: "5 tháng 1, 2023",
-    views: "9.123",
-    likes: "756",
-    comments: "63",
-    category: "tips",
-    url: "/blog/dinh-duong-cai-thuoc",
-  },
-];

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FaImage, FaTrophy, FaCamera, FaTimes, FaSmile, FaHeart, FaComment, FaShare, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import { FaImage, FaCamera, FaTimes, FaHeart, FaComment, FaShare, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import '../styles/CommunityPostCreator.css';
 
@@ -73,20 +73,18 @@ export const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, title = "Xóa b
 };
 
 /**
- * Component tạo bài viết cộng đồng với hình ảnh và huy hiệu
+ * Component tạo bài viết cộng đồng với hình ảnh
  */
-const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
+const CommunityPostCreator = ({ onPostCreated }) => {
   const { user } = useAuth();
   const [postText, setPostText] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
-  const [selectedAchievements, setSelectedAchievements] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showAchievements, setShowAchievements] = useState(false);
   const fileInputRef = useRef(null);
 
   // Cảnh báo khi rời trang nếu đang soạn bài
   React.useEffect(() => {
-    const hasContent = postText.trim() || selectedImages.length > 0 || selectedAchievements.length > 0;
+    const hasContent = postText.trim() || selectedImages.length > 0;
     
     if (hasContent) {
       const handleBeforeUnload = (e) => {
@@ -98,10 +96,7 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
       window.addEventListener('beforeunload', handleBeforeUnload);
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }
-  }, [postText, selectedImages, selectedAchievements]);  // Lấy danh sách huy hiệu đã đạt được, đảm bảo achievements luôn là mảng
-  const earnedAchievements = Array.isArray(achievements) 
-    ? achievements.filter(achievement => achievement && achievement.completed === true) 
-    : [];
+  }, [postText, selectedImages]);
 
   const handleImageSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -167,16 +162,6 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
     setSelectedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
-  const toggleAchievement = (achievement) => {
-    setSelectedAchievements(prev => {
-      const isSelected = prev.find(a => a.id === achievement.id);
-      if (isSelected) {
-        return prev.filter(a => a.id !== achievement.id);
-      } else {
-        return [...prev, achievement];
-      }
-    });
-  };
   const handlePostSubmit = () => {
     if (!postText.trim() && selectedImages.length === 0) {
       alert('Vui lòng nhập nội dung hoặc chọn hình ảnh để đăng bài!');
@@ -223,9 +208,7 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
     // Reset form
     setPostText('');
     setSelectedImages([]);
-    setSelectedAchievements([]);
     setIsExpanded(false);
-    setShowAchievements(false);
   };
 
   const handleInputFocus = () => {
@@ -287,52 +270,6 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
             </div>
           )}
 
-          {/* Hiển thị huy hiệu đã chọn */}
-          {selectedAchievements.length > 0 && (
-            <div className="selected-achievements">
-              <h4>Huy hiệu đã chọn:</h4>
-              <div className="achievement-tags">
-                {selectedAchievements.map(achievement => (
-                  <div key={achievement.id} className="achievement-tag">
-                    <span className="achievement-icon">{achievement.icon}</span>
-                    <span className="achievement-name">{achievement.name}</span>
-                    <button 
-                      className="remove-achievement"
-                      onClick={() => toggleAchievement(achievement)}
-                    >
-                      <FaTimes />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Panel huy hiệu */}
-          {showAchievements && (
-            <div className="achievements-panel">
-              <h4>Chọn huy hiệu để chia sẻ:</h4>
-              <div className="achievements-list">
-                {earnedAchievements.length > 0 ? (
-                  earnedAchievements.map(achievement => (                    <div 
-                      key={achievement.id}
-                      className={`achievement-item ${selectedAchievements.find(a => a.id === achievement.id) ? 'selected' : ''}`}
-                      onClick={() => toggleAchievement(achievement)}
-                    >
-                      <span className="achievement-icon">{achievement.icon}</span>
-                      <div className="achievement-info">
-                        <span className="achievement-name">{achievement.name}</span>
-                        <span className="achievement-date">{achievement.completed ? "Đã hoàn thành" : ""}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="no-achievements">Bạn chưa có huy hiệu nào để chia sẻ.</p>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Toolbar */}
           <div className="post-creator-toolbar">
             <div className="toolbar-left">
@@ -343,18 +280,7 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
               >
                 <FaImage /> Hình ảnh
               </button>
-                <button 
-                className="toolbar-btn"
-                onClick={() => setShowAchievements(!showAchievements)}
-                title={earnedAchievements.length > 0 ? "Chia sẻ huy hiệu" : "Bạn chưa có huy hiệu nào để chia sẻ"}
-                disabled={earnedAchievements.length === 0}
-              >
-                <FaTrophy /> Huy hiệu ({earnedAchievements.length})
-              </button>
-
-              <button className="toolbar-btn" title="Thêm cảm xúc">
-                <FaSmile /> Cảm xúc
-              </button>
+                
             </div>
 
             <div className="toolbar-right">
@@ -364,8 +290,6 @@ const CommunityPostCreator = ({ achievements = [], onPostCreated }) => {
                   setIsExpanded(false);
                   setPostText('');
                   setSelectedImages([]);
-                  setSelectedAchievements([]);
-                  setShowAchievements(false);
                 }}
               >
                 Hủy

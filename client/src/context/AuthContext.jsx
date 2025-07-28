@@ -139,6 +139,18 @@ export const AuthProvider = ({ children }) => {
           fullName: userData.fullName || userData.name || userData.username
         };
 
+        // Xóa dữ liệu ứng dụng cũ trước khi login user mới để tránh dính data
+        localStorage.removeItem('activePlan');
+        localStorage.removeItem('actualProgress');
+        localStorage.removeItem('dashboardStats');
+        localStorage.removeItem('quitPlanCompletion');
+        sessionStorage.removeItem('activePlan');
+        sessionStorage.removeItem('actualProgress');
+        sessionStorage.removeItem('dashboardStats');
+        sessionStorage.removeItem('quitPlanCompletion');
+        
+        console.log('🧹 Đã xóa dữ liệu ứng dụng cũ trước khi login user mới');
+
         // Lưu token và user data
         if (rememberMe) {
           localStorage.setItem('nosmoke_token', token);
@@ -167,6 +179,7 @@ export const AuthProvider = ({ children }) => {
   // Hàm đăng xuất
   const logout = () => {
     setUser(null);
+    
     // Xóa thông tin user và token khỏi cả localStorage và sessionStorage
     localStorage.removeItem('nosmoke_user');
     localStorage.removeItem('nosmoke_token');
@@ -174,6 +187,27 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem('nosmoke_user');
     sessionStorage.removeItem('nosmoke_token');
     sessionStorage.removeItem('refresh_token');
+    
+    // Xóa tất cả dữ liệu ứng dụng để tránh dính data từ user trước
+    localStorage.removeItem('activePlan');
+    localStorage.removeItem('actualProgress');
+    localStorage.removeItem('dashboardStats');
+    localStorage.removeItem('quitPlanCompletion');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('activeProfileTab');
+    
+    // Xóa cả sessionStorage
+    sessionStorage.removeItem('activePlan');
+    sessionStorage.removeItem('actualProgress');
+    sessionStorage.removeItem('dashboardStats');
+    sessionStorage.removeItem('quitPlanCompletion');
+    sessionStorage.removeItem('user_id');
+    sessionStorage.removeItem('userId');
+    sessionStorage.removeItem('membership_refresh_needed');
+    
+    console.log('🧹 Đã xóa sạch tất cả dữ liệu người dùng khỏi storage');
+    
     return { success: true };
   };
   // Đảm bảo rằng membership luôn là một giá trị hợp lệ

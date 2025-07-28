@@ -1,22 +1,37 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FaTrophy, FaShare, FaFacebook, FaTwitter, FaCopy, FaTimes } from "react-icons/fa";
+import { FaTrophy, FaShare, FaFacebook, FaTwitter, FaCopy, FaTimes, FaLock, FaClock, FaStar } from "react-icons/fa";
 import "../styles/Achievement.css";
-import { useMembership } from "../context/MembershipContext";
-import RequireMembership from "./RequireMembership";
 
 const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewAll = true }) => {
   const [showShareMenu, setShowShareMenu] = useState(null);
   const [shareStatus, setShareStatus] = useState({ show: false, message: '' });
   const [showAllAchievements, setShowAllAchievements] = useState(false);
-  const [displayedAchievements, setDisplayedAchievements] = useState(achievements);
-  const { membershipTiers, currentMembership } = useMembership();
+  const [activeCategory, setActiveCategory] = useState('all');
   
   const shareMenuRef = useRef(null);
   
-  // Cập nhật danh sách huy hiệu hiển thị khi có thay đổi
-  useEffect(() => {
-    setDisplayedAchievements(achievements);
-  }, [achievements]);
+  // Lọc huy hiệu theo category
+  const getFilteredAchievements = () => {
+    if (activeCategory === 'all') return achievements;
+    return achievements.filter(achievement => achievement.category === activeCategory);
+  };
+
+  // Nhóm huy hiệu theo category
+  const getAchievementsByCategory = () => {
+    const categories = {
+      time: { name: 'Thời gian cai thuốc', icon: '⏰', achievements: [] },
+      health: { name: 'Cải thiện sức khỏe', icon: '❤️', achievements: [] },
+      money: { name: 'Tiết kiệm tài chính', icon: '💰', achievements: [] }
+    };
+    
+    achievements.forEach(achievement => {
+      if (categories[achievement.category]) {
+        categories[achievement.category].achievements.push(achievement);
+      }
+    });
+    
+    return categories;
+  };
   
   // Đóng menu share khi nhấn ra ngoài
   useEffect(() => {
@@ -50,6 +65,8 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
       message: message
     });
   };
+    
+  
   
   // Hàm để chia sẻ huy hiệu đạt được
   const handleShareAchievement = (achievement, platform = null) => {
@@ -59,7 +76,8 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
     // Tạo nội dung chia sẻ
     const shareContent = `
 🏆 Tôi đã đạt được huy hiệu "${achievement.name}" trong hành trình cai thuốc lá!
-📅 Ngày đạt được: ${achievement.date}
+📅 ${achievement.progressText}
+🎯 ${achievement.reward}
 💪 Hãy tham gia cùng tôi trong hành trình hướng tới một cuộc sống khỏe mạnh hơn!
     `;
     
@@ -79,24 +97,16 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
         navigator.clipboard.writeText(shareContent);
         showShareNotification('Đã sao chép thông tin huy hiệu!');
       } catch (err) {
-        console.log('Lỗi khi sao chép vào clipboard:', err);
-        showShareNotification('Không thể sao chép tự động.');
+        // Fallback cho các trình duyệt không hỗ trợ clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = shareContent;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showShareNotification('Đã sao chép thông tin huy hiệu!');
       }
-    }
-    else if (platform === null && navigator.share) {
-      // Sử dụng Web Share API nếu có sẵn
-      navigator.share({
-        title: `Huy hiệu: ${achievement.name}`,
-        text: shareContent,
-      })
-      .then(() => showShareNotification('Đã chia sẻ thành công!'))
-      .catch((error) => {
-        console.log('Lỗi khi chia sẻ:', error);
-        showShareNotification('Không thể chia sẻ. Vui lòng thử lại.');
-      });
-    } 
-    else if (platform === null) {
-      // Fallback cho các trình duyệt không hỗ trợ Web Share API
+    } else {
       // Hiển thị menu chia sẻ tùy chỉnh
       setShowShareMenu(achievement.id);
     }
@@ -108,221 +118,213 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
     setShowShareMenu(null);
   };
   
-  // Xử lý hiển thị tất cả huy hiệu
-  const handleViewAllAchievements = () => {
-    // Mở modal hiển thị tất cả huy hiệu
-    setShowAllAchievements(true);
-  };
+ 
 
   // Content component
-  const AchievementContent = () => (
-    <div className="achievements-section">
-      <h1 style={{ color: "#333", fontWeight: "700" }}>{title}</h1>
+  const AchievementContent = () => {
+    const completedCount = achievements.filter(a => a.completed).length;
+    const totalCount = achievements.length;
 
-      {shareStatus.show && (
-        <div className="share-notification">
-          <p>{shareStatus.message}</p>
+    return (
+      <div className="achievements-section">
+        <div className="achievements-header">
+          <h1 style={{ color: "#333", fontWeight: "700" }}>{title}</h1>
+          <div className="achievement-stats">
+            <span className="completed-count">{completedCount}/{totalCount} hoàn thành</span>
+          </div>
         </div>
-      )}
 
-      <div className="achievements-grid">
-        {displayedAchievements.map((achievement) => (
-          <div
-            key={achievement.id}
-            className={`achievement-card ${
-              !achievement.date ? "locked" : ""
-            }`}
+        {shareStatus.show && (
+          <div className="share-notification">
+            <p>{shareStatus.message}</p>
+          </div>
+        )}
+
+        {/* Category Filter */}
+        <div className="category-filter">
+          <button 
+            className={activeCategory === 'all' ? 'active' : ''}
+            onClick={() => setActiveCategory('all')}
           >
-            <div className="achievement-icon">{achievement.icon}</div>
-            <h3>{achievement.name}</h3>
-            <p>{achievement.date || "Đạt khi đủ điều kiện"}</p>
-            
-            {achievement.date && (
-              <div className="share-container">
-                <button 
-                  className="share-achievement-btn"
-                  onClick={() => handleShareAchievement(achievement)}
-                >
-                  <FaShare /> Chia sẻ
-                </button>
+            Tất cả
+          </button>
+          <button 
+            className={activeCategory === 'time' ? 'active' : ''}
+            onClick={() => setActiveCategory('time')}
+          >
+            ⏰ Thời gian
+          </button>
+          <button 
+            className={activeCategory === 'health' ? 'active' : ''}
+            onClick={() => setActiveCategory('health')}
+          >
+            ❤️ Sức khỏe
+          </button>
+          <button 
+            className={activeCategory === 'money' ? 'active' : ''}
+            onClick={() => setActiveCategory('money')}
+          >
+            💰 Tiết kiệm
+          </button>
+        </div>
+
+        <div className="achievements-grid">
+          {getFilteredAchievements().map((achievement) => {
+            const getCardClass = () => {
+              if (achievement.completed) return 'achievement-card completed';
+              return 'achievement-card locked';
+            };
+
+            const getStatusIcon = () => {
+              if (achievement.completed) return <FaStar className="status-icon completed" />;
+              return <FaLock className="status-icon locked" />;
+            };
+
+            return (
+              <div key={achievement.id} className={getCardClass()}>
+                <div className="achievement-header">
+                  <div className="achievement-icon">{achievement.icon}</div>
+                  {getStatusIcon()}
+                </div>
                 
-                {showShareMenu === achievement.id && (
-                  <div className="share-menu" ref={shareMenuRef}>
-                    <button className="close-share-menu" onClick={closeShareMenu}>
-                      <FaTimes />
-                    </button>
-                    <h4>Chia sẻ huy hiệu</h4>
+                <h3 className="achievement-name">{achievement.name}</h3>
+                <p className="achievement-description">{achievement.description}</p>
+                
+                <div className="achievement-progress">
+                  <span className="progress-text">{achievement.progressText}</span>
+                  {!achievement.completed && achievement.progress !== undefined && achievement.targetDays && (
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${(achievement.progress / achievement.targetDays) * 100}%` }}
+                      ></div>
+                    </div>
+                  )}
+                </div>
+
+                {achievement.reward && (
+                  <div className="achievement-reward">
+                    <small>🎁 {achievement.reward}</small>
+                  </div>
+                )}
+                
+                {achievement.completed && (
+                  <div className="share-container">
                     <button 
-                      className="share-option" 
-                      onClick={() => handleShareAchievement(achievement, 'facebook')}
+                      className="share-achievement-btn"
+                      onClick={() => handleShareAchievement(achievement)}
                     >
-                      <FaFacebook className="facebook-icon" /> Facebook
+                      <FaShare /> Chia sẻ
                     </button>
-                    <button 
-                      className="share-option" 
-                      onClick={() => handleShareAchievement(achievement, 'twitter')}
-                    >
-                      <FaTwitter className="twitter-icon" /> Twitter
-                    </button>
-                    <button 
-                      className="share-option" 
-                      onClick={() => handleShareAchievement(achievement, 'copy')}
-                    >
-                      <FaCopy /> Sao chép liên kết
-                    </button>
+                    
+                    {showShareMenu === achievement.id && (
+                      <div className="share-menu" ref={shareMenuRef}>
+                        <button onClick={() => handleShareAchievement(achievement, 'facebook')}>
+                          <FaFacebook /> Facebook
+                        </button>
+                        <button onClick={() => handleShareAchievement(achievement, 'twitter')}>
+                          <FaTwitter /> Twitter
+                        </button>
+                        <button onClick={() => handleShareAchievement(achievement, 'copy')}>
+                          <FaCopy /> Sao chép
+                        </button>
+                        <button onClick={closeShareMenu} className="close-menu">
+                          <FaTimes />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
 
-      {showViewAll && (
-        <h2 
-          style={{ color: '#2570e8', cursor: 'pointer' }}
-          onClick={handleViewAllAchievements}
-        >
-          Xem tất cả huy hiệu
-        </h2>
-      )}
-      
-      {/* Modal hiển thị tất cả huy hiệu */}
-      {showAllAchievements && (
-        <div className="all-achievements-modal">
-          <div className="all-achievements-content">
+      </div>
+    );
+  };
+
+  // Modal hiển thị tất cả huy hiệu
+  const AchievementModal = () => {
+    if (!showAllAchievements) return null;
+
+    const categories = getAchievementsByCategory();
+
+    return (
+      <div className="achievement-modal-overlay" onClick={() => setShowAllAchievements(false)}>
+        <div className="achievement-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>🏆 Tất cả huy hiệu</h2>
             <button 
-              className="close-all-achievements" 
+              className="close-modal"
               onClick={() => setShowAllAchievements(false)}
             >
               <FaTimes />
             </button>
-            <h2>Tất cả huy hiệu</h2>
-            
-            <div className="all-achievements-grid">
-              {/* Huy hiệu thời gian */}
-              <div className="achievement-category">
-                <h3>Thời gian cai thuốc</h3>
-                <div className="category-achievements">
-                  <div className="achievement-card">
-                    <div className="achievement-icon">⭐</div>
-                    <h3>24 giờ đầu tiên</h3>
-                    <p>Không hút thuốc trong 24 giờ đầu tiên</p>
-                  </div>
-                  <div className="achievement-card">
-                    <div className="achievement-icon">🏅</div>
-                    <h3>1 tuần không hút</h3>
-                    <p>Đạt mốc 1 tuần không hút thuốc</p>
-                  </div>
-                  <div className="achievement-card">
-                    <div className="achievement-icon">🏆</div>
-                    <h3>2 tuần không hút</h3>
-                    <p>Đạt mốc 2 tuần không hút thuốc</p>
-                  </div>
-                  <div className="achievement-card">
-                    <div className="achievement-icon">👑</div>
-                    <h3>1 tháng không hút</h3>
-                    <p>Đạt mốc 1 tháng không hút thuốc</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🌟</div>
-                    <h3>3 tháng không hút</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">💎</div>
-                    <h3>6 tháng không hút</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🔮</div>
-                    <h3>1 năm không hút</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
+          </div>
+          
+          <div className="modal-content">
+            {Object.entries(categories).map(([key, category]) => (
+              <div key={key} className="category-section">
+                <h3 className="category-title">
+                  {category.icon} {category.name}
+                </h3>
+                <div className="achievements-grid">
+                  {category.achievements.map((achievement) => {
+                    const getCardClass = () => {
+                      if (achievement.completed) return 'achievement-card completed';
+                      return 'achievement-card locked';
+                    };
+
+                    const getStatusIcon = () => {
+                      if (achievement.completed) return <FaStar className="status-icon completed" />;
+                      return <FaLock className="status-icon locked" />;
+                    };
+
+                    return (
+                      <div key={achievement.id} className={getCardClass()}>
+                        <div className="achievement-header">
+                          <div className="achievement-icon">{achievement.icon}</div>
+                          {getStatusIcon()}
+                        </div>
+                        
+                        <h3 className="achievement-name">{achievement.name}</h3>
+                        <p className="achievement-description">{achievement.description}</p>
+                        
+                        <div className="achievement-progress">
+                          <span className="progress-text">{achievement.progressText}</span>
+                          {!achievement.completed && achievement.progress !== undefined && achievement.targetDays && (
+                            <div className="progress-bar">
+                              <div 
+                                className="progress-fill" 
+                                style={{ width: `${(achievement.progress / achievement.targetDays) * 100}%` }}
+                              ></div>
+                            </div>
+                          )}
+                        </div>
+
+                        {achievement.reward && (
+                          <div className="achievement-reward">
+                            <small>🎁 {achievement.reward}</small>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              
-              {/* Huy hiệu sức khỏe */}
-              <div className="achievement-category">
-                <h3>Cải thiện sức khỏe</h3>
-                <div className="category-achievements">
-                  <div className="achievement-card">
-                    <div className="achievement-icon">❤️</div>
-                    <h3>Huyết áp ổn định</h3>
-                    <p>Huyết áp trở lại bình thường sau 20 phút</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🫁</div>
-                    <h3>Phổi khỏe mạnh hơn</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🧠</div>
-                    <h3>Não bộ tỉnh táo</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Huy hiệu tài chính */}
-              <div className="achievement-category">
-                <h3>Tiết kiệm tài chính</h3>
-                <div className="category-achievements">
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">💰</div>
-                    <h3>Tiết kiệm 500K</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">💸</div>
-                    <h3>Tiết kiệm 1 triệu</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🏦</div>
-                    <h3>Tiết kiệm 5 triệu</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Huy hiệu đặc biệt */}
-              <div className="achievement-category">
-                <h3>Thành tựu đặc biệt</h3>
-                <div className="category-achievements">
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🔥</div>
-                    <h3>Vượt qua cám dỗ</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🌱</div>
-                    <h3>Thói quen mới</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                  <div className="achievement-card locked">
-                    <div className="achievement-icon">🤝</div>
-                    <h3>Người truyền cảm hứng</h3>
-                    <p>Đạt khi đủ điều kiện</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
-  // Return the component with RequireMembership
   return (
-    <RequireMembership
-      allowedMemberships={['premium', 'pro']}
-      showModal={true}
-      featureName="huy hiệu"
-    >
+    <>
       <AchievementContent />
-    </RequireMembership>
+      <AchievementModal />
+    </>
   );
 };
 

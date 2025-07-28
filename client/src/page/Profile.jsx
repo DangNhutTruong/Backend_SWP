@@ -304,13 +304,11 @@ export default function ProfilePage() {
   // Tính toán các giá trị từ activePlan database
   const calculateSavings = () => {
     if (!user) return { days: 0, money: 0, cigarettes: 0 };
-    if (!activePlan?.start_date) return { days: 0, money: 0, cigarettes: 0 }; // Sử dụng start_date từ database
+    if (!activePlan?.start_date) return { days: 0, money: 0, cigarettes: 0 };
 
     let startDate;
     try {
-      // Ưu tiên dùng start_date từ database
       startDate = new Date(activePlan.start_date);
-      
       if (isNaN(startDate.getTime())) {
         console.warn("🔶 PROFILE: Ngày bắt đầu từ database không hợp lệ:", activePlan.start_date);
         return { days: 0, money: 0, cigarettes: 0 };
@@ -324,36 +322,46 @@ export default function ProfilePage() {
     const timeDiff = currentDate.getTime() - startDate.getTime();
     const daysDiff = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
 
-    // Lấy số điếu từ database (initial_cigarettes hoặc parse từ plan_details)
-    let cigarettesPerDay = 0;
-    if (activePlan.initial_cigarettes) {
-      cigarettesPerDay = activePlan.initial_cigarettes;
-    } else if (activePlan.plan_details) {
-      try {
-        const parsedDetails = JSON.parse(activePlan.plan_details);
-        cigarettesPerDay = parsedDetails.initialCigarettes || 0;
-      } catch (error) {
-        console.error("❌ PROFILE: Lỗi parse plan_details:", error);
+    // Lấy dữ liệu từ localStorage (cùng nguồn với Progress page) 
+    let savedMoney = 0;
+    let savedCigarettes = 0;
+
+    try {
+      // Ưu tiên lấy từ dashboardStats (cùng nguồn với Progress)
+      const dashboardStats = localStorage.getItem('dashboardStats');
+      if (dashboardStats) {
+        const stats = JSON.parse(dashboardStats);
+        savedMoney = stats.savedMoney || 0;
+        savedCigarettes = stats.savedCigarettes || 0;
+        console.log("💰 PROFILE: Sử dụng dữ liệu từ dashboardStats:", { savedMoney, savedCigarettes });
+      } else {
+        // Fallback: tính toán đơn giản
+        const cigarettesPerDay = activePlan.initial_cigarettes || 30;
+        const pricePerPack = 50000;
+        const pricePerCigarette = pricePerPack / 20; // 2500đ/điếu
+        savedCigarettes = daysDiff * cigarettesPerDay;
+        savedMoney = savedCigarettes * pricePerCigarette;
+        console.log("💰 PROFILE: Fallback calculation:", { daysDiff, cigarettesPerDay, savedCigarettes, savedMoney });
       }
+    } catch (error) {
+      console.error("❌ PROFILE: Lỗi khi đọc dashboardStats:", error);
+      // Fallback calculation
+      const cigarettesPerDay = activePlan.initial_cigarettes || 30;
+      savedCigarettes = daysDiff * cigarettesPerDay;
+      savedMoney = savedCigarettes * 2500; // 2500đ/điếu
     }
 
-    const pricePerPack = 50000; // 50,000 VND per pack
-    const cigarettesPerPack = 20;
-    const totalCigarettesSaved = daysDiff * cigarettesPerDay;
-    const totalMoneySaved = (totalCigarettesSaved / cigarettesPerPack) * pricePerPack;
-
-    console.log("💰 PROFILE: Tính toán tiết kiệm:", {
+    console.log("💰 PROFILE: Final calculation:", {
       daysDiff,
-      cigarettesPerDay,
-      totalCigarettesSaved,
-      totalMoneySaved,
-      activePlan: activePlan.plan_name
+      savedMoney,
+      savedCigarettes,
+      source: 'dashboardStats or fallback'
     });
 
     return {
       days: daysDiff,
-      money: totalMoneySaved,
-      cigarettes: totalCigarettesSaved
+      money: savedMoney,
+      cigarettes: savedCigarettes
     };
   };
   // Đảm bảo giá trị savings được tính sau khi activePlan đã được cập nhật
@@ -361,7 +369,9 @@ export default function ProfilePage() {
   
   // Debug: Kiểm tra giá trị savings để tính huy hiệu
   console.log('🏆 ACHIEVEMENT DEBUG - savings.days:', savings.days);
+  console.log('🏆 ACHIEVEMENT DEBUG - savings.money:', savings.money);
   console.log('🏆 ACHIEVEMENT DEBUG - activePlan?.start_date:', activePlan?.start_date);
+  console.log('🔍 FULL activePlan DEBUG:', activePlan);
   // Hàm định dạng ngày tháng
   const formatDate = (dateString) => {
     try {
@@ -457,35 +467,170 @@ export default function ProfilePage() {
         progress: "0/90 ngày",
         completed: false,
       },
-    ],    achievements: [
+    ],
+    achievements: [
+      // === HUY HIỆU THỜI GIAN ===
       {
         id: 1,
         name: "24 giờ đầu tiên",
-        date: savings.days >= 1 ? "Đã hoàn thành" : "",
+        description: "Không hút thuốc trong 24 giờ đầu tiên",
         icon: "⭐",
-        description: "Hoàn thành 24 giờ đầu tiên không hút thuốc"
+        category: "time",
+        targetDays: 1,
+        completed: savings.days >= 1,
+        progress: Math.min(savings.days, 1),
+        progressText: savings.days >= 1 ? "Hoàn thành" : `${savings.days}/1 ngày`,
+        reward: "Oxy trong máu bắt đầu tăng",
+        unlocked: true // Luôn true vì chỉ có 2 trạng thái: completed hoặc locked
       },
       {
         id: 2,
         name: "1 tuần không hút",
-        date: savings.days >= 7 ? "Đã hoàn thành" : "",
-        icon: "🏅",
-        description: "Hoàn thành 1 tuần không hút thuốc"
+        description: "Hoàn thành 1 tuần không hút thuốc",
+        icon: "🏅", 
+        category: "time",
+        targetDays: 7,
+        completed: savings.days >= 7,
+        progress: Math.min(savings.days, 7),
+        progressText: savings.days >= 7 ? "Hoàn thành" : `${savings.days}/7 ngày`,
+        reward: "Vị giác và khứu giác cải thiện",
+        unlocked: true
       },
       {
         id: 3,
         name: "2 tuần không hút",
-        date: savings.days >= 14 ? "Đã hoàn thành" : "",
+        description: "Hoàn thành 2 tuần không hút thuốc", 
         icon: "🏆",
-        description: "Hoàn thành 2 tuần không hút thuốc"
+        category: "time",
+        targetDays: 14,
+        completed: savings.days >= 14,
+        progress: Math.min(savings.days, 14),
+        progressText: savings.days >= 14 ? "Hoàn thành" : `${savings.days}/14 ngày`,
+        reward: "Lưu thông máu cải thiện đáng kể",
+        unlocked: true
       },
       {
         id: 4,
         name: "1 tháng không hút",
-        date: savings.days >= 30 ? "Đã hoàn thành" : "",
+        description: "Hoàn thành 1 tháng không hút thuốc",
         icon: "👑",
-        description: "Hoàn thành 1 tháng không hút thuốc"
+        category: "time", 
+        targetDays: 30,
+        completed: savings.days >= 30,
+        progress: Math.min(savings.days, 30),
+        progressText: savings.days >= 30 ? "Hoàn thành" : `${savings.days}/30 ngày`,
+        reward: "Chức năng phổi cải thiện 30%",
+        unlocked: true
       },
+      {
+        id: 5,
+        name: "3 tháng không hút",
+        description: "Hoàn thành 3 tháng không hút thuốc",
+        icon: "💎",
+        category: "time",
+        targetDays: 90,
+        completed: savings.days >= 90,
+        progress: Math.min(savings.days, 90),
+        progressText: savings.days >= 90 ? "Hoàn thành" : `${savings.days}/90 ngày`,
+        reward: "Nguy cơ đau tim giảm đáng kể",
+        unlocked: true
+      },
+      {
+        id: 6,
+        name: "6 tháng không hút",
+        description: "Hoàn thành 6 tháng không hút thuốc",
+        icon: "💍",
+        category: "time",
+        targetDays: 180,
+        completed: savings.days >= 180,
+        progress: Math.min(savings.days, 180),
+        progressText: savings.days >= 180 ? "Hoàn thành" : `${savings.days}/180 ngày`,
+        reward: "Chức năng phổi phục hồi 50%",
+        unlocked: true
+      },
+      {
+        id: 7,
+        name: "1 năm không hút",
+        description: "Hoàn thành 1 năm không hút thuốc",
+        icon: "🎯",
+        category: "time",
+        targetDays: 365,
+        completed: savings.days >= 365,
+        progress: Math.min(savings.days, 365),
+        progressText: savings.days >= 365 ? "Hoàn thành" : `${savings.days}/365 ngày`,
+        reward: "Nguy cơ bệnh tim giảm 50%",
+        unlocked: true
+      },
+
+      // === HUY HIỆU SỨC KHỎE ===
+      {
+        id: 8,
+        name: "Huyết áp ổn định",
+        description: "Huyết áp trở về bình thường sau 20 phút",
+        icon: "❤️",
+        category: "health",
+        completed: savings.days >= 1,
+        progressText: savings.days >= 1 ? "Hoàn thành" : "Chưa đạt",
+        reward: "Huyết áp và nhịp tim bình thường",
+        unlocked: true
+      },
+      {
+        id: 9,
+        name: "Phổi khỏe mạnh",
+        description: "Chức năng phổi cải thiện đáng kể",
+        icon: "🫁",
+        category: "health", 
+        completed: savings.days >= 14,
+        progressText: savings.days >= 14 ? "Hoàn thành" : "Chưa đạt",
+        reward: "Khả năng thể thao tăng lên",
+        unlocked: true
+      },
+      {
+        id: 10,
+        name: "Não bộ tỉnh táo",
+        description: "Não bộ nhận đủ oxy, tư duy rõ ràng",
+        icon: "🧠",
+        category: "health",
+        completed: savings.days >= 30,
+        progressText: savings.days >= 30 ? "Hoàn thành" : "Chưa đạt", 
+        reward: "Trí nhớ và tập trung tốt hơn",
+        unlocked: true
+      },
+
+      // === HUY HIỆU TIẾT KIỆM ===
+      {
+        id: 11,
+        name: "Tiết kiệm đầu tiên",
+        description: "Tiết kiệm được 50.000 VND",
+        icon: "�",
+        category: "money",
+        completed: savings.money >= 50000,
+        progressText: savings.money >= 50000 ? "Hoàn thành" : `${(savings.money).toLocaleString('vi-VN')}/50.000 VND`,
+        reward: "Có thể mua một bữa ăn ngon",
+        unlocked: true
+      },
+      {
+        id: 12,
+        name: "Nhà đầu tư nhỏ",
+        description: "Tiết kiệm được 500.000 VND",
+        icon: "💵",
+        category: "money",
+        completed: savings.money >= 500000,
+        progressText: savings.money >= 500000 ? "Hoàn thành" : `${(savings.money).toLocaleString('vi-VN')}/500.000 VND`,
+        reward: "Có thể mua quần áo mới",
+        unlocked: true
+      },
+      {
+        id: 13,
+        name: "Triệu phú nhỏ",
+        description: "Tiết kiệm được 1.000.000 VND",
+        icon: "💎",
+        category: "money",
+        completed: savings.money >= 1000000,
+        progressText: savings.money >= 1000000 ? "Hoàn thành" : `${(savings.money).toLocaleString('vi-VN')}/1.000.000 VND`,
+        reward: "Có thể đi du lịch ngắn ngày",
+        unlocked: true
+      }
     ],
     journalEntries: [
       {
