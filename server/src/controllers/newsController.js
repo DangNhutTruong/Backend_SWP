@@ -1,4 +1,4 @@
-import Parser from 'rss-parser';
+import RssParser from 'rss-parser';
 import axios from 'axios';
 
 /**
@@ -6,7 +6,7 @@ import axios from 'axios';
  */
 class NewsController {
     constructor() {
-        this.parser = new Parser({
+        this.parser = new RssParser({
             customFields: {
                 item: ['media:content', 'enclosure']
             }
@@ -353,4 +353,4 @@ class NewsController {
     }
 }
 
-export default new NewsController();
+export default NewsController;

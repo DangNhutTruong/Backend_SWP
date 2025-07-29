@@ -1,7 +1,8 @@
 import express from 'express';
-import newsController from '../controllers/newsController.js';
+import NewsController from '../controllers/newsController.js';
 
 const router = express.Router();
+const newsController = new NewsController();
 
 /**
  * News Routes
@@ -14,7 +15,7 @@ const router = express.Router();
  * @access Public
  * @param {number} [limit=10] - Number of articles to return
  */
-router.get('/smoking', newsController.getSmokingNews);
+router.get('/smoking', (req, res) => newsController.getSmokingNews(req, res));
 
 /**
  * @route GET /api/news/health
@@ -22,7 +23,7 @@ router.get('/smoking', newsController.getSmokingNews);
  * @access Public
  * @param {number} [limit=10] - Number of articles to return
  */
-router.get('/health', newsController.getHealthNews);
+router.get('/health', (req, res) => newsController.getHealthNews(req, res));
 
 /**
  * @route GET /api/news/search
@@ -31,6 +32,6 @@ router.get('/health', newsController.getHealthNews);
  * @param {string} q - Search keyword (required)
  * @param {number} [limit=10] - Number of articles to return
  */
-router.get('/search', newsController.searchNews);
+router.get('/search', (req, res) => newsController.searchNews(req, res));
 
 export default router;
