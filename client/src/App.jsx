@@ -34,6 +34,7 @@ import CoachMessaging from "./page/coach/CoachMessaging.jsx"; // Import CoachMes
 import AdminBlog from "./page/admin/AdminBlog.jsx"; // Import AdminBlog
 import AdminQuitPlans from "./page/admin/AdminQuitPlans.jsx"; // Import AdminQuitPlans
 import AdminCoaches from "./page/admin/AdminCoaches.jsx"; // Import AdminCoaches
+import AdminMemberships from "./page/admin/AdminMemberships.jsx"; // Import AdminMemberships
 import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
 import "./style.css";
@@ -383,7 +384,7 @@ const router = createBrowserRouter([
       },
       {
         path: "memberships",
-        element: <div>Quản lý gói thành viên & thanh toán - Chức năng đang phát triển</div>
+        element: <AdminMemberships />
       },
       {
         path: "blog",

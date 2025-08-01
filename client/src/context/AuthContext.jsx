@@ -37,6 +37,17 @@ const COACH_ACCOUNTS = [
     specialization: 'Bác sĩ phục hồi chức năng',
     rating: 4.7,
     avatar: 'https://randomuser.me/api/portraits/men/64.jpg'
+  },
+  // Admin account for testing
+  {
+    id: 999,
+    name: 'Admin NoSmoke',
+    email: 'admin@nosmoke.com',
+    password: 'admin123',
+    role: 'admin',
+    specialization: 'Quản trị viên hệ thống',
+    rating: 5.0,
+    avatar: 'https://randomuser.me/api/portraits/men/1.jpg'
   }
 ];
 

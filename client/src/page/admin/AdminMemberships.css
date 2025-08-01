@@ -1,0 +1,282 @@
+/* AdminMemberships.css */
+
+.admin-memberships-container {
+  padding: 24px;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.header-with-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-with-button .ant-typography {
+  margin-bottom: 0;
+}
+
+.stats-row {
+  margin-bottom: 24px;
+}
+
+.stats-row .ant-card {
+  height: 100%;
+}
+
+.filter-container {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+}
+
+.filter-container .ant-row {
+  align-items: center;
+}
+
+/* Tab styling */
+.ant-tabs-tab {
+  font-weight: 500;
+}
+
+.ant-tabs-tab-active {
+  font-weight: 600;
+}
+
+/* Card enhancements */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ant-card-head {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+/* Table styling */
+.ant-table {
+  background: white;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  border-bottom: 2px solid #e8e8e8;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f5f5f5;
+}
+
+/* Statistic enhancements */
+.ant-statistic-title {
+  font-weight: 500;
+  color: #666;
+}
+
+.ant-statistic-content {
+  font-weight: 600;
+}
+
+/* Progress bar styling */
+.ant-progress-line {
+  margin: 8px 0;
+}
+
+.ant-progress-text {
+  font-weight: 500;
+}
+
+/* Steps styling */
+.ant-steps {
+  margin: 24px 0;
+}
+
+.ant-steps-item-title {
+  font-weight: 600;
+}
+
+.ant-steps-item-description {
+  color: #666;
+}
+
+/* Descriptions styling */
+.ant-descriptions-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.ant-descriptions-item-label {
+  font-weight: 500;
+  color: #666;
+}
+
+/* Alert styling */
+.ant-alert {
+  border-radius: 6px;
+}
+
+.ant-alert-warning {
+  border-color: #faad14;
+  background-color: #fffbe6;
+}
+
+/* Badge styling */
+.ant-badge {
+  font-weight: 500;
+}
+
+/* Dropdown menu styling */
+.ant-dropdown-menu {
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.ant-dropdown-menu-item {
+  padding: 8px 16px;
+}
+
+.ant-dropdown-menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+/* Tag enhancements */
+.ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+  border: none;
+}
+
+/* Button group styling */
+.ant-space {
+  flex-wrap: wrap;
+}
+
+/* Modal enhancements */
+.ant-modal {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-radius: 8px 8px 0 0;
+  padding: 20px 24px;
+}
+
+.ant-modal-body {
+  padding: 24px;
+}
+
+/* Form styling */
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.ant-input, .ant-input-number, .ant-select-selector {
+  border-radius: 6px;
+}
+
+.ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.ant-btn-primary {
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .admin-memberships-container {
+    padding: 16px;
+  }
+  
+  .header-with-button {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .stats-row .ant-col {
+    margin-bottom: 16px;
+  }
+  
+  .filter-container .ant-col {
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 576px) {
+  .admin-memberships-container {
+    padding: 12px;
+  }
+  
+  .ant-table {
+    font-size: 12px;
+  }
+  
+  .ant-statistic-content {
+    font-size: 20px;
+  }
+}
+
+/* Animation effects */
+.ant-card {
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ant-btn {
+  transition: all 0.3s ease;
+}
+
+.ant-table-row {
+  transition: background-color 0.3s ease;
+}
+
+/* Custom colors for statistics */
+.revenue-stat {
+  color: #52c41a;
+}
+
+.user-stat {
+  color: #1890ff;
+}
+
+.conversion-stat {
+  color: #722ed1;
+}
+
+.warning-stat {
+  color: #faad14;
+}
+
+.danger-stat {
+  color: #ff4d4f;
+}
+
+/* Loading state */
+.ant-spin-container {
+  transition: opacity 0.3s ease;
+}
+
+/* Success/Error states */
+.success-highlight {
+  background-color: #f6ffed;
+  border-color: #b7eb8f;
+}
+
+.error-highlight {
+  background-color: #fff2f0;
+  border-color: #ffccc7;
+}
+
+.warning-highlight {
+  background-color: #fffbe6;
+  border-color: #ffe58f;
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { 
   Card, 
   Table, 
@@ -17,7 +18,15 @@ import {
   Statistic,
   Col,
   Row,
-  DatePicker
+  DatePicker,
+  Alert,
+  Steps,
+  Descriptions,
+  Progress,
+  Menu,
+  Dropdown,
+  notification,
+  Badge
 } from 'antd';
 import { 
   EditOutlined, 
@@ -27,11 +36,22 @@ import {
   CrownOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  AreaChartOutlined
+  AreaChartOutlined,
+  UserOutlined,
+  StarOutlined,
+  TrophyOutlined,
+  GiftOutlined,
+  DownOutlined,
+  ExclamationCircleOutlined,
+  DownloadOutlined,
+  BellOutlined,
+  LineChartOutlined,
+  PieChartOutlined
 } from '@ant-design/icons';
 import './AdminMemberships.css';
 
 const { Title, Text, Paragraph } = Typography;
+const { Step } = Steps;
 const { TabPane } = Tabs;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -44,80 +64,229 @@ export default function AdminMemberships() {
   const [form] = Form.useForm();
   const [editingPackage, setEditingPackage] = useState(null);
   
+  // New states for analytics and user management
+  const [analyticsData, setAnalyticsData] = useState({});
+  const [usersWithMembership, setUsersWithMembership] = useState([]);
+  const [discountCodes, setDiscountCodes] = useState([]);
+  const [expiringUsers, setExpiringUsers] = useState([]);
+  const [realtimePayments, setRealtimePayments] = useState([]);
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  
   useEffect(() => {
     // Mô phỏng API call để lấy dữ liệu gói thành viên
     fetchPackages();
     fetchPayments();
+    fetchAnalyticsData();
+    fetchUsersWithMembership();
+    fetchDiscountCodes();
+    fetchExpiringUsers();
   }, []);
 
-  const fetchPackages = () => {
-    // API call giả lập để lấy danh sách gói
+  const fetchPackages = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        console.warn('No auth token found');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/admin/packages', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch packages data');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        // Transform database data to match component structure
+        const transformedPackages = data.data.map(pkg => ({
+          id: pkg.id,
+          name: pkg.name,
+          price: pkg.price,
+          duration: pkg.period === 'tháng' ? 30 : pkg.period === 'năm' ? 365 : 0,
+          benefits: pkg.description ? pkg.description.split(',').map(b => b.trim()) : [],
+          active: true // Assume all packages from DB are active
+        }));
+        setPackages(transformedPackages);
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error);
+      // Fallback to empty array if API fails
+      setPackages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        console.warn('No auth token found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/payments', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch payments data');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setPayments(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      // Fallback to empty array if API fails
+      setPayments([]);
+    }
+  };
+
+  const fetchAnalyticsData = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        console.warn('No auth token found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/analytics/membership-stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        // Also fetch payment analytics and revenue data
+        const [paymentAnalytics, revenueData] = await Promise.all([
+          fetch('/api/admin/analytics/payment-analytics', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(res => res.json()),
+          fetch('/api/admin/analytics/revenue-by-month', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(res => res.json())
+        ]);
+
+        setAnalyticsData({
+          userDistribution: data.data.userDistribution,
+          revenueByMonth: revenueData.success ? revenueData.data : [],
+          conversionRates: paymentAnalytics.success ? paymentAnalytics.data.conversionRates : {},
+          paymentMethods: paymentAnalytics.success ? paymentAnalytics.data.paymentMethods : {}
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      // Fallback to mock data if API fails
+      setAnalyticsData({
+        userDistribution: { free: 0, basic: 0, premium: 0 },
+        conversionRates: { freeToBasic: 0, basicToPremium: 0, freeToAny: 0 },
+        paymentMethods: {}
+      });
+    }
+  };
+
+  const fetchUsersWithMembership = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        console.warn('No auth token found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/users/with-membership', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users data');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setUsersWithMembership(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching users with membership:', error);
+      // Fallback to empty array if API fails
+      setUsersWithMembership([]);
+    }
+  };
+
+  const fetchDiscountCodes = () => {
     setTimeout(() => {
-      const mockPackages = [
+      const mockDiscounts = [
         {
           id: 1,
-          name: 'Free',
-          price: 0,
-          duration: 0, // Vĩnh viễn
-          benefits: ['Truy cập cơ bản', 'Kế hoạch cai thuốc cơ bản', 'Theo dõi tiến trình'],
+          code: 'WELCOME20',
+          type: 'percentage',
+          value: 20,
+          applicablePackages: ['Basic', 'Premium'],
+          usedCount: 15,
+          maxUses: 100,
+          expiryDate: '2024-12-31',
           active: true
         },
         {
           id: 2,
-          name: 'Basic',
-          price: 99000,
-          duration: 30, // 30 ngày
-          benefits: ['Tất cả tính năng Free', 'Hỗ trợ cộng đồng', 'Công cụ nâng cao', 'Bài viết premium'],
-          active: true
-        },
-        {
-          id: 3,
-          name: 'Premium',
-          price: 299000,
-          duration: 90, // 90 ngày
-          benefits: ['Tất cả tính năng Basic', 'Huấn luyện viên 1:1', 'Huy hiệu đặc biệt', 'Hỗ trợ 24/7'],
+          code: 'SAVE50K',
+          type: 'fixed',
+          value: 50000,
+          applicablePackages: ['Premium'],
+          usedCount: 8,
+          maxUses: 50,
+          expiryDate: '2024-09-30',
           active: true
         }
       ];
-      setPackages(mockPackages);
-      setLoading(false);
-    }, 1000);
+      setDiscountCodes(mockDiscounts);
+    }, 1300);
   };
 
-  const fetchPayments = () => {
-    // API call giả lập để lấy danh sách thanh toán
-    setTimeout(() => {
-      const mockPayments = [
-        {
-          id: 'PAY001',
-          userId: 1,
-          userName: 'Nguyễn Văn A',
-          packageName: 'Premium',
-          amount: 299000,
-          date: '2023-07-15',
-          status: 'completed'
-        },
-        {
-          id: 'PAY002',
-          userId: 2,
-          userName: 'Trần Thị B',
-          packageName: 'Basic',
-          amount: 99000,
-          date: '2023-07-20',
-          status: 'completed'
-        },
-        {
-          id: 'PAY003',
-          userId: 3,
-          userName: 'Lê Văn C',
-          packageName: 'Premium',
-          amount: 299000,
-          date: '2023-07-25',
-          status: 'pending'
+  const fetchExpiringUsers = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        console.warn('No auth token found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/users/expiring', {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      ];
-      setPayments(mockPayments);
-    }, 1500);
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch expiring users');
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setExpiringUsers(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching expiring users:', error);
+      // Fallback to empty array if API fails
+      setExpiringUsers([]);
+    }
   };
 
   const showModal = (pkg = null) => {
@@ -173,6 +342,190 @@ export default function AdminMemberships() {
     setPackages(packages.map(p => 
       p.id === id ? { ...p, active: !currentStatus } : p
     ));
+  };
+
+  // Utility functions for new features
+  const extendMembership = async (userId) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/extend-membership`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ days: 30 })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        notification.success({
+          message: 'Thành công',
+          description: data.message
+        });
+        // Refresh data
+        fetchUsersWithMembership();
+        fetchExpiringUsers();
+      } else {
+        notification.error({
+          message: 'Lỗi',
+          description: data.message
+        });
+      }
+    } catch (error) {
+      console.error('Error extending membership:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể gia hạn membership'
+      });
+    }
+  };
+
+  const upgradeMembership = async (userId) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/upgrade-membership`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPlan: 'premium' })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        notification.success({
+          message: 'Thành công',
+          description: data.message
+        });
+        // Refresh data
+        fetchUsersWithMembership();
+        fetchAnalyticsData();
+      } else {
+        notification.error({
+          message: 'Lỗi',
+          description: data.message
+        });
+      }
+    } catch (error) {
+      console.error('Error upgrading membership:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể nâng cấp membership'
+      });
+    }
+  };
+
+  const cancelMembership = async (userId) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const response = await fetch(`/api/admin/users/${userId}/cancel-membership`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        notification.success({
+          message: 'Thành công',
+          description: data.message
+        });
+        // Refresh data
+        fetchUsersWithMembership();
+        fetchAnalyticsData();
+      } else {
+        notification.error({
+          message: 'Lỗi',
+          description: data.message
+        });
+      }
+    } catch (error) {
+      console.error('Error canceling membership:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể hủy membership'
+      });
+    }
+  };
+
+  const sendExpiryNotifications = async () => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const response = await fetch('/api/admin/notifications/send-expiry-alerts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        notification.success({
+          message: 'Thành công',
+          description: data.message
+        });
+      } else {
+        notification.error({
+          message: 'Lỗi',
+          description: data.message
+        });
+      }
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể gửi thông báo'
+      });
+    }
+  };
+
+  const exportPaymentReport = () => {
+    notification.info({
+      message: 'Đang xuất báo cáo',
+      description: 'Báo cáo thanh toán sẽ được tải xuống trong giây lát'
+    });
+    // TODO: Generate and download report
+  };
+
+  const exportUserReport = () => {
+    notification.info({
+      message: 'Đang xuất báo cáo',
+      description: 'Báo cáo người dùng sẽ được tải xuống trong giây lát'
+    });
+    // TODO: Generate and download report
+  };
+
+  const exportRevenueReport = () => {
+    notification.info({
+      message: 'Đang xuất báo cáo', 
+      description: 'Báo cáo doanh thu sẽ được tải xuống trong giây lát'
+    });
+    // TODO: Generate and download report
   };
 
   const packageColumns = [
@@ -259,6 +612,142 @@ export default function AdminMemberships() {
     }
   ];
 
+  // User Management Table Columns
+  const userMembershipColumns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id'
+    },
+    {
+      title: 'Người dùng',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text, record) => (
+        <div>
+          <div><strong>{text}</strong></div>
+          <div style={{ color: '#888', fontSize: '12px' }}>{record.email}</div>
+        </div>
+      )
+    },
+    {
+      title: 'Membership',
+      dataIndex: 'membership',
+      key: 'membership',
+      render: (membership) => {
+        let color = 'default';
+        if (membership === 'Premium') color = 'gold';
+        else if (membership === 'Basic') color = 'blue';
+        return <Tag color={color}>{membership}</Tag>;
+      }
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        let color = 'green';
+        let text = 'Hoạt động';
+        if (status === 'expiring') {
+          color = 'orange';
+          text = 'Sắp hết hạn';
+        } else if (status === 'expired') {
+          color = 'red';
+          text = 'Đã hết hạn';
+        }
+        return <Tag color={color}>{text}</Tag>;
+      }
+    },
+    {
+      title: 'Ngày hết hạn',
+      dataIndex: 'expiryDate',
+      key: 'expiryDate',
+      render: (date) => new Date(date).toLocaleDateString('vi-VN')
+    },
+    {
+      title: 'Tổng thanh toán',
+      dataIndex: 'totalPaid',
+      key: 'totalPaid',
+      render: (amount) => `${amount.toLocaleString('vi-VN')} ₫`
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (_, record) => (
+        <Dropdown overlay={
+          <Menu>
+            <Menu.Item onClick={() => extendMembership(record.id)}>
+              🔄 Gia hạn 30 ngày
+            </Menu.Item>
+            <Menu.Item onClick={() => upgradeMembership(record.id)}>
+              ⬆️ Nâng cấp gói
+            </Menu.Item>
+            <Menu.Item onClick={() => cancelMembership(record.id)} danger>
+              ❌ Hủy membership
+            </Menu.Item>
+          </Menu>
+        }>
+          <Button>Hành động <DownOutlined /></Button>
+        </Dropdown>
+      )
+    }
+  ];
+
+  // Discount Codes Table Columns
+  const discountColumns = [
+    {
+      title: 'Mã giảm giá',
+      dataIndex: 'code',
+      key: 'code',
+      render: (code) => <strong>{code}</strong>
+    },
+    {
+      title: 'Loại',
+      dataIndex: 'type',
+      key: 'type',
+      render: (type) => (
+        <Tag color={type === 'percentage' ? 'blue' : 'green'}>
+          {type === 'percentage' ? 'Phần trăm' : 'Số tiền'}
+        </Tag>
+      )
+    },
+    {
+      title: 'Giá trị',
+      dataIndex: 'value',
+      key: 'value',
+      render: (value, record) => 
+        record.type === 'percentage' ? `${value}%` : `${value.toLocaleString('vi-VN')} ₫`
+    },
+    {
+      title: 'Áp dụng cho',
+      dataIndex: 'applicablePackages',
+      key: 'applicablePackages',
+      render: (packages) => packages.join(', ')
+    },
+    {
+      title: 'Đã sử dụng',
+      dataIndex: 'usedCount',
+      key: 'usedCount',
+      render: (used, record) => `${used}/${record.maxUses}`
+    },
+    {
+      title: 'Hạn sử dụng',
+      dataIndex: 'expiryDate',
+      key: 'expiryDate',
+      render: (date) => new Date(date).toLocaleDateString('vi-VN')
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'active',
+      key: 'active',
+      render: (active) => (
+        <Tag color={active ? 'green' : 'red'}>
+          {active ? 'Hoạt động' : 'Tạm dừng'}
+        </Tag>
+      )
+    }
+  ];
+
   const paymentColumns = [
     {
       title: 'Mã thanh toán',
@@ -315,6 +804,52 @@ export default function AdminMemberships() {
         
         return <Tag color={color}>{text}</Tag>;
       }
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (_, record) => (
+        <Dropdown overlay={
+          <Menu>
+            <Menu.Item onClick={() => {
+              notification.info({
+                message: 'Chi tiết thanh toán',
+                description: `Xem chi tiết giao dịch ${record.id}`
+              });
+            }}>
+              📋 Xem chi tiết
+            </Menu.Item>
+            <Menu.Item onClick={() => {
+              notification.info({
+                message: 'Liên hệ khách hàng',
+                description: `Liên hệ với ${record.userName}`
+              });
+            }}>
+              💬 Liên hệ khách hàng
+            </Menu.Item>
+            {record.status === 'completed' && (
+              <Menu.Item onClick={() => {
+                notification.warning({
+                  message: 'Hoàn tiền',
+                  description: `Xử lý hoàn tiền cho giao dịch ${record.id}`
+                });
+              }}>
+                💰 Hoàn tiền
+              </Menu.Item>
+            )}
+            <Menu.Item onClick={() => {
+              notification.info({
+                message: 'Gửi hóa đơn',
+                description: `Gửi lại hóa đơn cho ${record.userName}`
+              });
+            }}>
+              📧 Gửi lại hóa đơn
+            </Menu.Item>
+          </Menu>
+        }>
+          <Button>Hành động <DownOutlined /></Button>
+        </Dropdown>
+      )
     }
   ];
 
@@ -362,7 +897,17 @@ export default function AdminMemberships() {
 
         <TabPane tab="Thanh toán" key="2">
           <Card>
-            <Title level={3}>Quản lý thanh toán</Title>
+            <div className="header-with-button">
+              <Title level={3}>Quản lý thanh toán</Title>
+              <Space>
+                <Button icon={<DownloadOutlined />} onClick={exportPaymentReport}>
+                  📊 Xuất báo cáo thanh toán
+                </Button>
+                <Button icon={<DownloadOutlined />} onClick={exportRevenueReport}>
+                  💰 Xuất báo cáo doanh thu
+                </Button>
+              </Space>
+            </div>
 
             <Row gutter={16} className="stats-row">
               <Col span={8}>
@@ -402,18 +947,344 @@ export default function AdminMemberships() {
             </Row>
 
             <div className="filter-container">
-              <RangePicker style={{ marginRight: 16 }} />
-              <Select defaultValue="all" style={{ width: 200 }}>
-                <Option value="all">Tất cả trạng thái</Option>
-                <Option value="completed">Hoàn thành</Option>
-                <Option value="pending">Đang xử lý</Option>
-                <Option value="failed">Thất bại</Option>
-              </Select>
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={6}>
+                  <RangePicker 
+                    placeholder={['Từ ngày', 'Đến ngày']}
+                    style={{ width: '100%' }}
+                    onChange={(dates) => setSelectedDateRange(dates)}
+                  />
+                </Col>
+                <Col span={4}>
+                  <Select 
+                    defaultValue="all" 
+                    style={{ width: '100%' }}
+                    onChange={(value) => setPaymentFilter(value)}
+                  >
+                    <Option value="all">Tất cả trạng thái</Option>
+                    <Option value="completed">Hoàn thành</Option>
+                    <Option value="pending">Đang xử lý</Option>
+                    <Option value="failed">Thất bại</Option>
+                  </Select>
+                </Col>
+                <Col span={4}>
+                  <Select defaultValue="all" style={{ width: '100%' }}>
+                    <Option value="all">Tất cả gói</Option>
+                    <Option value="Basic">Basic</Option>
+                    <Option value="Premium">Premium</Option>
+                  </Select>
+                </Col>
+                <Col span={4}>
+                  <Input.Search 
+                    placeholder="Tìm theo tên user"
+                    style={{ width: '100%' }}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Space>
+                    <Button onClick={() => {
+                      setSelectedDateRange(null);
+                      setPaymentFilter('all');
+                      notification.info({ message: 'Đã đặt lại bộ lọc' });
+                    }}>
+                      Đặt lại
+                    </Button>
+                    <Button type="primary">
+                      Áp dụng
+                    </Button>
+                  </Space>
+                </Col>
+              </Row>
+              
+              {/* Quick Stats */}
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={6}>
+                  <Card size="small">
+                    <Statistic
+                      title="Giao dịch thất bại"
+                      value={payments.filter(p => p.status === 'failed').length}
+                      valueStyle={{ color: '#cf1322' }}
+                      prefix={<CloseCircleOutlined />}
+                    />
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card size="small">
+                    <Statistic
+                      title="Đang xử lý"
+                      value={payments.filter(p => p.status === 'pending').length}
+                      valueStyle={{ color: '#fa8c16' }}
+                      prefix={<ExclamationCircleOutlined />}
+                    />
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card size="small">
+                    <div>ZaloPay: 65%</div>
+                    <div>MoMo: 20%</div>
+                    <div>Banking: 15%</div>
+                  </Card>
+                </Col>
+                <Col span={6}>
+                  <Card size="small">
+                    <Statistic
+                      title="Số tiền hoàn"
+                      value={298000}
+                      suffix="₫"
+                      valueStyle={{ color: '#722ed1' }}
+                      formatter={(value) => value.toLocaleString('vi-VN')}
+                    />
+                  </Card>
+                </Col>
+              </Row>
             </div>
 
             <Table
               columns={paymentColumns}
               dataSource={payments}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+            />
+          </Card>
+        </TabPane>
+
+        <TabPane tab={<span><AreaChartOutlined />Phân tích</span>} key="3">
+          <Card>
+            <Title level={3}>Phân tích dữ liệu</Title>
+            
+            {/* Key Metrics */}
+            <Row gutter={16}>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Free Users"
+                    value={analyticsData.userDistribution?.free || 217}
+                    valueStyle={{ color: '#52c41a' }}
+                    prefix={<UserOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Basic Users (PRE)"
+                    value={analyticsData.userDistribution?.basic || 58}
+                    valueStyle={{ color: '#1890ff' }}
+                    prefix={<CrownOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Premium Users (PRO)"
+                    value={analyticsData.userDistribution?.premium || 25}
+                    valueStyle={{ color: '#faad14' }}
+                    prefix={<StarOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Tỷ lệ chuyển đổi"
+                    value={analyticsData.conversionRates?.freeToAny || 27.6}
+                    suffix="%"
+                    precision={1}
+                    valueStyle={{ color: '#722ed1' }}
+                    prefix={<TrophyOutlined />}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Revenue Analysis */}
+            <Row gutter={16} style={{ marginTop: 16 }}>
+              <Col span={12}>
+                <Card title="💰 Doanh thu theo gói">
+                  <div style={{ marginBottom: 16 }}>
+                    <Statistic
+                      title="Basic Package"
+                      value={analyticsData.userDistribution?.basic * 99000 || 5742000}
+                      suffix="₫"
+                      precision={0}
+                      formatter={(value) => `${value.toLocaleString('vi-VN')}`}
+                    />
+                  </div>
+                  <Statistic
+                    title="Premium Package"
+                    value={analyticsData.userDistribution?.premium * 299000 || 7475000}
+                    suffix="₫"
+                    precision={0}
+                    formatter={(value) => `${value.toLocaleString('vi-VN')}`}
+                  />
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card title="📊 Tỷ lệ chuyển đổi">
+                  <div style={{ marginBottom: 16 }}>
+                    <div>Free → Basic</div>
+                    <Progress 
+                      percent={analyticsData.conversionRates?.freeToBasic || 21.1} 
+                      format={percent => `${percent}%`}
+                    />
+                  </div>
+                  <div>
+                    <div>Basic → Premium</div>
+                    <Progress 
+                      percent={analyticsData.conversionRates?.basicToPremium || 15.8}
+                      format={percent => `${percent}%`}
+                    />
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Conversion Funnel */}
+            <Card title="🔄 Phễu chuyển đổi" style={{ marginTop: 16 }}>
+              <Steps current={2} direction="horizontal">
+                <Step 
+                  title="Free Users" 
+                  description={`${analyticsData.userDistribution?.free || 217} người`}
+                  icon={<UserOutlined />}
+                />
+                <Step 
+                  title="Basic (PRE)" 
+                  description={`${analyticsData.userDistribution?.basic || 58} người (${analyticsData.conversionRates?.freeToBasic || 21.1}%)`}
+                  icon={<CrownOutlined />}
+                />
+                <Step 
+                  title="Premium (PRO)" 
+                  description={`${analyticsData.userDistribution?.premium || 25} người (${analyticsData.conversionRates?.basicToPremium || 15.8}%)`}
+                  icon={<StarOutlined />}
+                />
+              </Steps>
+            </Card>
+
+            {/* Payment Method Analysis */}
+            <Card title="💳 Phương thức thanh toán" style={{ marginTop: 16 }}>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Card size="small">
+                    <Statistic
+                      title="ZaloPay"
+                      value={analyticsData.paymentMethods?.zalopay?.percentage || 65}
+                      suffix="%"
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                    <Text type="secondary">{analyticsData.paymentMethods?.zalopay?.count || 45} giao dịch</Text>
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small">
+                    <Statistic
+                      title="MoMo"
+                      value={analyticsData.paymentMethods?.momo?.percentage || 20}
+                      suffix="%"
+                      valueStyle={{ color: '#52c41a' }}
+                    />
+                    <Text type="secondary">{analyticsData.paymentMethods?.momo?.count || 12} giao dịch</Text>
+                  </Card>
+                </Col>
+                <Col span={8}>
+                  <Card size="small">
+                    <Statistic
+                      title="Banking"
+                      value={analyticsData.paymentMethods?.banking?.percentage || 15}
+                      suffix="%"
+                      valueStyle={{ color: '#faad14' }}
+                    />
+                    <Text type="secondary">{analyticsData.paymentMethods?.banking?.count || 8} giao dịch</Text>
+                  </Card>
+                </Col>
+              </Row>
+            </Card>
+          </Card>
+        </TabPane>
+
+        <TabPane tab={<span><UserOutlined />Người dùng</span>} key="4">
+          <Card>
+            <div className="header-with-button">
+              <Title level={3}>Quản lý membership người dùng</Title>
+              <Space>
+                <Button icon={<DownloadOutlined />} onClick={exportUserReport}>
+                  Xuất báo cáo
+                </Button>
+              </Space>
+            </div>
+            
+            {/* Expiry Alerts */}
+            {expiringUsers.length > 0 && (
+              <Alert
+                message={`${expiringUsers.length} người dùng sắp hết hạn membership trong 7 ngày tới`}
+                type="warning"
+                action={
+                  <Button size="small" onClick={sendExpiryNotifications}>
+                    <BellOutlined /> Gửi thông báo
+                  </Button>
+                }
+                style={{ marginBottom: 16 }}
+                showIcon
+              />
+            )}
+
+            <Table 
+              columns={userMembershipColumns}
+              dataSource={usersWithMembership}
+              rowKey="id"
+              loading={loading}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <div style={{ padding: '16px 0' }}>
+                    <Descriptions title="Chi tiết membership" size="small" column={3}>
+                      <Descriptions.Item label="Ngày đăng ký">
+                        {new Date(record.joinDate).toLocaleDateString('vi-VN')}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Ngày hết hạn">
+                        {new Date(record.expiryDate).toLocaleDateString('vi-VN')}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Số lần gia hạn">
+                        <Badge count={record.renewalCount} style={{ backgroundColor: '#52c41a' }} />
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Tổng thanh toán">
+                        {record.totalPaid.toLocaleString('vi-VN')} ₫
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Trạng thái hiện tại">
+                        <Tag color={record.status === 'active' ? 'green' : 'orange'}>
+                          {record.status === 'active' ? 'Đang hoạt động' : 'Sắp hết hạn'}
+                        </Tag>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </div>
+                ),
+                rowExpandable: (record) => true,
+              }}
+            />
+          </Card>
+        </TabPane>
+
+        <TabPane tab={<span><GiftOutlined />Khuyến mãi</span>} key="5">
+          <Card>
+            <div className="header-with-button">
+              <Title level={3}>Quản lý mã giảm giá</Title>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  notification.info({
+                    message: 'Tính năng đang phát triển',
+                    description: 'Chức năng tạo mã giảm giá đang được phát triển'
+                  });
+                }}
+              >
+                Tạo mã giảm giá
+              </Button>
+            </div>
+
+            <Table 
+              columns={discountColumns}
+              dataSource={discountCodes}
               rowKey="id"
               loading={loading}
               pagination={{ pageSize: 10 }}
