@@ -647,6 +647,170 @@ export const getPackages = async (req, res) => {
   }
 };
 
+// Create new package
+export const createPackage = async (req, res) => {
+  try {
+    const { pool } = await import('../config/database.js');
+    const { name, price, membership_type, description, period } = req.body;
+
+    // Validate required fields
+    if (!name || !price || !membership_type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên gói, giá và loại membership là bắt buộc'
+      });
+    }
+
+    // Validate membership_type
+    if (!['free', 'premium', 'pro'].includes(membership_type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loại membership phải là free, premium hoặc pro'
+      });
+    }
+
+    // Insert new package
+    const [result] = await pool.execute(
+      'INSERT INTO packages (name, price, membership_type, description, period, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
+      [name, price, membership_type, description || '', period || 'tháng']
+    );
+
+    // Get the created package
+    const [newPackage] = await pool.execute(
+      'SELECT * FROM packages WHERE id = ?',
+      [result.insertId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Đã tạo gói thành viên mới thành công',
+      data: newPackage[0]
+    });
+  } catch (error) {
+    console.error('Error creating package:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tạo gói thành viên mới',
+      error: error.message
+    });
+  }
+};
+
+// Update package
+export const updatePackage = async (req, res) => {
+  try {
+    const { pool } = await import('../config/database.js');
+    const { packageId } = req.params;
+    const { name, price, membership_type, description, period } = req.body;
+
+    // Check if package exists
+    const [packageCheck] = await pool.execute(
+      'SELECT * FROM packages WHERE id = ?',
+      [packageId]
+    );
+
+    if (packageCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gói thành viên không tồn tại'
+      });
+    }
+
+    // Validate membership_type if provided
+    if (membership_type && !['free', 'premium', 'pro'].includes(membership_type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Loại membership phải là free, premium hoặc pro'
+      });
+    }
+
+    // Update package
+    await pool.execute(
+      'UPDATE packages SET name = ?, price = ?, membership_type = ?, description = ?, period = ?, updated_at = NOW() WHERE id = ?',
+      [
+        name || packageCheck[0].name,
+        price || packageCheck[0].price,
+        membership_type || packageCheck[0].membership_type,
+        description || packageCheck[0].description,
+        period || packageCheck[0].period,
+        packageId
+      ]
+    );
+
+    // Get updated package
+    const [updatedPackage] = await pool.execute(
+      'SELECT * FROM packages WHERE id = ?',
+      [packageId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Đã cập nhật gói thành viên thành công',
+      data: updatedPackage[0]
+    });
+  } catch (error) {
+    console.error('Error updating package:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật gói thành viên',
+      error: error.message
+    });
+  }
+};
+
+// Delete package
+export const deletePackage = async (req, res) => {
+  try {
+    const { pool } = await import('../config/database.js');
+    const { packageId } = req.params;
+
+    // Check if package exists
+    const [packageCheck] = await pool.execute(
+      'SELECT * FROM packages WHERE id = ?',
+      [packageId]
+    );
+
+    if (packageCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gói thành viên không tồn tại'
+      });
+    }
+
+    // Check if package is being used
+    const [usageCheck] = await pool.execute(
+      'SELECT COUNT(*) as count FROM user_memberships WHERE package_id = ? AND status = "active"',
+      [packageId]
+    );
+
+    if (usageCheck[0].count > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không thể xóa gói này vì vẫn có người dùng đang sử dụng'
+      });
+    } else {
+      // Hard delete if no one is using it
+      await pool.execute(
+        'DELETE FROM packages WHERE id = ?',
+        [packageId]
+      );
+
+      res.json({
+        success: true,
+        message: 'Đã xóa gói thành viên thành công',
+        data: { packageId, action: 'deleted' }
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting package:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xóa gói thành viên',
+      error: error.message
+    });
+  }
+};
+
 // Get all payments for admin
 export const getPayments = async (req, res) => {
   try {

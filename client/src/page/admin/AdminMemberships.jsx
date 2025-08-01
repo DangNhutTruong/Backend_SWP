@@ -40,7 +40,6 @@ import {
   UserOutlined,
   StarOutlined,
   TrophyOutlined,
-  GiftOutlined,
   DownOutlined,
   ExclamationCircleOutlined,
   DownloadOutlined,
@@ -67,7 +66,6 @@ export default function AdminMemberships() {
   // New states for analytics and user management
   const [analyticsData, setAnalyticsData] = useState({});
   const [usersWithMembership, setUsersWithMembership] = useState([]);
-  const [discountCodes, setDiscountCodes] = useState([]);
   const [expiringUsers, setExpiringUsers] = useState([]);
   const [realtimePayments, setRealtimePayments] = useState([]);
   const [selectedDateRange, setSelectedDateRange] = useState(null);
@@ -79,7 +77,6 @@ export default function AdminMemberships() {
     fetchPayments();
     fetchAnalyticsData();
     fetchUsersWithMembership();
-    fetchDiscountCodes();
     fetchExpiringUsers();
   }, []);
 
@@ -109,9 +106,12 @@ export default function AdminMemberships() {
           id: pkg.id,
           name: pkg.name,
           price: pkg.price,
-          duration: pkg.period === 'tháng' ? 30 : pkg.period === 'năm' ? 365 : 0,
+          membershipType: pkg.membership_type,
+          description: pkg.description || '',
+          period: pkg.period || 'tháng',
+          duration: pkg.period === 'tháng' ? 30 : pkg.period === 'năm' ? 365 : 30,
           benefits: pkg.description ? pkg.description.split(',').map(b => b.trim()) : [],
-          active: true // Assume all packages from DB are active
+          active: true // All packages are active since no status column
         }));
         setPackages(transformedPackages);
       }
@@ -224,36 +224,6 @@ export default function AdminMemberships() {
     }
   };
 
-  const fetchDiscountCodes = () => {
-    setTimeout(() => {
-      const mockDiscounts = [
-        {
-          id: 1,
-          code: 'WELCOME20',
-          type: 'percentage',
-          value: 20,
-          applicablePackages: ['Pro', 'Premium'],
-          usedCount: 15,
-          maxUses: 100,
-          expiryDate: '2024-12-31',
-          active: true
-        },
-        {
-          id: 2,
-          code: 'SAVE50K',
-          type: 'fixed',
-          value: 50000,
-          applicablePackages: ['Premium'],
-          usedCount: 8,
-          maxUses: 50,
-          expiryDate: '2024-09-30',
-          active: true
-        }
-      ];
-      setDiscountCodes(mockDiscounts);
-    }, 1300);
-  };
-
   const fetchExpiringUsers = async () => {
     try {
       const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
@@ -289,8 +259,9 @@ export default function AdminMemberships() {
       form.setFieldsValue({
         name: pkg.name,
         price: pkg.price,
-        duration: pkg.duration,
-        benefits: pkg.benefits.join('\n')
+        membershipType: pkg.membershipType,
+        period: pkg.period,
+        description: pkg.description
       });
     } else {
       form.resetFields();
@@ -303,40 +274,109 @@ export default function AdminMemberships() {
     form.resetFields();
   };
 
-  const handleSubmit = (values) => {
-    const benefits = values.benefits.split('\n').filter(b => b.trim() !== '');
-    
-    if (editingPackage) {
-      // Cập nhật gói hiện có
-      setPackages(packages.map(p => 
-        p.id === editingPackage.id 
-          ? { ...p, ...values, benefits }
-          : p
-      ));
-    } else {
-      // Tạo gói mới
-      const newPackage = {
-        id: Date.now(),
-        ...values,
-        benefits,
-        active: true
+  const handleSubmit = async (values) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const packageData = {
+        name: values.name,
+        price: values.price,
+        membership_type: values.membershipType,
+        description: values.description,
+        period: values.period
       };
-      setPackages([...packages, newPackage]);
+
+      let response;
+      if (editingPackage) {
+        // Cập nhật gói hiện có
+        response = await fetch(`/api/admin/packages/${editingPackage.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(packageData)
+        });
+      } else {
+        // Tạo gói mới
+        response = await fetch('/api/admin/packages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(packageData)
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to save package');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        notification.success({ 
+          message: editingPackage ? 'Cập nhật gói thành công' : 'Tạo gói mới thành công' 
+        });
+        
+        // Refresh packages list
+        await fetchPackages();
+        setIsModalVisible(false);
+        form.resetFields();
+      } else {
+        throw new Error(result.message || 'Failed to save package');
+      }
+    } catch (error) {
+      console.error('Error saving package:', error);
+      notification.error({ 
+        message: 'Lỗi khi lưu gói thành viên',
+        description: error.message 
+      });
     }
-    
-    setIsModalVisible(false);
-    form.resetFields();
   };
 
-  const handleDelete = (id) => {
-    setPackages(packages.filter(p => p.id !== id));
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      if (!token) {
+        notification.error({ message: 'Không tìm thấy token xác thực' });
+        return;
+      }
+
+      const response = await fetch(`/api/admin/packages/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete package');
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        notification.success({ message: 'Xóa gói thành viên thành công' });
+        
+        // Refresh packages list
+        await fetchPackages();
+      } else {
+        throw new Error(result.message || 'Failed to delete package');
+      }
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      notification.error({ 
+        message: 'Lỗi khi xóa gói thành viên',
+        description: error.message 
+      });
+    }
   };
 
-  const handleToggleStatus = (id, currentStatus) => {
-    setPackages(packages.map(p => 
-      p.id === id ? { ...p, active: !currentStatus } : p
-    ));
-  };
+  // Removed handleToggleStatus since database doesn't have status column
 
   // Utility functions for new features
   const extendMembership = async (userId) => {
@@ -540,33 +580,34 @@ export default function AdminMemberships() {
       key: 'price',
       render: (price) => price === 0 ? 'Miễn phí' : `${price.toLocaleString('vi-VN')} ₫`
     },
+    // {
+    //   title: 'Loại thành viên',
+    //   dataIndex: 'membership_type',
+    //   key: 'membership_type',
+    //   render: (type) => {
+    //     const typeMapping = {
+    //       'basic': 'Cơ bản',
+    //       'premium': 'Cao cấp',
+    //       'vip': 'VIP'
+    //     };
+    //     return <Tag color={type === 'vip' ? 'gold' : type === 'premium' ? 'blue' : 'default'}>
+    //       {typeMapping[type] || type}
+    //     </Tag>
+    //   }
+    // },
     {
       title: 'Thời hạn',
-      dataIndex: 'duration',
-      key: 'duration',
-      render: (duration) => duration === 0 ? 'Vĩnh viễn' : `${duration} ngày`
+      dataIndex: 'period',
+      key: 'period'
     },
     {
-      title: 'Quyền lợi',
-      dataIndex: 'benefits',
-      key: 'benefits',
-      render: (benefits) => (
-        <ul style={{ paddingLeft: '20px', margin: 0 }}>
-          {benefits.slice(0, 2).map((benefit, index) => (
-            <li key={index}>{benefit}</li>
-          ))}
-          {benefits.length > 2 && <li>...và {benefits.length - 2} quyền lợi khác</li>}
-        </ul>
-      )
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'active',
-      key: 'active',
-      render: (active) => (
-        <Tag color={active ? 'green' : 'red'}>
-          {active ? 'Đang hoạt động' : 'Đã tắt'}
-        </Tag>
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      render: (description) => (
+        <div style={{ maxWidth: '200px' }}>
+          {description?.length > 50 ? `${description.substring(0, 50)}...` : description}
+        </div>
       )
     },
     {
@@ -579,13 +620,6 @@ export default function AdminMemberships() {
               type="primary" 
               icon={<EditOutlined />} 
               onClick={() => showModal(record)} 
-            />
-          </Tooltip>
-          <Tooltip title={record.active ? 'Tắt gói' : 'Kích hoạt gói'}>
-            <Button
-              type={record.active ? 'default' : 'primary'}
-              icon={record.active ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
-              onClick={() => handleToggleStatus(record.id, record.active)}
             />
           </Tooltip>
           <Popconfirm
@@ -683,61 +717,6 @@ export default function AdminMemberships() {
         }>
           <Button>Hành động <DownOutlined /></Button>
         </Dropdown>
-      )
-    }
-  ];
-
-  // Discount Codes Table Columns
-  const discountColumns = [
-    {
-      title: 'Mã giảm giá',
-      dataIndex: 'code',
-      key: 'code',
-      render: (code) => <strong>{code}</strong>
-    },
-    {
-      title: 'Loại',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => (
-        <Tag color={type === 'percentage' ? 'blue' : 'green'}>
-          {type === 'percentage' ? 'Phần trăm' : 'Số tiền'}
-        </Tag>
-      )
-    },
-    {
-      title: 'Giá trị',
-      dataIndex: 'value',
-      key: 'value',
-      render: (value, record) => 
-        record.type === 'percentage' ? `${value}%` : `${value.toLocaleString('vi-VN')} ₫`
-    },
-    {
-      title: 'Áp dụng cho',
-      dataIndex: 'applicablePackages',
-      key: 'applicablePackages',
-      render: (packages) => packages.join(', ')
-    },
-    {
-      title: 'Đã sử dụng',
-      dataIndex: 'usedCount',
-      key: 'usedCount',
-      render: (used, record) => `${used}/${record.maxUses}`
-    },
-    {
-      title: 'Hạn sử dụng',
-      dataIndex: 'expiryDate',
-      key: 'expiryDate',
-      render: (date) => new Date(date).toLocaleDateString('vi-VN')
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'active',
-      key: 'active',
-      render: (active) => (
-        <Tag color={active ? 'green' : 'red'}>
-          {active ? 'Hoạt động' : 'Tạm dừng'}
-        </Tag>
       )
     }
   ];
@@ -1391,34 +1370,6 @@ export default function AdminMemberships() {
             />
           </Card>
         </TabPane>
-
-        <TabPane tab={<span><GiftOutlined />Khuyến mãi</span>} key="5">
-          <Card>
-            <div className="header-with-button">
-              <Title level={3}>Quản lý mã giảm giá</Title>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  notification.info({
-                    message: 'Tính năng đang phát triển',
-                    description: 'Chức năng tạo mã giảm giá đang được phát triển'
-                  });
-                }}
-              >
-                Tạo mã giảm giá
-              </Button>
-            </div>
-
-            <Table 
-              columns={discountColumns}
-              dataSource={discountCodes}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10 }}
-            />
-          </Card>
-        </TabPane>
       </Tabs>
 
       <Modal
@@ -1456,23 +1407,36 @@ export default function AdminMemberships() {
           </Form.Item>
 
           <Form.Item
-            name="duration"
-            label="Thời hạn (ngày)"
-            rules={[{ required: true, message: 'Vui lòng nhập thời hạn!' }]}
-            tooltip="Nhập 0 nếu đây là gói vĩnh viễn"
+            name="membershipType"
+            label="Loại membership"
+            rules={[{ required: true, message: 'Vui lòng chọn loại membership!' }]}
           >
-            <InputNumber min={0} style={{ width: '100%' }} placeholder="Ví dụ: 30" />
+            <Select placeholder="Chọn loại membership">
+              <Option value="free">Free</Option>
+              <Option value="pro">Pro</Option>
+              <Option value="premium">Premium</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item
-            name="benefits"
-            label="Quyền lợi"
-            rules={[{ required: true, message: 'Vui lòng nhập quyền lợi!' }]}
-            tooltip="Mỗi quyền lợi trên một dòng"
+            name="period"
+            label="Chu kỳ"
+            rules={[{ required: true, message: 'Vui lòng chọn chu kỳ!' }]}
+          >
+            <Select placeholder="Chọn chu kỳ">
+              <Option value="tháng">Tháng</Option>
+              <Option value="năm">Năm</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Mô tả"
+            tooltip="Mô tả chi tiết về gói thành viên"
           >
             <Input.TextArea
-              rows={5}
-              placeholder="Ví dụ:&#10;Truy cập nội dung premium&#10;Huấn luyện viên 1:1&#10;Hỗ trợ 24/7"
+              rows={4}
+              placeholder="Ví dụ: Truy cập nội dung premium, Huấn luyện viên 1:1, Hỗ trợ 24/7"
             />
           </Form.Item>
 

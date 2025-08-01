@@ -12,6 +12,9 @@ import {
   sendExpiryNotifications,
   generateReport,
   getPackages,
+  createPackage,
+  updatePackage,
+  deletePackage,
   getPayments,
   getAnalytics
 } from '../controllers/adminController.js';
@@ -29,6 +32,9 @@ router.get('/analytics/payment-analytics', getPaymentAnalytics);
 
 // Package management endpoints
 router.get('/packages', getPackages);
+router.post('/packages', createPackage);
+router.put('/packages/:packageId', updatePackage);
+router.delete('/packages/:packageId', deletePackage);
 
 // Payment management endpoints
 router.get('/payments', getPayments);
