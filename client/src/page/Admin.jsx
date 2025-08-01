@@ -27,7 +27,7 @@ export default function Admin() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('1');
 
-  if (!user || !user.is_admin) {
+  if (!user || user.role !== 'admin') {
     return (
       <div className="admin-container">
         <Card>

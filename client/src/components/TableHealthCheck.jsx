@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Alert, Button, Table, Tag, Spin, Typography, Space } from 'antd';
 import { CheckCircleOutlined, ExclamationCircleOutlined, SyncOutlined } from '@ant-design/icons';
-import healthService from '../services/healthService';
+// import healthService from '../services/healthService';
 import './TableHealthCheck.css';
 
 const { Title, Text } = Typography;
