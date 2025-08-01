@@ -330,7 +330,14 @@ const DailyCheckin = ({ onProgressUpdate }) => {
             };
             
             loadPlanAndCalculateTarget();
-            console.log('🔄 Reset DailyCheckin state cho user mới:', user.id);
+            // Xóa tất cả dữ liệu check-in cũ khi có user mới
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('checkin_')) {
+                localStorage.removeItem(key);
+              }
+            });
+            
+            console.log('🔄 Reset DailyCheckin state và xóa dữ liệu cũ cho user mới:', user.id);
         }
     }, [user?.id]); // Chỉ chạy khi user ID thay đổi
 
