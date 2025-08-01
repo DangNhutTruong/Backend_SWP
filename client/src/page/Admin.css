@@ -149,6 +149,36 @@
   color: #1890ff;
 }
 
+/* Coach Management Styles */
+.coach-management {
+  margin-top: 16px;
+}
+
+.coach-card {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+.coach-detail h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.coach-detail h3 {
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.coach-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.coach-availability h3 {
+  margin-bottom: 20px;
+}
+
 @media (max-width: 768px) {
   .admin-container {
     padding: 16px;

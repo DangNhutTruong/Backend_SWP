@@ -13,12 +13,14 @@ export const ensureCoachTables = async () => {
         // Read SQL scripts
         const coachSqlPath = path.join(__dirname, '..', 'scripts', 'create-coach-tables.sql');
         const appointmentSqlPath = path.join(__dirname, '..', 'scripts', 'create-appointment-tables.sql');
+        const assignmentSqlPath = path.join(__dirname, '..', 'scripts', 'create-coach-assignment-tables.sql');
         
         const coachSql = fs.readFileSync(coachSqlPath, 'utf8');
         const appointmentSql = fs.readFileSync(appointmentSqlPath, 'utf8');
+        const assignmentSql = fs.readFileSync(assignmentSqlPath, 'utf8');
         
-        // Combine both SQL scripts
-        const combinedSql = coachSql + '\n' + appointmentSql;
+        // Combine all SQL scripts
+        const combinedSql = coachSql + '\n' + appointmentSql + '\n' + assignmentSql;
         
         // Split statements by semicolon
         const statements = combinedSql

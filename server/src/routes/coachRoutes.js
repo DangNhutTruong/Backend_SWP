@@ -6,7 +6,7 @@ import {
     getCoachReviews, 
     addCoachFeedback 
 } from '../controllers/coachController.js';
-import { requireAuth } from '../middleware/authMiddleware.js';
+import { requireAuth, verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
