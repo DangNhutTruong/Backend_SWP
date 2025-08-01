@@ -9,14 +9,12 @@ console.log('API URL for progress service:', API_URL);
 
 // Service cho các hoạt động liên quan đến tiến trình cai thuốc
 const progressService = {
-  // Tạo check-in mới cho ngày hôm nay
-  createCheckin: async (checkinData) => {
+  // Tạo check-in mới
+  createCheckin: async (userId, date, checkinData) => {
     try {
-      // Kiểm tra xem có ngày không, nếu không thì sử dụng ngày hôm nay
-      if (!checkinData.date) {
-        checkinData.date = new Date().toISOString().split('T')[0];
-        console.log('Date not provided, using today:', checkinData.date);
-      }
+      // Sử dụng ngày được cung cấp hoặc ngày hôm nay nếu không có
+      const checkinDate = date || new Date().toISOString().split('T')[0];
+      console.log('📅 Creating check-in for date:', checkinDate, 'userId:', userId);
       
       // Calculate statistics based on checkin data
       const targetCigs = parseInt(checkinData.targetCigarettes || 0);
@@ -41,55 +39,89 @@ const progressService = {
       // 0-100 scale where 0 = smoked all cigarettes, 100 = avoided all cigarettes
       const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
       
-      const newFormatData = {
-        date: checkinData.date,
+      // Sử dụng định dạng phù hợp với API (camelCase thay vì snake_case)
+      const dataToSend = {
+        date: checkinDate,
+        user_id: userId,
         targetCigarettes: targetCigs,
         actualCigarettes: actualCigs,
+        initialCigarettes: initialCigs,
         cigarettesAvoided: cigarettesAvoided,
         moneySaved: moneySaved,
         healthScore: healthScore,
         notes: checkinData.notes || ''
       };
-
-      console.log('Sending checkin data to API:', `${API_URL}/checkin`, newFormatData);
-      console.log('Full request URL:', window.location.origin + API_URL + '/checkin');
-      const response = await axios.post(`${API_URL}/checkin`, newFormatData);
-      console.log('Checkin API response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating checkin:', error);
-      console.error('Error details:', {
-        message: error.message,
-        responseData: error.response?.data,
-        status: error.response?.status,
-        url: API_URL + '/checkin',
-        config: error.config,
+      
+      console.log('Sending checkin data to API:', `${API_URL}/${userId}`, dataToSend);
+      console.log('Full request URL:', window.location.origin + API_URL + `/${userId}`);
+      
+      // Sử dụng fetch thay vì axios để tránh lỗi proxy (giống với createCheckinByUserId)
+      const response = await fetch(`${API_URL}/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSend)
       });
       
-      // Thử lại với axios trực tiếp nếu lỗi liên quan đến proxy
-      if (error.message && (error.message.includes('404') || error.response?.status === 404)) {
-        try {
-          console.warn('Trying direct API call to bypass proxy issues...');
-          // Thử gọi trực tiếp đến server
-          const directUrl = 'http://localhost:5000/api/progress/checkin';
-          console.log('Trying direct URL:', directUrl);
-          const directResponse = await axios.create({
-            baseURL: 'http://localhost:5000',
-            timeout: 10000,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') || localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`
-            },
-          }).post('/api/progress/checkin', newFormatData);
-          console.log('Direct API call successful:', directResponse.data);
-          return directResponse.data;
-        } catch (directError) {
-          console.error('Direct API call also failed:', directError.message);
-          throw directError;
-        }
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
       }
       
-      throw error;
+      console.log('Checkin API response:', result);
+      return result;
+    } catch (error) {
+      console.error('Error creating checkin:', error);
+      
+      // Thử lại với fetch trực tiếp nếu có lỗi
+      try {
+        console.warn('Trying direct API call to bypass proxy issues...');
+        const directUrl = `http://localhost:5000/api/progress/${userId}`;
+        console.log('Trying direct URL:', directUrl);
+        
+        const targetCigs = parseInt(checkinData.targetCigarettes || 0);
+        const actualCigs = parseInt(checkinData.actualCigarettes || 0);
+        const initialCigs = parseInt(checkinData.initialCigarettes || checkinData.dailyCigarettes || 50);
+        const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
+        const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250;
+        const moneySaved = cigarettesAvoided * costPerCigarette;
+        const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
+        
+        const dataToSend = {
+          date: date || new Date().toISOString().split('T')[0],
+          user_id: userId,
+          targetCigarettes: targetCigs,
+          actualCigarettes: actualCigs,
+          initialCigarettes: initialCigs,
+          cigarettesAvoided: cigarettesAvoided,
+          moneySaved: moneySaved,
+          healthScore: healthScore,
+          notes: checkinData.notes || ''
+        };
+        
+        const directResponse = await fetch(directUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') || localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`
+          },
+          body: JSON.stringify(dataToSend)
+        });
+        
+        const directResult = await directResponse.json();
+        
+        if (!directResponse.ok) {
+          throw new Error(`Direct API Error: ${directResponse.status} - ${directResult.message || 'Unknown error'}`);
+        }
+        
+        console.log('Direct API call successful:', directResult);
+        return directResult;
+      } catch (directError) {
+        console.error('Direct API call also failed:', directError);
+        throw error; // Ném lỗi ban đầu
+      }
     }
   },
 
@@ -682,6 +714,92 @@ const progressService = {
       
     } catch (error) {
       console.error('❌ Error in getProgressByUserId:', error);
+      throw error;
+    }
+  },
+  
+  // Cập nhật check-in cho một ngày cụ thể theo userId
+  updateCheckinByUserId: async (userId, date, checkinData) => {
+    try {
+      console.log(`Updating checkin for userId ${userId} on date ${date}:`, checkinData);
+
+      // Calculate statistics based on checkin data
+      const targetCigs = parseInt(checkinData.targetCigarettes || 0);
+      const actualCigs = parseInt(checkinData.actualCigarettes || 0);
+      
+      // Đảm bảo initialCigs có giá trị hợp lý (không bao giờ = 0)
+      let initialCigs = parseInt(checkinData.initialCigarettes || 0); 
+      
+      // Nếu initialCigs là 0, thử lấy từ kế hoạch hoặc đặt giá trị mặc định
+      if (initialCigs === 0) {
+        try {
+          // Thử lấy từ active plan trong localStorage
+          const localPlan = localStorage.getItem('activePlan');
+          if (localPlan) {
+            const parsedPlan = JSON.parse(localPlan);
+            initialCigs = parsedPlan.initialCigarettes || 
+                          parsedPlan.initial_cigarettes || 
+                          parsedPlan.dailyCigarettes ||
+                          parsedPlan.daily_cigarettes || 20;
+          } else {
+            // Nếu không có active plan, sử dụng giá trị mặc định
+            initialCigs = 20; // Giá trị mặc định hợp lý
+          }
+        } catch (e) {
+          console.error('Error parsing activePlan:', e);
+          initialCigs = 20; // Giá trị mặc định nếu có lỗi
+        }
+      }
+
+      // Calculate cigarettes avoided
+      const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
+      
+      console.log('🔍 UpdateCheckinByUserId cigarettes calculation:', {
+        initialCigs,
+        actualCigs,
+        targetCigs,
+        cigarettesAvoided
+      });
+      
+      // Calculate money saved
+      const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250; // 25,000 VND per pack of 20
+      const moneySaved = cigarettesAvoided * costPerCigarette;
+      
+      // Calculate health score
+      const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
+      
+      const dataToSend = {
+        date: date,
+        targetCigarettes: targetCigs,
+        actualCigarettes: actualCigs,
+        cigarettesAvoided: cigarettesAvoided,
+        moneySaved: moneySaved,
+        healthScore: healthScore,
+        notes: checkinData.notes || '',
+      };
+
+      console.log(`Sending to API: PUT /api/progress/${userId}`, dataToSend);
+      
+      // Sử dụng fetch thay vì axios để tránh lỗi proxy
+      const response = await fetch(`/api/progress/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
+      }
+
+      console.log('✅ Checkin updated successfully:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Error in updateCheckinByUserId:', error);
       throw error;
     }
   },

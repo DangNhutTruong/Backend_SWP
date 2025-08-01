@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaTrophy, FaCalendarCheck, FaChartLine, FaLeaf, FaCoins, FaHeart } from 'react-icons/fa';
+import { FaTrophy, FaCalendarCheck, FaChartLine, FaLeaf, FaCoins, FaHeart, FaCalendarAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import QuitProgressChart from './QuitProgressChart';
 
@@ -365,10 +365,25 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
         </div>
       </div>      {/* Progress Chart */}
       <div className="maintenance-section">
-        <h2>
-          <FaChartLine className="section-icon" />
-          Kế hoạch của bạn
-        </h2>        <div className="maintenance-chart">
+        <div className="chart-header-container">
+          <h2>
+            <FaChartLine className="section-icon" />
+            Kế hoạch của bạn
+          </h2>
+          <button 
+            id="history-button"
+            className="toggle-history-button"
+            onClick={() => {
+              // Kích hoạt sự kiện tùy chỉnh
+              const event = new CustomEvent('toggle-checkin-history');
+              document.dispatchEvent(event);
+            }}
+          >
+            <FaCalendarAlt style={{ marginRight: '5px', fontSize: '1rem' }} />
+            Lịch sử
+          </button>
+        </div>
+        <div className="maintenance-chart">
           <QuitProgressChart
             userPlan={userPlan}
             actualProgress={actualProgress && actualProgress.length > 0 ? actualProgress : generateSampleActualData(userPlan)}
@@ -415,35 +430,8 @@ const ProgressDashboard = ({ userPlan, completionDate, dashboardStats: externalS
             <li>Tìm kiếm hỗ trợ từ gia đình và bạn bè</li>
             <li>Nhắc nhở bản thân về lợi ích đã đạt được</li>
           </ul>
-        </div><div className="support-options">
-          <h3>🤝 Hỗ trợ thêm</h3>
-          <div className="support-buttons">
-            <Link to="/blog" className="support-btn primary">
-              Tham gia cộng đồng
-            </Link>
-            <Link to="/appointment" className="support-btn tertiary">
-              Tư vấn chuyên gia
-            </Link>
-          </div>
         </div>
-      </div>      {/* Success Story */}
-      <div className="success-story">
-        <h2>🎉 Câu chuyện thành công của bạn</h2>
-        <div className="story-content">
-          <p>
-            Bạn đã lập thành công <strong>{userPlan?.name || 'Kế hoạch cá nhân'}</strong> và duy trì được{' '}
-            <strong>{externalStats?.noSmokingDays || dashboardStats?.daysSincePlanCreation || 0} ngày</strong> không hút thuốc.
-          </p>
-          <p>
-            Trong thời gian này, bạn đã tiết kiệm được{' '}
-            <strong>{(((externalStats?.savedMoney || dashboardStats?.moneySaved || 0) / 1000).toFixed(0))}K VNĐ</strong> và tránh được{' '}
-            <strong>{(externalStats?.savedCigarettes || dashboardStats?.cigarettesSaved || 0).toLocaleString()}</strong> điếu thuốc.
-          </p>
-          <p>
-            Đây là một thành tích đáng tự hào! Hãy tiếp tục duy trì và truyền cảm hứng cho những người khác.
-          </p>
-        </div>
-      </div>
+      </div>     
     </div>
   );
 };
