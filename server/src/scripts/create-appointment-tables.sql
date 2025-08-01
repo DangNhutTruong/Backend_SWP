@@ -13,18 +13,18 @@ CREATE TABLE IF NOT EXISTS coach_availability (
 );
 
 -- Create appointment table if it doesn't exist
-CREATE TABLE IF NOT EXISTS appointment (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  coach_id INT NOT NULL,
-  user_id INT NOT NULL,
-  appointment_time DATETIME NOT NULL,
-  duration_minutes INT NOT NULL DEFAULT 30,
-  status ENUM('pending', 'confirmed', 'cancelled', 'completed') NOT NULL DEFAULT 'pending',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+-- CREATE TABLE IF NOT EXISTS appointment (
+--   id INT AUTO_INCREMENT PRIMARY KEY,
+--   coach_id INT NOT NULL,
+--   user_id INT NOT NULL,
+--   appointment_time DATETIME NOT NULL,
+--   duration_minutes INT NOT NULL DEFAULT 30,
+--   status ENUM('pending', 'confirmed', 'cancelled', 'completed') NOT NULL DEFAULT 'pending',
+--   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+--   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--   FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE,
+--   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+-- );
 
 -- Create feedback table if it doesn't exist
 CREATE TABLE IF NOT EXISTS feedback (
@@ -40,9 +40,9 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 -- Add indexes for improved query performance (compatible with older MySQL versions)
-ALTER TABLE appointment ADD INDEX idx_appointment_coach_id (coach_id);
-ALTER TABLE appointment ADD INDEX idx_appointment_user_id (user_id);
-ALTER TABLE appointment ADD INDEX idx_appointment_status (status);
-ALTER TABLE appointment ADD INDEX idx_appointment_time (appointment_time);
+ALTER TABLE appointments ADD INDEX idx_appointments_coach_id (coach_id);
+ALTER TABLE appointments ADD INDEX idx_appointments_user_id (user_id);
+ALTER TABLE appointments ADD INDEX idx_appointments_status (status);
+ALTER TABLE appointments ADD INDEX idx_appointments_date_time (date, time);
 ALTER TABLE coach_availability ADD INDEX idx_coach_availability (coach_id, day_of_week);
 ALTER TABLE feedback ADD INDEX idx_feedback_coach (coach_id);
