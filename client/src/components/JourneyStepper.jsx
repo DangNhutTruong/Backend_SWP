@@ -381,7 +381,10 @@ export default function JourneyStepper() {
         strategy: 'gradual', // hoặc 'immediate' tùy theo kế hoạch
         goal: formData.reasonToQuit || 'health',
         totalWeeks: completeSelectedPlan?.totalWeeks || 8,
-        weeks: completeSelectedPlan?.weeks || [], // Mảng các tuần
+        weeks: (completeSelectedPlan?.weeks || []).map(week => ({
+          week: week.week,
+          target: week.amount // Backend expects 'target' not 'amount'
+        })), // Mảng các tuần
         isActive: true,
         // Thêm metadata
         metadata: {
@@ -393,6 +396,7 @@ export default function JourneyStepper() {
       };
 
       logDebug('QuitPlan', '📤 Gửi dữ liệu lên API', planDataForAPI);
+      logDebug('QuitPlan', '📋 Weeks data structure:', planDataForAPI.weeks);
 
       // Gọi API để lưu kế hoạch lên database
       const apiResponse = await createQuitPlan(planDataForAPI);
