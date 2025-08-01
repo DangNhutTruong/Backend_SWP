@@ -122,22 +122,42 @@ export const getAnalytics = async (req, res) => {
       FROM payments
     `);
 
-    // 7. Growth rate calculation
-    const [thisMonthUsers] = await pool.execute(`
+    // 7. Growth rate calculation - based on paid memberships
+    const [thisMonthPaidUsers] = await pool.execute(`
       SELECT COUNT(*) as count
       FROM users
-      WHERE DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+      WHERE membership IN ('pro', 'premium')
+        AND is_active = 1
+        AND (
+          DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+          OR EXISTS (
+            SELECT 1 FROM user_memberships um 
+            WHERE um.user_id = users.id 
+            AND um.status = 'active'
+            AND DATE_FORMAT(um.start_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+          )
+        )
     `);
 
-    const [lastMonthUsers] = await pool.execute(`
+    const [lastMonthPaidUsers] = await pool.execute(`
       SELECT COUNT(*) as count
       FROM users
-      WHERE DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m')
+      WHERE membership IN ('pro', 'premium')
+        AND is_active = 1
+        AND (
+          DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m')
+          OR EXISTS (
+            SELECT 1 FROM user_memberships um 
+            WHERE um.user_id = users.id 
+            AND um.status = 'active'
+            AND DATE_FORMAT(um.start_date, '%Y-%m') = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m')
+          )
+        )
     `);
 
-    const growthRate = lastMonthUsers[0].count > 0 
-      ? ((thisMonthUsers[0].count - lastMonthUsers[0].count) / lastMonthUsers[0].count * 100).toFixed(1)
-      : 0;
+    const growthRate = lastMonthPaidUsers[0].count > 0 
+      ? ((thisMonthPaidUsers[0].count - lastMonthPaidUsers[0].count) / lastMonthPaidUsers[0].count * 100).toFixed(1)
+      : thisMonthPaidUsers[0].count > 0 ? 100 : 0;
 
     const analytics = {
       userDistribution: userDistribution.reduce((acc, row) => {
