@@ -143,19 +143,37 @@ export default function AdminCoaches() {
       
       if (data.success && Array.isArray(data.data)) {
         // Map backend field names to frontend field names
-        const mappedCoaches = data.data.map(coach => ({
-          id: coach.id,
-          name: coach.full_name || coach.name || 'Unknown',
-          email: coach.email || '',
-          phone: coach.phone || '',
-          specialization: coach.specialization || '',
-          experience: coach.experience || 0,
-          bio: coach.bio || '',
-          isActive: coach.is_active === 1 || coach.isActive || false,
-          rating: coach.rating !== null && coach.rating !== undefined ? parseFloat(coach.rating) : 0,
-          totalSessions: coach.appointment_count || coach.totalSessions || 0,
-          availableSlots: coach.available_slots_count || (Array.isArray(coach.available_slots) ? coach.available_slots.length : 0) || coach.availableSlots || 0
-        }));
+        const mappedCoaches = data.data.map(coach => {
+          // Handle name field more explicitly to debug the "Unknown" issue
+          let coachName = 'Unknown';
+          if (coach.full_name && coach.full_name.trim()) {
+            coachName = coach.full_name;
+          } else if (coach.name && coach.name.trim()) {
+            coachName = coach.name;
+          }
+          
+          // Handle experience field to ensure it includes "năm" if appropriate
+          let experienceValue = coach.experience || '';
+          if (experienceValue && !experienceValue.toString().includes('năm')) {
+            experienceValue = `${experienceValue} năm`.trim();
+          }
+          
+          console.log(`Coach ID ${coach.id}: name=${coachName}, exp=${experienceValue}`);
+          
+          return {
+            id: coach.id,
+            name: coachName,
+            email: coach.email || '',
+            phone: coach.phone || '',
+            specialization: coach.specialization || '',
+            experience: experienceValue,
+            bio: coach.bio || '',
+            isActive: coach.is_active === 1 || Boolean(coach.isActive),
+            rating: coach.rating !== null && coach.rating !== undefined ? parseFloat(coach.rating) : 0,
+            totalSessions: coach.appointment_count || coach.totalSessions || 0,
+            availableSlots: coach.available_slots_count || (Array.isArray(coach.available_slots) ? coach.available_slots.length : 0) || coach.availableSlots || 0
+          };
+        });
         setCoaches(mappedCoaches);
       } else {
         console.error('Invalid response format from API:', data);
@@ -293,14 +311,22 @@ export default function AdminCoaches() {
   const showModal = (coach = null) => {
     setEditingCoach(coach);
     if (coach) {
+      console.log('Setting form values for coach:', coach);
+      
+      // Process experience field to remove "năm" suffix for form editing
+      let experienceValue = coach.experience || '';
+      if (typeof experienceValue === 'string' && experienceValue.includes('năm')) {
+        experienceValue = experienceValue.replace(' năm', '').trim();
+      }
+      
       form.setFieldsValue({
         name: coach.name,
         email: coach.email,
         phone: coach.phone,
         specialization: coach.specialization,
-        experience: coach.experience,
+        experience: experienceValue, // Use cleaned value for form
         bio: coach.bio,
-        isActive: coach.isActive
+        isActive: coach.isActive !== undefined ? coach.isActive : true
       });
     } else {
       form.resetFields();
@@ -308,6 +334,7 @@ export default function AdminCoaches() {
         isActive: true
       });
     }
+    console.log('Form values after setting:', form.getFieldsValue());
     setIsModalVisible(true);
   };
 
@@ -343,10 +370,31 @@ export default function AdminCoaches() {
       
       const method = editingCoach ? 'PUT' : 'POST';
       
+      // Process experience field - store only numeric value to prevent database truncation
+      let experienceValue = values.experience;
+      // Remove any "năm" or non-numeric characters for backend storage
+      if (typeof experienceValue === 'string') {
+        const numericMatch = experienceValue.match(/^(\d+)/);
+        if (numericMatch && numericMatch[1]) {
+          experienceValue = numericMatch[1];
+        }
+      }
+      
+      // Convert field names for backend compatibility
+      const convertedValues = {
+        ...values,
+        experience: experienceValue,
+        is_active: values.isActive,
+        full_name: values.name // Map name to full_name for backend compatibility
+      };
+      
       console.log(`${editingCoach ? 'Updating' : 'Creating'} coach with API...`);
+      console.log('Form values:', values);
+      console.log('Converted values:', convertedValues);
+      
       const data = await api.fetch(url, {
         method,
-        body: JSON.stringify(values),
+        body: JSON.stringify(convertedValues),
       });
       
       console.log(`Coach ${editingCoach ? 'updated' : 'created'} successfully:`, data);
@@ -556,6 +604,23 @@ export default function AdminCoaches() {
       title: 'Chuyên môn',
       dataIndex: 'specialization',
       key: 'specialization',
+    },
+    {
+      title: 'Kinh nghiệm',
+      dataIndex: 'experience',
+      key: 'experience',
+      render: experience => {
+        // If it's empty, return empty string
+        if (!experience) {
+          return '';
+        }
+        // If experience already includes "năm", just return it
+        if (typeof experience === 'string' && experience.includes('năm')) {
+          return experience;
+        }
+        // Otherwise add "năm" to any value (number or string)
+        return `${experience} năm`;
+      },
     },
     {
       title: 'Đánh giá',
@@ -857,8 +922,9 @@ export default function AdminCoaches() {
             name="experience"
             label="Kinh nghiệm"
             rules={[{ required: true, message: 'Vui lòng nhập kinh nghiệm!' }]}
+            tooltip="Có thể nhập số (ví dụ: 5) hoặc văn bản đầy đủ (ví dụ: 5 năm)"
           >
-            <Input placeholder="Ví dụ: 5 năm" />
+            <Input placeholder="Ví dụ: 5" />
           </Form.Item>
 
           <Form.Item

@@ -122,16 +122,36 @@ export const getAllCoachesDetails = async (req, res) => {
 export const updateCoach = async (req, res) => {
     try {
         const { id } = req.params;
-        const { full_name, email, phone, gender, is_active, bio, experience, specialization } = req.body;
+        // Handle both isActive and is_active field names
+        const { full_name, email, phone, gender, is_active, isActive, bio, experience, specialization } = req.body;
+        
+        // Log request body to debug
+        console.log('Update coach request body:', req.body);
         
         // Check if coach exists
         const [coachRows] = await pool.query(
-            'SELECT id FROM users WHERE id = ? AND role = ?',
+            'SELECT id, is_active as currentIsActive FROM users WHERE id = ? AND role = ?',
             [id, 'coach']
         );
         
         if (coachRows.length === 0) {
             return sendResponse(res, 404, false, 'Coach not found', null);
+        }
+        
+        // Determine activation status - check both field names and maintain current if not provided
+        const providedStatus = is_active !== undefined ? is_active : isActive;
+        const activeStatus = providedStatus !== undefined ? (providedStatus ? 1 : 0) : coachRows[0].currentIsActive;
+        console.log(`Updating coach ${id} with is_active: ${activeStatus} (provided value: ${providedStatus})`);
+        
+        // Clean up experience value if it contains text (e.g. "11 năm")
+        let experienceValue = experience;
+        if (typeof experience === 'string' && experience.includes('năm')) {
+            // Extract the numeric part only for database storage
+            const numericMatch = experience.match(/^(\d+)/);
+            if (numericMatch && numericMatch[1]) {
+                experienceValue = numericMatch[1];
+                console.log(`Converted experience value "${experience}" to numeric: ${experienceValue}`);
+            }
         }
         
         // Update coach information
@@ -140,8 +160,8 @@ export const updateCoach = async (req, res) => {
             SET full_name = ?, email = ?, phone = ?, gender = ?, is_active = ?, 
                 bio = ?, experience = ?, specialization = ?
             WHERE id = ?`,
-            [full_name, email, phone, gender, is_active ? 1 : 0, 
-             bio, experience, specialization, id]
+            [full_name, email, phone, gender, activeStatus, 
+             bio, experienceValue, specialization, id]
         );
         
         return sendResponse(res, 200, true, 'Coach updated successfully', { id });
@@ -158,7 +178,11 @@ export const updateCoach = async (req, res) => {
  */
 export const createCoach = async (req, res) => {
     try {
-        const { full_name, email, phone, gender, password, bio, experience, specialization } = req.body;
+        // Handle both isActive and is_active field names
+        const { full_name, email, phone, gender, password, bio, experience, specialization, is_active, isActive } = req.body;
+        
+        // Log request body to debug
+        console.log('Create coach request body:', req.body);
         
         // Check if email already exists
         const [existingUser] = await pool.query(
@@ -170,13 +194,29 @@ export const createCoach = async (req, res) => {
             return sendResponse(res, 400, false, 'Email already exists', null);
         }
         
+        // Determine activation status - default to active (1) if not specified
+        const providedStatus = is_active !== undefined ? is_active : isActive;
+        const activeStatus = providedStatus !== undefined ? (providedStatus ? 1 : 0) : 1;
+        console.log(`Creating coach with is_active: ${activeStatus} (provided value: ${providedStatus})`);
+        
+        // Clean up experience value if it contains text (e.g. "11 năm")
+        let experienceValue = experience;
+        if (typeof experience === 'string' && experience.includes('năm')) {
+            // Extract the numeric part only for database storage
+            const numericMatch = experience.match(/^(\d+)/);
+            if (numericMatch && numericMatch[1]) {
+                experienceValue = numericMatch[1];
+                console.log(`Converted experience value "${experience}" to numeric: ${experienceValue}`);
+            }
+        }
+        
         // Create new coach
         const [result] = await pool.query(
             `INSERT INTO users (full_name, email, phone, gender, role, password, is_active,
                                 bio, experience, specialization)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [full_name, email, phone, gender, 'coach', password, 1,
-             bio || null, experience || null, specialization || null]
+            [full_name, email, phone, gender, 'coach', password, activeStatus,
+             bio || null, experienceValue || null, specialization || null]
         );
         
         return sendResponse(res, 201, true, 'Coach created successfully', { id: result.insertId });
