@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import DailyCheckin from '../components/DailyCheckin';
 import ProgressDashboard from '../components/ProgressDashboard';
+import CheckinHistory from '../components/CheckinHistory';
 import ResetCheckinData from '../components/ResetCheckinData';
 import { FaCalendarCheck, FaLeaf, FaCoins, FaHeart } from 'react-icons/fa';
 import progressService from '../services/progressService';
@@ -10,6 +11,7 @@ import { getUserActivePlan } from '../services/quitPlanService';
 import './Progress.css';
 import '../styles/DailyCheckin.css';
 import '../styles/ProgressDashboard.css';
+import '../styles/ProgressDashboard-update.css';
 
 export default function Progress() {
   const { user } = useAuth();
@@ -845,31 +847,40 @@ export default function Progress() {
 
   return (
     <div className="progress-container">
-      <h1 className="page-title">
-        {showCompletionDashboard ? 'Chúc mừng! Bạn đã lập kế hoạch cai thuốc' : 'Tiến trình cai thuốc hiện tại'}
-      </h1>
+      <div className="progress-header">
+        <h1 className="page-title">
+          {showCompletionDashboard ? 'Chúc mừng! Bạn đã lập kế hoạch cai thuốc' : 'Tiến trình cai thuốc hiện tại'}
+        </h1>
+      </div>
       
       {/* Daily Checkin Section - Luôn hiển thị để người dùng có thể nhập số điếu đã hút */}
       <DailyCheckin 
         onProgressUpdate={handleProgressUpdate}
       />
-        {/* Luôn hiển thị ProgressDashboard */}
-        <ProgressDashboard 
-          userPlan={userPlan} 
-          completionDate={completionData?.completionDate || new Date().toISOString()}
-          dashboardStats={dashboardStats}
-          actualProgress={actualProgress}
-          onDataReset={async () => {
-            // Reset data & recalculate
-            localStorage.removeItem('dashboardStats');
-            try {
-              await loadActualProgressFromCheckins();
-              recalculateStatistics();
-            } catch (error) {
-              console.error('❌ Error during data reset:', error);
-            }
-          }}
-        />
+        
+      {/* Luôn hiển thị ProgressDashboard */}
+      <ProgressDashboard 
+        userPlan={userPlan} 
+        completionDate={completionData?.completionDate || new Date().toISOString()}
+        dashboardStats={dashboardStats}
+        actualProgress={actualProgress}
+        onDataReset={async () => {
+          // Reset data & recalculate
+          localStorage.removeItem('dashboardStats');
+          try {
+            await loadActualProgressFromCheckins();
+            recalculateStatistics();
+          } catch (error) {
+            console.error('❌ Error during data reset:', error);
+          }
+        }}
+      />
+      
+      {/* Lịch sử Check-in */}
+      <div className="section-divider"></div>
+      <CheckinHistory 
+        onProgressUpdate={handleProgressUpdate}
+      />
     </div>
   );
 }

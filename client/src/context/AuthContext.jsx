@@ -160,6 +160,13 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.removeItem('dashboardStats');
         sessionStorage.removeItem('quitPlanCompletion');
         
+        // Xóa tất cả dữ liệu check-in cũ để tránh dính data
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('checkin_')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
         console.log('🧹 Đã xóa dữ liệu ứng dụng cũ trước khi login user mới');
 
         // Lưu token và user data
@@ -207,6 +214,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user_id');
     localStorage.removeItem('userId');
     localStorage.removeItem('activeProfileTab');
+    
+    // Xóa tất cả dữ liệu check-in
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('checkin_')) {
+        localStorage.removeItem(key);
+      }
+    });
     
     // Xóa cả sessionStorage
     sessionStorage.removeItem('activePlan');

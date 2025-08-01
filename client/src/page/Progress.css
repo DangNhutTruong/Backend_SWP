@@ -7,11 +7,25 @@
   color: #333;
 }
 
+/* Style từ Progress-update.css */
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
 .page-title {
   margin-bottom: 20px;
   color: #333;
   font-size: 18px;
   font-weight: 600;
+}
+
+.section-divider {
+  height: 2px;
+  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+  margin: 40px 0 30px;
 }
 
 .chart-container {
