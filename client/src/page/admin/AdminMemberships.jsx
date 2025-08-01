@@ -752,41 +752,87 @@ export default function AdminMemberships() {
     {
       title: 'Mã thanh toán',
       dataIndex: 'id',
-      key: 'id'
+      key: 'id',
+      width: 100
+    },
+    {
+      title: 'Transaction ID',
+      dataIndex: 'transactionId',
+      key: 'transactionId',
+      width: 150,
+      render: (transactionId) => (
+        <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+          {transactionId || 'N/A'}
+        </span>
+      )
     },
     {
       title: 'Người dùng',
       dataIndex: 'userName',
-      key: 'userName'
+      key: 'userName',
+      width: 150,
+      render: (userName, record) => (
+        <div>
+          <div><strong>{userName}</strong></div>
+          <div style={{ color: '#888', fontSize: '12px' }}>{record.userEmail}</div>
+        </div>
+      )
     },
     {
       title: 'Gói dịch vụ',
       dataIndex: 'packageName',
       key: 'packageName',
+      width: 120,
       render: (text) => {
         let color = 'default';
         if (text === 'Premium') color = 'gold';
-        else if (text === 'Basic') color = 'blue';
+        else if (text === 'Pro') color = 'purple';
         else if (text === 'Free') color = 'green';
-        return <Tag color={color}>{text.toUpperCase()}</Tag>;
+        return <Tag color={color}>{text}</Tag>;
       }
     },
     {
       title: 'Số tiền',
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount) => `${amount.toLocaleString('vi-VN')} ₫`
+      width: 120,
+      render: (amount) => (
+        <span style={{ fontWeight: 'bold', color: '#52c41a' }}>
+          {parseFloat(amount).toLocaleString('vi-VN')} ₫
+        </span>
+      )
+    },
+    {
+      title: 'Phương thức',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      width: 100,
+      render: (method) => {
+        let color = 'blue';
+        let icon = '💳';
+        if (method === 'zalopay') {
+          color = 'cyan';
+          icon = '💰';
+        }
+        return (
+          <Tag color={color} icon={icon}>
+            {method?.toUpperCase() || 'N/A'}
+          </Tag>
+        );
+      }
     },
     {
       title: 'Ngày thanh toán',
       dataIndex: 'date',
       key: 'date',
+      width: 120,
       render: (date) => new Date(date).toLocaleDateString('vi-VN')
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
+      width: 120,
       render: (status) => {
         let color = 'default';
         let text = 'Không xác định';
@@ -800,6 +846,9 @@ export default function AdminMemberships() {
         } else if (status === 'failed') {
           color = 'red';
           text = 'Thất bại';
+        } else if (status === 'refunded') {
+          color = 'purple';
+          text = 'Đã hoàn tiền';
         }
         
         return <Tag color={color}>{text}</Tag>;
@@ -808,21 +857,38 @@ export default function AdminMemberships() {
     {
       title: 'Hành động',
       key: 'action',
+      width: 120,
       render: (_, record) => (
         <Dropdown overlay={
           <Menu>
             <Menu.Item onClick={() => {
               notification.info({
-                message: 'Chi tiết thanh toán',
-                description: `Xem chi tiết giao dịch ${record.id}`
+                message: 'Chi tiết thanh toán ZaloPay',
+                description: (
+                  <div>
+                    <div>Mã giao dịch: {record.transactionId || 'N/A'}</div>
+                    <div>Người dùng: {record.userName}</div>
+                    <div>Số tiền: {parseFloat(record.amount).toLocaleString('vi-VN')} ₫</div>
+                    <div>Trạng thái: {record.status}</div>
+                  </div>
+                )
               });
             }}>
-              📋 Xem chi tiết
+              📋 Chi tiết ZaloPay
+            </Menu.Item>
+            <Menu.Item onClick={() => {
+              navigator.clipboard.writeText(record.transactionId || '');
+              notification.success({
+                message: 'Đã copy',
+                description: 'Transaction ID đã được copy vào clipboard'
+              });
+            }}>
+              📋 Copy Transaction ID
             </Menu.Item>
             <Menu.Item onClick={() => {
               notification.info({
                 message: 'Liên hệ khách hàng',
-                description: `Liên hệ với ${record.userName}`
+                description: `Liên hệ với ${record.userName} (${record.userEmail})`
               });
             }}>
               💬 Liên hệ khách hàng
@@ -830,11 +896,11 @@ export default function AdminMemberships() {
             {record.status === 'completed' && (
               <Menu.Item onClick={() => {
                 notification.warning({
-                  message: 'Hoàn tiền',
-                  description: `Xử lý hoàn tiền cho giao dịch ${record.id}`
+                  message: 'Hoàn tiền ZaloPay',
+                  description: `Xử lý hoàn tiền cho giao dịch ${record.transactionId}`
                 });
-              }}>
-                💰 Hoàn tiền
+              }} danger>
+                💰 Hoàn tiền ZaloPay
               </Menu.Item>
             )}
             <Menu.Item onClick={() => {
@@ -847,24 +913,30 @@ export default function AdminMemberships() {
             </Menu.Item>
           </Menu>
         }>
-          <Button>Hành động <DownOutlined /></Button>
+          <Button size="small">Hành động <DownOutlined /></Button>
         </Dropdown>
       )
     }
   ];
 
-  // Thống kê doanh thu
+  // Thống kê doanh thu từ dữ liệu thực
   const totalRevenue = payments
     .filter(p => p.status === 'completed')
-    .reduce((sum, payment) => sum + payment.amount, 0);
+    .reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
 
   const completedPayments = payments.filter(p => p.status === 'completed').length;
+  const pendingPayments = payments.filter(p => p.status === 'pending').length;
+  const failedPayments = payments.filter(p => p.status === 'failed').length;
 
-  const activeUsers = {
-    premium: 25,
-    basic: 58,
-    free: 217
-  };
+  // Lấy phương thức thanh toán từ dữ liệu thực
+  const paymentMethodStats = payments.reduce((acc, payment) => {
+    const method = payment.paymentMethod || 'unknown';
+    acc[method] = (acc[method] || 0) + 1;
+    return acc;
+  }, {});
+
+  const totalPayments = payments.length;
+  const zalopayPercentage = totalPayments > 0 ? ((paymentMethodStats.zalopay || 0) / totalPayments * 100).toFixed(1) : 0;
 
   return (
     <div className="admin-memberships-container">
@@ -936,11 +1008,10 @@ export default function AdminMemberships() {
               <Col span={8}>
                 <Card>
                   <Statistic
-                    title="Người dùng Premium"
-                    value={activeUsers.premium}
-                    valueStyle={{ color: '#faad14' }}
-                    prefix={<CrownOutlined />}
-                    suffix={`/${activeUsers.premium + activeUsers.basic + activeUsers.free} người dùng`}
+                    title="Giao dịch đang chờ"
+                    value={pendingPayments}
+                    valueStyle={{ color: '#fa8c16' }}
+                    prefix={<ExclamationCircleOutlined />}
                   />
                 </Card>
               </Col>
@@ -1002,7 +1073,7 @@ export default function AdminMemberships() {
                   <Card size="small">
                     <Statistic
                       title="Giao dịch thất bại"
-                      value={payments.filter(p => p.status === 'failed').length}
+                      value={failedPayments}
                       valueStyle={{ color: '#cf1322' }}
                       prefix={<CloseCircleOutlined />}
                     />
@@ -1012,24 +1083,25 @@ export default function AdminMemberships() {
                   <Card size="small">
                     <Statistic
                       title="Đang xử lý"
-                      value={payments.filter(p => p.status === 'pending').length}
+                      value={pendingPayments}
                       valueStyle={{ color: '#fa8c16' }}
                       prefix={<ExclamationCircleOutlined />}
                     />
                   </Card>
                 </Col>
                 <Col span={6}>
-                  <Card size="small">
-                    <div>ZaloPay: 65%</div>
-                    <div>MoMo: 20%</div>
-                    <div>Banking: 15%</div>
+                  <Card size="small" title="Phương thức thanh toán">
+                    <div><strong>ZaloPay: {zalopayPercentage}%</strong></div>
+                    <div style={{ color: '#888', fontSize: '12px' }}>
+                      {paymentMethodStats.zalopay || 0} / {totalPayments} giao dịch
+                    </div>
                   </Card>
                 </Col>
                 <Col span={6}>
                   <Card size="small">
                     <Statistic
                       title="Số tiền hoàn"
-                      value={298000}
+                      value={payments.filter(p => p.status === 'refunded').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)}
                       suffix="₫"
                       valueStyle={{ color: '#722ed1' }}
                       formatter={(value) => value.toLocaleString('vi-VN')}

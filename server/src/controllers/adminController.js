@@ -488,8 +488,9 @@ export const getPayments = async (req, res) => {
         u.full_name as userName,
         u.email as userEmail,
         p.amount,
-        COALESCE(p.payment_status, p.status) as status,
+        p.payment_status as status,
         p.payment_method as paymentMethod,
+        p.transaction_id as transactionId,
         p.created_at as date,
         pkg.name as packageName
       FROM payments p
