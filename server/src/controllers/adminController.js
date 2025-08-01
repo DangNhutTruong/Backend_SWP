@@ -5,17 +5,17 @@ export const getMembershipStats = async (req, res) => {
     
     // Query actual data from database
     const [freeUsers] = await pool.execute(
-      'SELECT COUNT(*) as count FROM users WHERE membership_type = ? OR membership_type IS NULL',
+      'SELECT COUNT(*) as count FROM users WHERE membership = ? OR membership IS NULL',
       ['free']
     );
     
-    const [basicUsers] = await pool.execute(
-      'SELECT COUNT(*) as count FROM users WHERE membership_type = ?',
-      ['basic']
+    const [proUsers] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users WHERE membership = ?',
+      ['pro']
     );
     
     const [premiumUsers] = await pool.execute(
-      'SELECT COUNT(*) as count FROM users WHERE membership_type = ?',
+      'SELECT COUNT(*) as count FROM users WHERE membership = ?',
       ['premium']
     );
     
@@ -26,11 +26,11 @@ export const getMembershipStats = async (req, res) => {
     const stats = {
       userDistribution: {
         free: freeUsers[0].count,
-        basic: basicUsers[0].count,
+        pro: proUsers[0].count,
         premium: premiumUsers[0].count
       },
       totalUsers: totalUsers[0].count,
-      activeSubscriptions: basicUsers[0].count + premiumUsers[0].count
+      activeSubscriptions: proUsers[0].count + premiumUsers[0].count
     };
 
     res.json({
@@ -42,6 +42,147 @@ export const getMembershipStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi lấy thống kê membership',
+      error: error.message
+    });
+  }
+};
+
+// Get analytics data
+export const getAnalytics = async (req, res) => {
+  try {
+    const { pool } = await import('../config/database.js');
+    
+    // 1. User distribution by membership type
+    const [userDistribution] = await pool.execute(`
+      SELECT 
+        COALESCE(membership, 'free') as membership_type,
+        COUNT(*) as count
+      FROM users 
+      WHERE is_active = 1
+      GROUP BY membership
+    `);
+
+    // 2. Revenue by month (last 6 months)
+    const [revenueByMonth] = await pool.execute(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        COUNT(*) as transactions,
+        SUM(amount) as revenue
+      FROM payments 
+      WHERE payment_status = 'completed' 
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month ASC
+    `);
+
+    // 3. Payment methods breakdown
+    const [paymentMethods] = await pool.execute(`
+      SELECT 
+        payment_method,
+        COUNT(*) as count,
+        SUM(amount) as total_amount,
+        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM payments WHERE payment_status = 'completed'), 1) as percentage
+      FROM payments 
+      WHERE payment_status = 'completed'
+      GROUP BY payment_method
+    `);
+
+    // 4. Package popularity
+    const [packageStats] = await pool.execute(`
+      SELECT 
+        pkg.name,
+        COUNT(p.id) as purchases,
+        SUM(p.amount) as revenue,
+        ROUND(COUNT(p.id) * 100.0 / (SELECT COUNT(*) FROM payments WHERE payment_status = 'completed'), 1) as percentage
+      FROM payments p
+      JOIN packages pkg ON p.package_id = pkg.id
+      WHERE p.payment_status = 'completed'
+      GROUP BY pkg.id, pkg.name
+      ORDER BY purchases DESC
+    `);
+
+    // 5. Recent activity (last 30 days)
+    const [recentActivity] = await pool.execute(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as new_users
+      FROM users
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `);
+
+    // 6. Total revenue and summary stats
+    const [revenueStats] = await pool.execute(`
+      SELECT 
+        SUM(CASE WHEN payment_status = 'completed' THEN amount ELSE 0 END) as total_revenue,
+        COUNT(CASE WHEN payment_status = 'completed' THEN 1 END) as completed_payments,
+        COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_payments,
+        COUNT(CASE WHEN payment_status = 'failed' THEN 1 END) as failed_payments
+      FROM payments
+    `);
+
+    // 7. Growth rate calculation
+    const [thisMonthUsers] = await pool.execute(`
+      SELECT COUNT(*) as count
+      FROM users
+      WHERE DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+    `);
+
+    const [lastMonthUsers] = await pool.execute(`
+      SELECT COUNT(*) as count
+      FROM users
+      WHERE DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m')
+    `);
+
+    const growthRate = lastMonthUsers[0].count > 0 
+      ? ((thisMonthUsers[0].count - lastMonthUsers[0].count) / lastMonthUsers[0].count * 100).toFixed(1)
+      : 0;
+
+    const analytics = {
+      userDistribution: userDistribution.reduce((acc, row) => {
+        acc[row.membership_type] = row.count;
+        return acc;
+      }, {}),
+      revenueByMonth: revenueByMonth.map(row => ({
+        month: row.month,
+        transactions: row.transactions,
+        revenue: parseFloat(row.revenue)
+      })),
+      paymentMethods: paymentMethods.map(row => ({
+        method: row.payment_method,
+        count: row.count,
+        amount: parseFloat(row.total_amount),
+        percentage: parseFloat(row.percentage)
+      })),
+      packageStats: packageStats.map(row => ({
+        name: row.name,
+        purchases: row.purchases,
+        revenue: parseFloat(row.revenue),
+        percentage: parseFloat(row.percentage)
+      })),
+      recentActivity: recentActivity.map(row => ({
+        date: row.date,
+        newUsers: row.new_users
+      })),
+      summary: {
+        totalRevenue: parseFloat(revenueStats[0].total_revenue || 0),
+        completedPayments: revenueStats[0].completed_payments,
+        pendingPayments: revenueStats[0].pending_payments,
+        failedPayments: revenueStats[0].failed_payments,
+        growthRate: parseFloat(growthRate)
+      }
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy dữ liệu phân tích',
       error: error.message
     });
   }
@@ -91,19 +232,19 @@ export const getUsersWithMembership = async (req, res) => {
         u.id,
         u.full_name as name,
         u.email,
-        u.membership_type as membership,
+        u.membership as membership,
         u.created_at as joinDate,
-        m.expiry_date as expiryDate,
+        um.end_date as expiryDate,
         CASE 
-          WHEN m.expiry_date IS NULL THEN 'active'
-          WHEN m.expiry_date < NOW() THEN 'expired'
-          WHEN DATEDIFF(m.expiry_date, NOW()) <= 7 THEN 'expiring'
+          WHEN um.end_date IS NULL THEN 'active'
+          WHEN um.end_date < NOW() THEN 'expired'
+          WHEN DATEDIFF(um.end_date, NOW()) <= 7 THEN 'expiring'
           ELSE 'active'
         END as status,
         COALESCE(payment_totals.totalPaid, 0) as totalPaid,
         COALESCE(payment_totals.renewalCount, 0) as renewalCount
       FROM users u
-      LEFT JOIN memberships m ON u.id = m.user_id
+      LEFT JOIN user_memberships um ON u.id = um.user_id AND um.status = 'active'
       LEFT JOIN (
         SELECT 
           user_id,
@@ -113,7 +254,7 @@ export const getUsersWithMembership = async (req, res) => {
         WHERE payment_status = 'completed'
         GROUP BY user_id
       ) payment_totals ON u.id = payment_totals.user_id
-      WHERE u.membership_type IN ('basic', 'premium')
+      WHERE u.membership IN ('pro', 'premium')
         AND u.is_active = 1
       ORDER BY u.created_at DESC
     `);
@@ -143,15 +284,16 @@ export const getExpiringUsers = async (req, res) => {
         u.id,
         u.full_name as name,
         u.email,
-        u.membership_type as membership,
-        m.expiry_date as expiryDate,
-        DATEDIFF(m.expiry_date, NOW()) as daysLeft
+        u.membership as membership,
+        um.end_date as expiryDate,
+        DATEDIFF(um.end_date, NOW()) as daysLeft
       FROM users u
-      INNER JOIN memberships m ON u.id = m.user_id
-      WHERE m.expiry_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)
+      INNER JOIN user_memberships um ON u.id = um.user_id
+      WHERE um.end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)
         AND u.is_active = 1
-        AND u.membership_type IN ('basic', 'premium')
-      ORDER BY m.expiry_date ASC
+        AND um.status = 'active'
+        AND u.membership IN ('pro', 'premium')
+      ORDER BY um.end_date ASC
     `);
 
     res.json({
@@ -177,7 +319,7 @@ export const extendMembership = async (req, res) => {
 
     // Check if user exists and has membership
     const [userCheck] = await pool.execute(
-      'SELECT id, membership_type FROM users WHERE id = ? AND is_active = 1',
+      'SELECT id, membership FROM users WHERE id = ? AND is_active = 1',
       [userId]
     );
 
@@ -190,27 +332,27 @@ export const extendMembership = async (req, res) => {
 
     // Update membership expiry date
     const [membershipCheck] = await pool.execute(
-      'SELECT * FROM memberships WHERE user_id = ?',
+      'SELECT * FROM user_memberships WHERE user_id = ? AND status = "active"',
       [userId]
     );
 
     if (membershipCheck.length === 0) {
       // Create new membership record
       await pool.execute(
-        'INSERT INTO memberships (user_id, expiry_date) VALUES (?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+        'INSERT INTO user_memberships (user_id, package_id, start_date, end_date, status) VALUES (?, 1, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), "active")',
         [userId, days]
       );
     } else {
       // Extend existing membership
       await pool.execute(
-        'UPDATE memberships SET expiry_date = DATE_ADD(COALESCE(expiry_date, NOW()), INTERVAL ? DAY) WHERE user_id = ?',
+        'UPDATE user_memberships SET end_date = DATE_ADD(COALESCE(end_date, NOW()), INTERVAL ? DAY), updated_at = NOW() WHERE user_id = ? AND status = "active"',
         [days, userId]
       );
     }
 
     // Get new expiry date
     const [newExpiry] = await pool.execute(
-      'SELECT expiry_date FROM memberships WHERE user_id = ?',
+      'SELECT end_date FROM user_memberships WHERE user_id = ? AND status = "active"',
       [userId]
     );
 
@@ -220,7 +362,7 @@ export const extendMembership = async (req, res) => {
       data: {
         userId,
         extendedDays: days,
-        newExpiryDate: newExpiry[0].expiry_date
+        newExpiryDate: newExpiry[0]?.end_date
       }
     });
   } catch (error) {
@@ -241,7 +383,7 @@ export const upgradeMembership = async (req, res) => {
     const { newPlan } = req.body;
 
     // Validate new plan
-    if (!['basic', 'premium'].includes(newPlan)) {
+    if (!['pro', 'premium'].includes(newPlan)) {
       return res.status(400).json({
         success: false,
         message: 'Gói membership không hợp lệ'
@@ -250,7 +392,7 @@ export const upgradeMembership = async (req, res) => {
 
     // Check if user exists
     const [userCheck] = await pool.execute(
-      'SELECT id, membership_type FROM users WHERE id = ? AND is_active = 1',
+      'SELECT id, membership FROM users WHERE id = ? AND is_active = 1',
       [userId]
     );
 
@@ -263,22 +405,32 @@ export const upgradeMembership = async (req, res) => {
 
     // Update user membership type
     await pool.execute(
-      'UPDATE users SET membership_type = ?, updated_at = NOW() WHERE id = ?',
+      'UPDATE users SET membership = ?, updated_at = NOW() WHERE id = ?',
       [newPlan, userId]
     );
 
     // Update or create membership record
     const [membershipCheck] = await pool.execute(
-      'SELECT * FROM memberships WHERE user_id = ?',
+      'SELECT * FROM user_memberships WHERE user_id = ? AND status = "active"',
       [userId]
     );
 
     if (membershipCheck.length === 0) {
       // Create new membership with appropriate duration
-      const duration = newPlan === 'premium' ? 90 : 30; // 90 days for premium, 30 for basic
+      const duration = newPlan === 'premium' ? 90 : 60; // 90 days for premium, 60 for pro
+      // Get package_id for the plan (assuming 1 for pro, 2 for premium)
+      const packageId = newPlan === 'premium' ? 2 : 1;
+      
       await pool.execute(
-        'INSERT INTO memberships (user_id, expiry_date) VALUES (?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-        [userId, duration]
+        'INSERT INTO user_memberships (user_id, package_id, start_date, end_date, status) VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), "active")',
+        [userId, packageId, duration]
+      );
+    } else {
+      // Update existing membership package
+      const packageId = newPlan === 'premium' ? 2 : 1;
+      await pool.execute(
+        'UPDATE user_memberships SET package_id = ?, updated_at = NOW() WHERE user_id = ? AND status = "active"',
+        [packageId, userId]
       );
     }
 
@@ -371,13 +523,13 @@ export const getPaymentAnalytics = async (req, res) => {
 
     // Calculate conversion rates
     const [totalUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE is_active = 1');
-    const [basicUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership_type = "basic"');
-    const [premiumUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership_type = "premium"');
-    const [freeUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership_type = "free" OR membership_type IS NULL');
+    const [proUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership = "pro"');
+    const [premiumUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership = "premium"');
+    const [freeUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE membership = "free" OR membership IS NULL');
 
-    const freeToBasic = totalUsers[0].count > 0 ? (basicUsers[0].count / totalUsers[0].count * 100) : 0;
-    const basicToPremium = basicUsers[0].count > 0 ? (premiumUsers[0].count / basicUsers[0].count * 100) : 0;
-    const freeToAny = totalUsers[0].count > 0 ? ((basicUsers[0].count + premiumUsers[0].count) / totalUsers[0].count * 100) : 0;
+    const freeToPro = totalUsers[0].count > 0 ? (proUsers[0].count / totalUsers[0].count * 100) : 0;
+    const proToPremium = proUsers[0].count > 0 ? (premiumUsers[0].count / proUsers[0].count * 100) : 0;
+    const freeToAny = totalUsers[0].count > 0 ? ((proUsers[0].count + premiumUsers[0].count) / totalUsers[0].count * 100) : 0;
 
     // Get failed payments
     const [failedPayments] = await pool.execute(`
@@ -398,8 +550,8 @@ export const getPaymentAnalytics = async (req, res) => {
         return acc;
       }, {}),
       conversionRates: {
-        freeToBasic: parseFloat(freeToBasic.toFixed(1)),
-        basicToPremium: parseFloat(basicToPremium.toFixed(1)),
+        freeToPro: parseFloat(freeToPro.toFixed(1)),
+        proToPremium: parseFloat(proToPremium.toFixed(1)),
         freeToAny: parseFloat(freeToAny.toFixed(1))
       },
       failedPayments: {

@@ -161,7 +161,7 @@ export default function AdminMemberships() {
         return;
       }
 
-      const response = await fetch('/api/admin/analytics/membership-stats', {
+      const response = await fetch('/api/admin/analytics', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -173,30 +173,24 @@ export default function AdminMemberships() {
       
       const data = await response.json();
       if (data.success) {
-        // Also fetch payment analytics and revenue data
-        const [paymentAnalytics, revenueData] = await Promise.all([
-          fetch('/api/admin/analytics/payment-analytics', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).then(res => res.json()),
-          fetch('/api/admin/analytics/revenue-by-month', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).then(res => res.json())
-        ]);
-
-        setAnalyticsData({
-          userDistribution: data.data.userDistribution,
-          revenueByMonth: revenueData.success ? revenueData.data : [],
-          conversionRates: paymentAnalytics.success ? paymentAnalytics.data.conversionRates : {},
-          paymentMethods: paymentAnalytics.success ? paymentAnalytics.data.paymentMethods : {}
-        });
+        setAnalyticsData(data.data);
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      // Fallback to mock data if API fails
+      // Fallback to empty data if API fails
       setAnalyticsData({
-        userDistribution: { free: 0, basic: 0, premium: 0 },
-        conversionRates: { freeToBasic: 0, basicToPremium: 0, freeToAny: 0 },
-        paymentMethods: {}
+        userDistribution: { free: 0, pro: 0, premium: 0 },
+        revenueByMonth: [],
+        paymentMethods: [],
+        packageStats: [],
+        recentActivity: [],
+        summary: {
+          totalRevenue: 0,
+          completedPayments: 0,
+          pendingPayments: 0,
+          failedPayments: 0,
+          growthRate: 0
+        }
       });
     }
   };
@@ -238,7 +232,7 @@ export default function AdminMemberships() {
           code: 'WELCOME20',
           type: 'percentage',
           value: 20,
-          applicablePackages: ['Basic', 'Premium'],
+          applicablePackages: ['Pro', 'Premium'],
           usedCount: 15,
           maxUses: 100,
           expiryDate: '2024-12-31',
@@ -637,7 +631,7 @@ export default function AdminMemberships() {
       render: (membership) => {
         let color = 'default';
         if (membership === 'Premium') color = 'gold';
-        else if (membership === 'Basic') color = 'blue';
+        else if (membership === 'Pro') color = 'blue';
         return <Tag color={color}>{membership}</Tag>;
       }
     },
@@ -1041,7 +1035,7 @@ export default function AdminMemberships() {
                 <Col span={4}>
                   <Select defaultValue="all" style={{ width: '100%' }}>
                     <Option value="all">Tất cả gói</Option>
-                    <Option value="Basic">Basic</Option>
+                    <Option value="Pro">Pro</Option>
                     <Option value="Premium">Premium</Option>
                   </Select>
                 </Col>
@@ -1131,7 +1125,7 @@ export default function AdminMemberships() {
                 <Card>
                   <Statistic
                     title="Free Users"
-                    value={analyticsData.userDistribution?.free || 217}
+                    value={analyticsData.userDistribution?.free || 0}
                     valueStyle={{ color: '#52c41a' }}
                     prefix={<UserOutlined />}
                   />
@@ -1140,8 +1134,8 @@ export default function AdminMemberships() {
               <Col span={6}>
                 <Card>
                   <Statistic
-                    title="Basic Users (PRE)"
-                    value={analyticsData.userDistribution?.basic || 58}
+                    title="Premium Users"
+                    value={analyticsData.userDistribution?.pro || 0}
                     valueStyle={{ color: '#1890ff' }}
                     prefix={<CrownOutlined />}
                   />
@@ -1150,8 +1144,8 @@ export default function AdminMemberships() {
               <Col span={6}>
                 <Card>
                   <Statistic
-                    title="Premium Users (PRO)"
-                    value={analyticsData.userDistribution?.premium || 25}
+                    title="Pro Users"
+                    value={analyticsData.userDistribution?.premium || 0}
                     valueStyle={{ color: '#faad14' }}
                     prefix={<StarOutlined />}
                   />
@@ -1160,10 +1154,11 @@ export default function AdminMemberships() {
               <Col span={6}>
                 <Card>
                   <Statistic
-                    title="Tỷ lệ chuyển đổi"
-                    value={analyticsData.conversionRates?.freeToAny || 27.6}
-                    suffix="%"
-                    precision={1}
+                    title="Tổng doanh thu"
+                    value={analyticsData.summary?.totalRevenue || 0}
+                    suffix="₫"
+                    precision={0}
+                    formatter={(value) => `${value.toLocaleString('vi-VN')}`}
                     valueStyle={{ color: '#722ed1' }}
                     prefix={<TrophyOutlined />}
                   />
@@ -1171,44 +1166,95 @@ export default function AdminMemberships() {
               </Col>
             </Row>
 
-            {/* Revenue Analysis */}
+            {/* Summary Stats */}
             <Row gutter={16} style={{ marginTop: 16 }}>
-              <Col span={12}>
-                <Card title="💰 Doanh thu theo gói">
-                  <div style={{ marginBottom: 16 }}>
-                    <Statistic
-                      title="Basic Package"
-                      value={analyticsData.userDistribution?.basic * 99000 || 5742000}
-                      suffix="₫"
-                      precision={0}
-                      formatter={(value) => `${value.toLocaleString('vi-VN')}`}
-                    />
-                  </div>
+              <Col span={6}>
+                <Card>
                   <Statistic
-                    title="Premium Package"
-                    value={analyticsData.userDistribution?.premium * 299000 || 7475000}
-                    suffix="₫"
-                    precision={0}
-                    formatter={(value) => `${value.toLocaleString('vi-VN')}`}
+                    title="Thanh toán hoàn thành"
+                    value={analyticsData.summary?.completedPayments || 0}
+                    valueStyle={{ color: '#52c41a' }}
+                    prefix={<CheckCircleOutlined />}
                   />
                 </Card>
               </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Thanh toán đang xử lý"
+                    value={analyticsData.summary?.pendingPayments || 0}
+                    valueStyle={{ color: '#faad14' }}
+                    prefix={<ExclamationCircleOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Thanh toán thất bại"
+                    value={analyticsData.summary?.failedPayments || 0}
+                    valueStyle={{ color: '#ff4d4f' }}
+                    prefix={<CloseCircleOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col span={6}>
+                <Card>
+                  <Statistic
+                    title="Tăng trưởng tháng này"
+                    value={analyticsData.summary?.growthRate || 0}
+                    suffix="%"
+                    precision={1}
+                    valueStyle={{ color: analyticsData.summary?.growthRate > 0 ? '#52c41a' : '#ff4d4f' }}
+                    prefix={<LineChartOutlined />}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Revenue by Package */}
+            <Row gutter={16} style={{ marginTop: 16 }}>
               <Col span={12}>
-                <Card title="📊 Tỷ lệ chuyển đổi">
-                  <div style={{ marginBottom: 16 }}>
-                    <div>Free → Basic</div>
-                    <Progress 
-                      percent={analyticsData.conversionRates?.freeToBasic || 21.1} 
-                      format={percent => `${percent}%`}
-                    />
-                  </div>
-                  <div>
-                    <div>Basic → Premium</div>
-                    <Progress 
-                      percent={analyticsData.conversionRates?.basicToPremium || 15.8}
-                      format={percent => `${percent}%`}
-                    />
-                  </div>
+                <Card title="💰 Doanh thu theo gói">
+                  {analyticsData.packageStats?.map((pkg, index) => (
+                    <div key={index} style={{ marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{pkg.name}</span>
+                        <Tag color={pkg.name === 'Premium' ? 'gold' : pkg.name === 'Pro' ? 'purple' : 'green'}>
+                          {pkg.purchases} giao dịch ({pkg.percentage}%)
+                        </Tag>
+                      </div>
+                      <Statistic
+                        value={pkg.revenue}
+                        suffix="₫"
+                        precision={0}
+                        formatter={(value) => `${value.toLocaleString('vi-VN')}`}
+                        valueStyle={{ fontSize: '16px' }}
+                      />
+                    </div>
+                  )) || <Text type="secondary">Chưa có dữ liệu</Text>}
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card title="📊 Phương thức thanh toán">
+                  {analyticsData.paymentMethods?.map((method, index) => (
+                    <div key={index} style={{ marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{method.method?.toUpperCase()}</span>
+                        <Tag color={method.method === 'zalopay' ? 'cyan' : method.method === 'momo' ? 'green' : 'blue'}>
+                          {method.count} giao dịch
+                        </Tag>
+                      </div>
+                      <Progress 
+                        percent={method.percentage} 
+                        format={percent => `${percent}%`}
+                        strokeColor={method.method === 'zalopay' ? '#1890ff' : method.method === 'momo' ? '#52c41a' : '#faad14'}
+                      />
+                      <Text type="secondary">
+                        {method.amount.toLocaleString('vi-VN')} ₫
+                      </Text>
+                    </div>
+                  )) || <Text type="secondary">Chưa có dữ liệu</Text>}
                 </Card>
               </Col>
             </Row>
@@ -1218,59 +1264,69 @@ export default function AdminMemberships() {
               <Steps current={2} direction="horizontal">
                 <Step 
                   title="Free Users" 
-                  description={`${analyticsData.userDistribution?.free || 217} người`}
+                  description={`${analyticsData.userDistribution?.free || 0} người`}
                   icon={<UserOutlined />}
                 />
                 <Step 
-                  title="Basic (PRE)" 
-                  description={`${analyticsData.userDistribution?.basic || 58} người (${analyticsData.conversionRates?.freeToBasic || 21.1}%)`}
+                  title="Premium" 
+                  description={`${analyticsData.userDistribution?.pro || 0} người`}
                   icon={<CrownOutlined />}
                 />
                 <Step 
-                  title="Premium (PRO)" 
-                  description={`${analyticsData.userDistribution?.premium || 25} người (${analyticsData.conversionRates?.basicToPremium || 15.8}%)`}
+                  title="Pro" 
+                  description={`${analyticsData.userDistribution?.premium || 0} người`}
                   icon={<StarOutlined />}
                 />
               </Steps>
             </Card>
 
-            {/* Payment Method Analysis */}
-            <Card title="💳 Phương thức thanh toán" style={{ marginTop: 16 }}>
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Card size="small">
-                    <Statistic
-                      title="ZaloPay"
-                      value={analyticsData.paymentMethods?.zalopay?.percentage || 65}
-                      suffix="%"
-                      valueStyle={{ color: '#1890ff' }}
-                    />
-                    <Text type="secondary">{analyticsData.paymentMethods?.zalopay?.count || 45} giao dịch</Text>
-                  </Card>
-                </Col>
-                <Col span={8}>
-                  <Card size="small">
-                    <Statistic
-                      title="MoMo"
-                      value={analyticsData.paymentMethods?.momo?.percentage || 20}
-                      suffix="%"
-                      valueStyle={{ color: '#52c41a' }}
-                    />
-                    <Text type="secondary">{analyticsData.paymentMethods?.momo?.count || 12} giao dịch</Text>
-                  </Card>
-                </Col>
-                <Col span={8}>
-                  <Card size="small">
-                    <Statistic
-                      title="Banking"
-                      value={analyticsData.paymentMethods?.banking?.percentage || 15}
-                      suffix="%"
-                      valueStyle={{ color: '#faad14' }}
-                    />
-                    <Text type="secondary">{analyticsData.paymentMethods?.banking?.count || 8} giao dịch</Text>
-                  </Card>
-                </Col>
-              </Row>
+            {/* Recent Activity Chart */}
+            <Card title="📈 Hoạt động gần đây (30 ngày)" style={{ marginTop: 16 }}>
+              {analyticsData.recentActivity?.length > 0 ? (
+                <div>
+                  {analyticsData.recentActivity.slice(-7).map((activity, index) => (
+                    <div key={index} style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '8px 0',
+                      borderBottom: index < 6 ? '1px solid #f0f0f0' : 'none'
+                    }}>
+                      <span>{new Date(activity.date).toLocaleDateString('vi-VN')}</span>
+                      <Tag color="blue">{activity.newUsers} người dùng mới</Tag>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Text type="secondary">Chưa có dữ liệu hoạt động</Text>
+              )}
+            </Card>
+
+            {/* Revenue by Month */}
+            <Card title="📊 Doanh thu theo tháng" style={{ marginTop: 16 }}>
+              {analyticsData.revenueByMonth?.length > 0 ? (
+                <Row gutter={16}>
+                  {analyticsData.revenueByMonth.map((month, index) => (
+                    <Col span={4} key={index}>
+                      <Card size="small">
+                        <Statistic
+                          title={month.month}
+                          value={month.revenue}
+                          suffix="₫"
+                          precision={0}
+                          formatter={(value) => `${value.toLocaleString('vi-VN')}`}
+                          valueStyle={{ fontSize: '14px' }}
+                        />
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          {month.transactions} giao dịch
+                        </Text>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              ) : (
+                <Text type="secondary">Chưa có dữ liệu doanh thu</Text>
+              )}
             </Card>
           </Card>
         </TabPane>

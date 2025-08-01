@@ -12,7 +12,8 @@ import {
   sendExpiryNotifications,
   generateReport,
   getPackages,
-  getPayments
+  getPayments,
+  getAnalytics
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -31,6 +32,9 @@ router.get('/packages', getPackages);
 
 // Payment management endpoints
 router.get('/payments', getPayments);
+
+// Analytics endpoints
+router.get('/analytics', getAnalytics);
 
 // User management endpoints
 router.get('/users/with-membership', getUsersWithMembership);
