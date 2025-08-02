@@ -495,3 +495,287 @@ export const getCoachSessionHistory = async (req, res) => {
         return sendResponse(res, 500, false, 'Internal server error', null);
     }
 };
+
+/**
+ * Get all users with filtering and pagination
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const getAllUsers = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search = '', role = '', status = '' } = req.query;
+        const offset = (page - 1) * limit;
+        
+        let whereClause = 'WHERE 1=1';
+        const queryParams = [];
+        
+        // Add search filter
+        if (search) {
+            whereClause += ' AND (full_name LIKE ? OR email LIKE ?)';
+
+            queryParams.push(`%${search}%`, `%${search}%`);
+        }
+        
+        // Add role filter
+        if (role) {
+            whereClause += ' AND role = ?';
+            queryParams.push(role);
+        }
+        
+        // Add status filter
+        if (status !== '') {
+            whereClause += ' AND is_active = ?';
+            queryParams.push(status === 'true' ? 1 : 0);
+        }
+        
+        // Get total count
+        const [totalCount] = await pool.query(
+            `SELECT COUNT(*) as total FROM users ${whereClause}`,
+            queryParams
+        );
+        
+        // Get users with pagination
+        const [users] = await pool.query(
+            `SELECT id, username, email, full_name, role, is_active, created_at, updated_at,
+                    phone, gender, avatar_url, date_of_birth 
+             FROM users ${whereClause} 
+             ORDER BY created_at DESC 
+             LIMIT ? OFFSET ?`,
+            [...queryParams, parseInt(limit), offset]
+        );
+        
+        return sendResponse(res, 200, true, 'Users fetched successfully', {
+            users,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(totalCount[0].total / limit),
+                totalUsers: totalCount[0].total,
+                limit: parseInt(limit)
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};
+
+/**
+ * Get user by ID with detailed information
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Get user basic info
+        const [users] = await pool.query(
+            `SELECT * FROM users WHERE id = ?`,
+            [id]
+        );
+        
+        if (users.length === 0) {
+            return sendResponse(res, 404, false, 'User not found', null);
+        }
+        
+        const user = users[0];
+        
+        // Get user's smoking progress if exists
+        let smokingProgress = null;
+        try {
+            const [progress] = await pool.query(
+                `SELECT * FROM smoking_progress WHERE user_id = ? ORDER BY date DESC LIMIT 10`,
+                [id]
+            );
+            smokingProgress = progress;
+        } catch (err) {
+            console.log('No smoking progress table found or no data');
+        }
+        
+        // Get user's appointments
+        let appointments = [];
+        try {
+            const [userAppointments] = await pool.query(
+                `SELECT a.*, u.full_name as coach_name 
+                 FROM appointments a 
+                 LEFT JOIN users u ON a.coach_id = u.id 
+                 WHERE a.user_id = ? 
+                 ORDER BY a.date DESC LIMIT 5`,
+                [id]
+            );
+            appointments = userAppointments;
+        } catch (err) {
+            console.log('No appointments table found or no data');
+        }
+        
+        return sendResponse(res, 200, true, 'User details fetched successfully', {
+            user,
+            smokingProgress,
+            appointments
+        });
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};
+
+/**
+ * Create new user
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const createUser = async (req, res) => {
+    try {
+        const { username, email, password, full_name, role = 'user', phone, gender, date_of_birth, is_active = true } = req.body;
+        
+        // Validate required fields
+        if (!username || !email || !password || !full_name) {
+            return sendResponse(res, 400, false, 'Username, email, password and full_name are required', null);
+        }
+        
+        // Check if username or email already exists
+        const [existingUsers] = await pool.query(
+            'SELECT id FROM users WHERE username = ? OR email = ?',
+            [username, email]
+        );
+        
+        if (existingUsers.length > 0) {
+            return sendResponse(res, 400, false, 'Username or email already exists', null);
+        }
+        
+        // Hash password (assuming you have bcrypt imported)
+        const bcrypt = await import('bcrypt');
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Insert new user
+        const [result] = await pool.query(
+            `INSERT INTO users (username, email, password, full_name, role, phone, gender, date_of_birth, is_active, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [username, email, hashedPassword, full_name, role, phone, gender, date_of_birth, is_active ? 1 : 0]
+        );
+        
+        return sendResponse(res, 201, true, 'User created successfully', {
+            userId: result.insertId
+        });
+    } catch (error) {
+        console.error('Error creating user:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};
+
+/**
+ * Update user information
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, email, full_name, role, phone, gender, date_of_birth, is_active } = req.body;
+        
+        // Check if user exists
+        const [users] = await pool.query(
+            'SELECT id FROM users WHERE id = ?',
+            [id]
+        );
+        
+        if (users.length === 0) {
+            return sendResponse(res, 404, false, 'User not found', null);
+        }
+        
+        // Check if username or email already exists for other users
+        if (username || email) {
+            const [existingUsers] = await pool.query(
+                'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?',
+                [username || '', email || '', id]
+            );
+            
+            if (existingUsers.length > 0) {
+                return sendResponse(res, 400, false, 'Username or email already exists', null);
+            }
+        }
+        
+        // Update user
+        await pool.query(
+            `UPDATE users SET 
+                username = ?, email = ?, full_name = ?, role = ?, 
+                phone = ?, gender = ?, date_of_birth = ?, 
+                is_active = ?, updated_at = NOW()
+             WHERE id = ?`,
+            [username, email, full_name, role, phone, gender, date_of_birth, is_active ? 1 : 0, id]
+        );
+        
+        return sendResponse(res, 200, true, 'User updated successfully', null);
+    } catch (error) {
+        console.error('Error updating user:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};
+
+/**
+ * Toggle user status (activate/deactivate)
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const toggleUserStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Get current status
+        const [users] = await pool.query(
+            'SELECT is_active FROM users WHERE id = ?',
+            [id]
+        );
+        
+        if (users.length === 0) {
+            return sendResponse(res, 404, false, 'User not found', null);
+        }
+        
+        const newStatus = users[0].is_active ? 0 : 1;
+        
+        // Update status
+        await pool.query(
+            'UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?',
+            [newStatus, id]
+        );
+        
+        return sendResponse(res, 200, true, `User ${newStatus ? 'activated' : 'deactivated'} successfully`, {
+            isActive: Boolean(newStatus)
+        });
+    } catch (error) {
+        console.error('Error toggling user status:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};
+
+/**
+ * Delete user (soft delete)
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+export const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Check if user exists
+        const [users] = await pool.query(
+            'SELECT id FROM users WHERE id = ?',
+            [id]
+        );
+        
+        if (users.length === 0) {
+            return sendResponse(res, 404, false, 'User not found', null);
+        }
+        
+        // Soft delete by deactivating
+        await pool.query(
+            'UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?',
+            [id]
+        );
+        
+        return sendResponse(res, 200, true, 'User deleted successfully', null);
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        return sendResponse(res, 500, false, 'Internal server error', null);
+    }
+};

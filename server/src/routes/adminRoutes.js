@@ -1,5 +1,11 @@
 import express from 'express';
 import { 
+    getAllUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    toggleUserStatus,
+    deleteUser,
     getCoachStats, 
     getAppointmentStats, 
     getAllCoachesDetails, 
@@ -18,6 +24,14 @@ const router = express.Router();
 
 // Protect all routes with authentication and admin role check
 router.use(requireAuth, requireAdmin);
+
+// User management routes
+router.get('/users', getAllUsers);
+router.get('/users/:id', getUserById);
+router.post('/users', createUser);
+router.put('/users/:id', updateUser);
+router.patch('/users/:id/toggle-status', toggleUserStatus);
+router.delete('/users/:id', deleteUser);
 
 // Coach management
 router.get('/coaches/stats', getCoachStats);
