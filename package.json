@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "dev": "cd client && npm run dev",
+    "start": "cd server && npm start",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "dev-server": "cd server && npm run dev",
+    "build": "cd client && npm run build"
+  },
   "dependencies": {
     "@fortawesome/free-brands-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
