@@ -144,6 +144,17 @@ function BookAppointment() {
     if (!day) return;
 
     const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    
+    // Kiểm tra nếu ngày được chọn là ngày quá khứ
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset giờ về 00:00:00 để so sánh chỉ ngày
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      alert('Không thể đặt lịch hẹn cho ngày quá khứ. Vui lòng chọn ngày từ hôm nay trở về sau.');
+      return;
+    }
+    
     setSelectedDate(selectedDate);
     
     // Fetch coach availability for selected date
@@ -390,15 +401,28 @@ function BookAppointment() {
               <div key={day} className="day-header">{day}</div>
             ))}
 
-            {days.map((day, index) => (
-              <div
-                key={index}
-                className={`calendar-day ${!day ? 'empty' : ''} ${day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear() ? 'today' : ''}`}
-                onClick={() => handleSelectDate(day)}
-              >
-                {day}
-              </div>
-            ))}
+            {days.map((day, index) => {
+              const currentDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              currentDate.setHours(0, 0, 0, 0);
+              const isPastDate = day && currentDate < today;
+              const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear();
+              
+              return (
+                <div
+                  key={index}
+                  className={`calendar-day ${!day ? 'empty' : ''} ${isToday ? 'today' : ''} ${isPastDate ? 'past-date' : ''}`}
+                  onClick={() => !isPastDate && handleSelectDate(day)}
+                  style={{ 
+                    cursor: isPastDate ? 'not-allowed' : 'pointer',
+                    opacity: isPastDate ? 0.5 : 1
+                  }}
+                >
+                  {day}
+                </div>
+              );
+            })}
           </div>
         </div>
         

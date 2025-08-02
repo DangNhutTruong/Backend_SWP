@@ -72,11 +72,13 @@ const addAuthHeader = (options = {}) => {
 const fetchApi = async (url, options = {}) => {
   try {
     // Log the request for debugging
+    const bodySize = options.body ? new Blob([options.body]).size : 0;
     console.log(`API Request: ${options.method || 'GET'} ${url}`);
-    console.log('Request options:', {
-      ...options,
-      body: options.body ? '(data omitted for security)' : undefined
-    });
+    console.log('Request body size:', bodySize, 'bytes');
+    
+    if (bodySize > 1024 * 1024) { // 1MB
+      console.warn('⚠️ Large request body detected:', bodySize, 'bytes');
+    }
     
     // Check if URL is absolute or needs to be prefixed with API_BASE_URL
     let fullUrl = url;
@@ -87,10 +89,10 @@ const fetchApi = async (url, options = {}) => {
       console.log(`Using API base URL: ${apiBaseUrl}`);
     }
     
-    const response = await fetch(fullUrl, {
+    const response = await fetch(fullUrl, addAuthHeader({
       ...options,
       credentials: API_CONFIG.credentials,
-    });
+    }));
     
     console.log(`API Response status: ${response.status} ${response.statusText}`);
     

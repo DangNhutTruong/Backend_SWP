@@ -1,0 +1,55 @@
+/* Thêm styles mới cho header có chứa cả tiêu đề và nút */
+.chart-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+/* Style cho placeholder của nút lịch sử */
+#history-button-placeholder {
+  min-width: 100px; /* Đảm bảo có đủ không gian cho nút */
+}
+
+/* Style cho nút lịch sử nằm cạnh "Kế hoạch của bạn" */
+.toggle-history-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  background-color: #6c757d;
+  border-radius: 4px;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin-left: 10px;
+  transition: all 0.2s;
+}
+
+.toggle-history-button:hover {
+  background-color: #5a6268;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-history-button:focus {
+  outline: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .chart-header-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  #history-button-placeholder {
+    margin-top: 10px;
+    width: 100%;
+  }
+  
+  .toggle-history-button {
+    margin-top: 8px;
+    margin-left: 0;
+    font-size: 0.75rem;
+  }
+}

@@ -31,7 +31,7 @@ const migrateProgressTable = async () => {
             AND table_name = 'daily_progress'
         `);
         
-        console.log('Debug columns structure:', JSON.stringify(columnsResult, null, 2));
+        
         
         // Kiểm tra xem columns có phải là một mảng và có ít nhất một phần tử không
         if (!Array.isArray(columnsResult) || columnsResult.length === 0) {
@@ -41,7 +41,7 @@ const migrateProgressTable = async () => {
         
         // Kiểm tra cấu trúc của phần tử đầu tiên để xác định tên thuộc tính đúng
         const firstColumn = columnsResult[0];
-        console.log('First column object:', firstColumn);
+        
         
         // Xác định tên thuộc tính chứa tên cột (có thể là column_name hoặc COLUMN_NAME)
         let columnNameProperty;

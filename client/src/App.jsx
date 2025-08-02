@@ -8,6 +8,7 @@ import Home from "./page/Home.jsx";
 import ProfilePage from "./page/Profile.jsx"; // Đổi tên từ Tools sang ProfilePage
 import ProgressPage from "./page/Progress.jsx"; // Import component Progress
 import MembershipDebugger from "./components/MembershipDebugger.jsx"; // Import component để debug membership
+import Admin from "./page/Admin.jsx"; // Import component Admin
 
 import TestPage from "./page/TestPage.jsx"; // Thêm trang test đơn giản
 import Blog from "./page/Blog.jsx"; // Import component Blog
@@ -20,12 +21,19 @@ import BookAppointment from "./page/BookAppointment.jsx"; // Import component Bo
 import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Import ProtectedRoute
 import RoleBasedRoute from "./components/RoleBasedRoute.jsx"; // Import RoleBasedRoute
 import CoachRedirect from "./components/CoachRedirect.jsx"; // Import CoachRedirect
+import AdminRedirect from "./components/AdminRedirect.jsx"; // Import AdminRedirect
 import AccessDenied from "./page/AccessDenied.jsx"; // Import AccessDenied
 import UserProfile from "./page/User.jsx"; // Import UserProfile component
 import CoachLayout from "./components/CoachLayout.jsx"; // Import CoachLayout
+import AdminLayout from "./components/AdminLayout.jsx"; // Import AdminLayout
 import CoachDashboardNew from "./page/coach/CoachDashboardNew.jsx"; // Import CoachDashboardNew
 import CoachBookings from "./page/coach/CoachBookings.jsx"; // Import CoachBookings
 import CoachMessaging from "./page/coach/CoachMessaging.jsx"; // Import CoachMessaging
+
+// Import Admin components
+import AdminBlog from "./page/admin/AdminBlog.jsx"; // Import AdminBlog
+import AdminQuitPlans from "./page/admin/AdminQuitPlans.jsx"; // Import AdminQuitPlans
+import AdminCoaches from "./page/admin/AdminCoaches.jsx"; // Import AdminCoaches
 import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
 import "./style.css";
@@ -68,7 +76,9 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <CoachRedirect>
-          <Home />
+          <AdminRedirect>
+            <Home />
+          </AdminRedirect>
         </CoachRedirect>
       </Layout>
     ),
@@ -85,7 +95,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <UserProfile isStandalone={true} />
+            <AdminRedirect>
+              <UserProfile isStandalone={true} />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -97,7 +109,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <ProfilePage />
+            <AdminRedirect>
+              <ProfilePage />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -109,7 +123,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <ProgressPage />
+            <AdminRedirect>
+              <ProgressPage />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -345,6 +361,41 @@ const router = createBrowserRouter([
       {
         path: "messages",
         element: <CoachMessaging />
+      }
+    ]
+  },
+  // Admin Route
+  {
+    path: "/admin",
+    element: (
+      <RoleBasedRoute allowedRoles={['admin']}>
+        <AdminLayout />
+      </RoleBasedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Admin />
+      },
+      {
+        path: "users",
+        element: <div>Quản lý người dùng - Chức năng đang phát triển</div>
+      },
+      {
+        path: "memberships",
+        element: <div>Quản lý gói thành viên & thanh toán - Chức năng đang phát triển</div>
+      },
+      {
+        path: "blog",
+        element: <AdminBlog />
+      },
+      {
+        path: "quit-plans",
+        element: <AdminQuitPlans />
+      },
+      {
+        path: "coaches",
+        element: <AdminCoaches />
       }
     ]
   },

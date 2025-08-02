@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { FaCalendarCheck, FaSave } from 'react-icons/fa';
 import progressService from '../services/progressService';
 import { getCurrentUserId } from '../utils/userUtils';
+import { useAuth } from '../context/AuthContext';
 
 const DailyCheckin = ({ onProgressUpdate }) => {
+    const { user } = useAuth(); // Lấy thông tin user từ AuthContext
+    
     const [todayData, setTodayData] = useState({
         date: new Date().toISOString().split('T')[0],
         targetCigarettes: 0, // Sẽ được tính từ kế hoạch thực tế của user
@@ -287,7 +290,58 @@ const DailyCheckin = ({ onProgressUpdate }) => {
         };
         
         loadPlanAndCalculateTarget();
-    }, []);    // Bỏ useEffect này vì đã xử lý trong useEffect chính
+    }, []);
+
+    // Reset state khi user thay đổi để tránh dính data từ user trước
+    useEffect(() => {
+        if (user) {
+            // Reset tất cả state về trạng thái ban đầu
+            setTodayData({
+                date: new Date().toISOString().split('T')[0],
+                targetCigarettes: 0,
+                actualCigarettes: 0,
+                initialCigarettes: 0,
+                notes: ''
+            });
+            setIsSubmitted(false);
+            setCurrentWeek(1);
+            setStreakDays(0);
+            setCurrentPlan(null);
+            
+            // Load lại dữ liệu cho user mới
+            const loadPlanAndCalculateTarget = async () => {
+                const plan = await loadUserPlan();
+                
+                if (plan) {
+                    const target = calculateTodayTarget(plan);
+                    setTodayData(prev => ({
+                        ...prev,
+                        targetCigarettes: target
+                    }));
+                } else {
+                    console.log("⚠️ Không có kế hoạch được load cho user mới, target = 0");
+                    setTodayData(prev => ({
+                        ...prev,
+                        targetCigarettes: 0
+                    }));
+                }
+                
+                calculateStreakDays();
+            };
+            
+            loadPlanAndCalculateTarget();
+            // Xóa tất cả dữ liệu check-in cũ khi có user mới
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('checkin_')) {
+                localStorage.removeItem(key);
+              }
+            });
+            
+            console.log('🔄 Reset DailyCheckin state và xóa dữ liệu cũ cho user mới:', user.id);
+        }
+    }, [user?.id]); // Chỉ chạy khi user ID thay đổi
+
+    // Bỏ useEffect này vì đã xử lý trong useEffect chính
         // Load dữ liệu từ database khi component mount
     useEffect(() => {
         const loadUserData = async () => {

@@ -381,7 +381,10 @@ export default function JourneyStepper() {
         strategy: 'gradual', // hoặc 'immediate' tùy theo kế hoạch
         goal: formData.reasonToQuit || 'health',
         totalWeeks: completeSelectedPlan?.totalWeeks || 8,
-        weeks: completeSelectedPlan?.weeks || [], // Mảng các tuần
+        weeks: (completeSelectedPlan?.weeks || []).map(week => ({
+          week: week.week,
+          target: week.amount // Backend expects 'target' not 'amount'
+        })), // Mảng các tuần
         isActive: true,
         // Thêm metadata
         metadata: {
@@ -393,6 +396,7 @@ export default function JourneyStepper() {
       };
 
       logDebug('QuitPlan', '📤 Gửi dữ liệu lên API', planDataForAPI);
+      logDebug('QuitPlan', '📋 Weeks data structure:', planDataForAPI.weeks);
 
       // Gọi API để lưu kế hoạch lên database
       const apiResponse = await createQuitPlan(planDataForAPI);
@@ -701,6 +705,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -708,7 +713,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -753,6 +761,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -760,7 +769,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -805,6 +817,7 @@ export default function JourneyStepper() {
 
         // Đảm bảo đạt mục tiêu 0 vào tuần cuối
         if (i === plan.totalWeeks) {
+          weeklyReduction = currentAmount;
           currentAmount = 0;
         } else {
           currentAmount = Math.max(0, currentAmount - weeklyReduction);
@@ -812,7 +825,10 @@ export default function JourneyStepper() {
 
         plan.weeks.push({
           week: i,
-          target: Math.round(currentAmount) // Đảm bảo target là số nguyên
+          amount: Math.round(currentAmount),
+          reduction: weeklyReduction,
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
+                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });

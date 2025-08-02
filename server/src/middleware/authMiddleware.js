@@ -169,3 +169,6 @@ export const requireAdmin = (req, res, next) => {
     });
   }
 };
+
+// Alias for requireAuth for backward compatibility
+export const verifyToken = requireAuth;

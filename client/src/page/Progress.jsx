@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import DailyCheckin from '../components/DailyCheckin';
 import ProgressDashboard from '../components/ProgressDashboard';
+import CheckinHistory from '../components/CheckinHistory';
 import ResetCheckinData from '../components/ResetCheckinData';
 import { FaCalendarCheck, FaLeaf, FaCoins, FaHeart } from 'react-icons/fa';
 import progressService from '../services/progressService';
@@ -10,6 +11,7 @@ import { getUserActivePlan } from '../services/quitPlanService';
 import './Progress.css';
 import '../styles/DailyCheckin.css';
 import '../styles/ProgressDashboard.css';
+import '../styles/ProgressDashboard-update.css';
 
 export default function Progress() {
   const { user } = useAuth();
@@ -118,16 +120,29 @@ export default function Progress() {
     };
   }, []);
 
-  // Thêm useEffect để tính toán lại khi actualProgress thay đổi
+  // Reset state khi user thay đổi để tránh dính data từ user trước
   useEffect(() => {
-    if (actualProgress && actualProgress.length > 0) {
-      // Delay một chút để đảm bảo tất cả state đã được cập nhật
-      setTimeout(() => {
-        recalculateStatistics();
-      }, 100);
+    if (user) {
+      // Reset tất cả state về trạng thái ban đầu
+      setUserPlan(null);
+      setUserProgress([]);
+      setActualProgress([]);
+      setMoodData([]);
+      setHasPlan(false);
+      setIsLoading(true);
+      setDashboardStats({
+        noSmokingDays: 0,
+        savedCigarettes: 0,
+        savedMoney: 0,
+        healthProgress: 0
+      });
+      
+      // Load lại dữ liệu cho user mới
+      loadUserPlanAndProgress();
+      console.log('🔄 Reset Progress state cho user mới:', user.id);
     }
-  }, [actualProgress]);
-  
+  }, [user?.id]); // Chỉ chạy khi user ID thay đổi
+
   const loadUserPlanAndProgress = async () => {
     setIsLoading(true);
     
@@ -526,10 +541,19 @@ export default function Progress() {
     }
   }, []);
   
-  // Recalculate statistics whenever actualProgress changes
+  // Recalculate statistics whenever actualProgress changes với debounce để tránh vòng lặp
   useEffect(() => {
-    // Recalculate even if there's no data, to reset stats if needed
-    recalculateStatistics();
+    // Recalculate cho cả trường hợp có và không có data
+    const timeoutId = setTimeout(() => {
+      if (actualProgress && actualProgress.length > 0) {
+        console.log('🔄 Recalculating stats for actualProgress:', actualProgress.length);
+      } else {
+        console.log('🔄 Recalculating stats for empty actualProgress');
+      }
+      recalculateStatistics();
+    }, 200); // Debounce 200ms
+    
+    return () => clearTimeout(timeoutId);
   }, [actualProgress]);
   
   // Không chuyển hướng tự động, chỉ hiển thị nút cho người dùng
@@ -542,9 +566,15 @@ export default function Progress() {
   const recalculateStatistics = () => {
     console.log("📊 Recalculating statistics...");
     
-    // Nếu không có dữ liệu actualProgress, thử load lại từ API
+    // Nếu không có dữ liệu actualProgress, đơn giản set stats về 0 thay vì gọi lại loadUserPlanAndProgress
     if (!actualProgress || actualProgress.length === 0) {
-      loadUserPlanAndProgress();
+      console.log("⚠️ No actualProgress data, setting stats to zero");
+      setDashboardStats({
+        noSmokingDays: 0,
+        savedCigarettes: 0,
+        savedMoney: 0,
+        healthProgress: 0
+      });
       return;
     }
     
@@ -817,27 +847,40 @@ export default function Progress() {
 
   return (
     <div className="progress-container">
-      <h1 className="page-title">
-        {showCompletionDashboard ? 'Chúc mừng! Bạn đã lập kế hoạch cai thuốc' : 'Tiến trình cai thuốc hiện tại'}
-      </h1>
+      <div className="progress-header">
+        <h1 className="page-title">
+          {showCompletionDashboard ? 'Chúc mừng! Bạn đã lập kế hoạch cai thuốc' : 'Tiến trình cai thuốc hiện tại'}
+        </h1>
+      </div>
       
       {/* Daily Checkin Section - Luôn hiển thị để người dùng có thể nhập số điếu đã hút */}
       <DailyCheckin 
         onProgressUpdate={handleProgressUpdate}
       />
-        {/* Luôn hiển thị ProgressDashboard */}
-        <ProgressDashboard 
-          userPlan={userPlan} 
-          completionDate={completionData?.completionDate || new Date().toISOString()}
-          dashboardStats={dashboardStats}
-          actualProgress={actualProgress}
-          onDataReset={() => {
-            // Reset data & recalculate
-            localStorage.removeItem('dashboardStats');
-            loadActualProgressFromCheckins();
+        
+      {/* Luôn hiển thị ProgressDashboard */}
+      <ProgressDashboard 
+        userPlan={userPlan} 
+        completionDate={completionData?.completionDate || new Date().toISOString()}
+        dashboardStats={dashboardStats}
+        actualProgress={actualProgress}
+        onDataReset={async () => {
+          // Reset data & recalculate
+          localStorage.removeItem('dashboardStats');
+          try {
+            await loadActualProgressFromCheckins();
             recalculateStatistics();
-          }}
-        />
+          } catch (error) {
+            console.error('❌ Error during data reset:', error);
+          }
+        }}
+      />
+      
+      {/* Lịch sử Check-in */}
+      <div className="section-divider"></div>
+      <CheckinHistory 
+        onProgressUpdate={handleProgressUpdate}
+      />
     </div>
   );
 }
