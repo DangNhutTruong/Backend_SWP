@@ -45,6 +45,12 @@ const AdminUsers = () => {
   const [searchText, setSearchText] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [statistics, setStatistics] = useState({
+    totalAll: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    coaches: 0
+  });
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -83,6 +89,11 @@ const AdminUsers = () => {
           ...prev,
           total: response.data.pagination.totalUsers
         }));
+        
+        // Update statistics with global counts
+        if (response.data.statistics) {
+          setStatistics(response.data.statistics);
+        }
       } else {
         message.error('Không thể tải danh sách người dùng');
       }
@@ -336,7 +347,7 @@ const AdminUsers = () => {
             </Tooltip>
           </Popconfirm>
           <Popconfirm
-            title="Bạn có chắc chắn muốn xóa người dùng này?"
+            title="⚠️ Bạn có chắc chắn muốn XÓA VĨNH VIỄN người dùng này? Hành động này KHÔNG THỂ HOÀN TÁC!"
             onConfirm={() => handleDelete(record.id)}
             okText="Đồng ý"
             cancelText="Hủy"
@@ -367,7 +378,7 @@ const AdminUsers = () => {
             <Card size="small" className="statistics-card">
               <Statistic
                 title="Tổng người dùng"
-                value={pagination.total}
+                value={statistics.totalAll}
                 prefix={<UserOutlined />}
               />
             </Card>
@@ -376,7 +387,7 @@ const AdminUsers = () => {
             <Card size="small" className="statistics-card">
               <Statistic
                 title="Đang hoạt động"
-                value={users.filter(u => u.is_active).length}
+                value={statistics.activeUsers}
                 valueStyle={{ color: '#3f8600' }}
                 prefix={<UserOutlined />}
               />
@@ -386,7 +397,7 @@ const AdminUsers = () => {
             <Card size="small" className="statistics-card">
               <Statistic
                 title="Bị khóa"
-                value={users.filter(u => !u.is_active).length}
+                value={statistics.inactiveUsers}
                 valueStyle={{ color: '#cf1322' }}
                 prefix={<LockOutlined />}
               />
@@ -396,7 +407,7 @@ const AdminUsers = () => {
             <Card size="small" className="statistics-card">
               <Statistic
                 title="Huấn luyện viên"
-                value={users.filter(u => u.role === 'coach').length}
+                value={statistics.coaches}
                 valueStyle={{ color: '#1890ff' }}
                 prefix={<UserOutlined />}
               />
@@ -500,7 +511,7 @@ const AdminUsers = () => {
               </div>
             </div>
           }
-          visible={isDetailModalVisible}
+          open={isDetailModalVisible}
           onCancel={() => setIsDetailModalVisible(false)}
           footer={[
             <Button key="edit" type="primary" onClick={() => {
@@ -730,7 +741,7 @@ const AdminUsers = () => {
         {/* Edit/Create Modal */}
         <Modal
           title={editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}
-          visible={isEditModalVisible}
+          open={isEditModalVisible}
           onCancel={() => setIsEditModalVisible(false)}
           footer={null}
           width={800}

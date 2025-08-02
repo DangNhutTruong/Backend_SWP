@@ -1,5 +1,6 @@
 import { pool } from '../config/database.js';
 import { sendResponse } from '../utils/response.js';
+import bcrypt from 'bcryptjs';
 
 /**
  * Get statistics about coaches
@@ -512,7 +513,6 @@ export const getAllUsers = async (req, res) => {
         // Add search filter
         if (search) {
             whereClause += ' AND (full_name LIKE ? OR email LIKE ?)';
-
             queryParams.push(`%${search}%`, `%${search}%`);
         }
         
@@ -528,8 +528,14 @@ export const getAllUsers = async (req, res) => {
             queryParams.push(status === 'true' ? 1 : 0);
         }
         
-        // Get total count
-        const [totalCount] = await pool.query(
+        // Get total count for all users (not filtered)
+        const [totalCountAll] = await pool.query('SELECT COUNT(*) as total FROM users');
+        const [activeCount] = await pool.query('SELECT COUNT(*) as active FROM users WHERE is_active = 1');
+        const [inactiveCount] = await pool.query('SELECT COUNT(*) as inactive FROM users WHERE is_active = 0');
+        const [coachCount] = await pool.query('SELECT COUNT(*) as coaches FROM users WHERE role = "coach"');
+        
+        // Get filtered count for pagination
+        const [filteredCount] = await pool.query(
             `SELECT COUNT(*) as total FROM users ${whereClause}`,
             queryParams
         );
@@ -548,9 +554,15 @@ export const getAllUsers = async (req, res) => {
             users,
             pagination: {
                 currentPage: parseInt(page),
-                totalPages: Math.ceil(totalCount[0].total / limit),
-                totalUsers: totalCount[0].total,
+                totalPages: Math.ceil(filteredCount[0].total / limit),
+                totalUsers: filteredCount[0].total,
                 limit: parseInt(limit)
+            },
+            statistics: {
+                totalAll: totalCountAll[0].total,
+                activeUsers: activeCount[0].active,
+                inactiveUsers: inactiveCount[0].inactive,
+                coaches: coachCount[0].coaches
             }
         });
     } catch (error) {
@@ -626,12 +638,16 @@ export const getUserById = async (req, res) => {
  */
 export const createUser = async (req, res) => {
     try {
+        console.log('📝 Creating new user with data:', req.body);
         const { username, email, password, full_name, role = 'user', phone, gender, date_of_birth, is_active = true } = req.body;
         
         // Validate required fields
         if (!username || !email || !password || !full_name) {
+            console.log('❌ Validation failed: Missing required fields');
             return sendResponse(res, 400, false, 'Username, email, password and full_name are required', null);
         }
+        
+        console.log('✅ Validation passed, checking for existing users...');
         
         // Check if username or email already exists
         const [existingUsers] = await pool.query(
@@ -640,25 +656,32 @@ export const createUser = async (req, res) => {
         );
         
         if (existingUsers.length > 0) {
+            console.log('❌ User already exists');
             return sendResponse(res, 400, false, 'Username or email already exists', null);
         }
         
-        // Hash password (assuming you have bcrypt imported)
-        const bcrypt = await import('bcrypt');
+        console.log('✅ No existing user found, hashing password...');
+        
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
+        
+        console.log('✅ Password hashed, inserting user...');
         
         // Insert new user
         const [result] = await pool.query(
-            `INSERT INTO users (username, email, password, full_name, role, phone, gender, date_of_birth, is_active, created_at) 
+            `INSERT INTO users (username, email, password_hash, full_name, role, phone, gender, date_of_birth, is_active, created_at) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
             [username, email, hashedPassword, full_name, role, phone, gender, date_of_birth, is_active ? 1 : 0]
         );
+        
+        console.log('✅ User created successfully with ID:', result.insertId);
         
         return sendResponse(res, 201, true, 'User created successfully', {
             userId: result.insertId
         });
     } catch (error) {
-        console.error('Error creating user:', error);
+        console.error('❌ Error creating user:', error);
+        console.error('Stack trace:', error.stack);
         return sendResponse(res, 500, false, 'Internal server error', null);
     }
 };
@@ -749,33 +772,129 @@ export const toggleUserStatus = async (req, res) => {
 };
 
 /**
- * Delete user (soft delete)
+ * Delete user (hard delete) - Completely removes user from database
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
 export const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`🗑️ Attempting to hard delete user with ID: ${id}`);
         
         // Check if user exists
         const [users] = await pool.query(
-            'SELECT id FROM users WHERE id = ?',
+            'SELECT id, username, email, role FROM users WHERE id = ?',
             [id]
         );
         
         if (users.length === 0) {
+            console.log(`❌ User with ID ${id} not found`);
             return sendResponse(res, 404, false, 'User not found', null);
         }
         
-        // Soft delete by deactivating
-        await pool.query(
-            'UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?',
-            [id]
-        );
+        console.log(`✅ Found user: ${users[0].username} (${users[0].email}) - Role: ${users[0].role}`);
         
-        return sendResponse(res, 200, true, 'User deleted successfully', null);
+        // Helper function to safely delete from table if it exists
+        const safeDelete = async (tableName, whereClause, params) => {
+            try {
+                // Check if table exists
+                const [tables] = await pool.query(
+                    'SHOW TABLES LIKE ?',
+                    [tableName]
+                );
+                
+                if (tables.length > 0) {
+                    await pool.query(`DELETE FROM ${tableName} WHERE ${whereClause}`, params);
+                    console.log(`✅ Deleted from ${tableName} for user ${id}`);
+                } else {
+                    console.log(`⚠️ Table ${tableName} does not exist, skipping...`);
+                }
+            } catch (error) {
+                console.log(`⚠️ Error deleting from ${tableName}: ${error.message}, skipping...`);
+            }
+        };
+        
+        // Start transaction for safe deletion
+        await pool.query('START TRANSACTION');
+        
+        try {
+            // Delete related data first to avoid foreign key constraints
+            console.log(`🧹 Cleaning up related data for user ${id}...`);
+            
+            // Delete user's appointments
+            await safeDelete('appointments', 'user_id = ? OR coach_id = ?', [id, id]);
+            
+            // Delete user's feedback (both given and received)
+            await safeDelete('feedback', 'smoker_id = ? OR coach_id = ?', [id, id]);
+            
+            // Delete user's smoking progress
+            await safeDelete('smoking_progress', 'user_id = ?', [id]);
+            
+            // Delete user's daily progress
+            await safeDelete('daily_progress', 'smoker_id = ?', [id]);
+            
+            // Delete user's memberships
+            await safeDelete('memberships', 'user_id = ?', [id]);
+            
+            // Delete user's payments
+            await safeDelete('payments', 'user_id = ?', [id]);
+            
+            // Delete coach availability if user is a coach
+            if (users[0].role === 'coach') {
+                await safeDelete('coach_availability', 'coach_id = ?', [id]);
+                await safeDelete('coach_assignments', 'coach_id = ?', [id]);
+                console.log(`✅ Deleted coach-specific data for user ${id}`);
+            }
+            
+            // Delete coach assignments if user is assigned to a coach
+            await safeDelete('coach_assignments', 'user_id = ?', [id]);
+            
+            // Delete user's messages
+            await safeDelete('messages', 'sender_id = ? OR receiver_id = ?', [id, id]);
+            
+            // Delete user's community posts
+            await safeDelete('community_posts', 'user_id = ?', [id]);
+            
+            // Delete user's community post likes
+            await safeDelete('community_post_likes', 'user_id = ?', [id]);
+            
+            // Delete user's community post comments
+            await safeDelete('community_post_comments', 'user_id = ?', [id]);
+            
+            // Delete user's progress entries
+            await safeDelete('progress_entries', 'user_id = ?', [id]);
+            
+            // Delete user's checkin data
+            await safeDelete('daily_checkin', 'user_id = ?', [id]);
+            
+            // Finally, delete the user
+            const [result] = await pool.query('DELETE FROM users WHERE id = ?', [id]);
+            
+            if (result.affectedRows === 0) {
+                throw new Error('Failed to delete user');
+            }
+            
+            // Commit transaction
+            await pool.query('COMMIT');
+            console.log(`✅ User ${id} (${users[0].username}) completely deleted from database`);
+            
+            return sendResponse(res, 200, true, 'User deleted permanently', {
+                deletedUser: {
+                    id: parseInt(id),
+                    username: users[0].username,
+                    email: users[0].email
+                }
+            });
+            
+        } catch (deleteError) {
+            // Rollback on error
+            await pool.query('ROLLBACK');
+            throw deleteError;
+        }
+        
     } catch (error) {
-        console.error('Error deleting user:', error);
+        console.error('❌ Error deleting user:', error);
+        console.error('Stack trace:', error.stack);
         return sendResponse(res, 500, false, 'Internal server error', null);
     }
 };
