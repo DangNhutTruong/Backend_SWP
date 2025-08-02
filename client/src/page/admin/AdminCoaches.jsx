@@ -37,12 +37,75 @@ import {
   CheckCircleOutlined,
   HistoryOutlined
 } from '@ant-design/icons';
+import api from '../../utils/api';
 import './AdminCoaches.css';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
 const { TextArea } = Input;
+
+// Temporary mock data until backend is ready
+const MOCK_USERS = [
+  { 
+    id: 1, 
+    name: 'Nguyễn Văn Anh', 
+    email: 'user1@example.com',
+    membershipStatus: 'premium',
+    coachAssigned: false 
+  },
+  { 
+    id: 2, 
+    name: 'Trần Thị Bình', 
+    email: 'user2@example.com',
+    membershipStatus: 'premium',
+    coachAssigned: true 
+  },
+  { 
+    id: 3, 
+    name: 'Lê Minh Công', 
+    email: 'user3@example.com',
+    membershipStatus: 'premium',
+    coachAssigned: false 
+  }
+];
+
+const MOCK_ASSIGNMENTS = [
+  { 
+    id: 1, 
+    userId: 2, 
+    coachId: 1,
+    userName: 'Trần Thị Bình', 
+    coachName: 'Nguyên Văn A',
+    startDate: '2025-07-15',
+    sessionsCompleted: 2,
+    nextSession: '2025-08-05',
+    status: 'active'
+  }
+];
+
+const MOCK_SESSION_HISTORIES = [
+  {
+    id: 1,
+    coachId: 1,
+    userId: 2,
+    userName: 'Trần Thị Bình',
+    date: '2025-07-20',
+    duration: 45,
+    rating: 4.5,
+    notes: 'Thảo luận về các chiến lược cai thuốc lá trong tháng đầu tiên'
+  },
+  {
+    id: 2,
+    coachId: 1,
+    userId: 2,
+    userName: 'Trần Thị Bình',
+    date: '2025-07-28',
+    duration: 30,
+    rating: 4.8,
+    notes: 'Theo dõi tiến độ và điều chỉnh kế hoạch cai thuốc'
+  }
+];
 
 export default function AdminCoaches() {
   const [coaches, setCoaches] = useState([]);
@@ -60,164 +123,210 @@ export default function AdminCoaches() {
   const [sessionHistories, setSessionHistories] = useState([]);
   
   useEffect(() => {
-    // Mô phỏng API call để lấy dữ liệu huấn luyện viên
-    fetchCoaches();
-    fetchUsers();
-    fetchAssignments();
+    // Fetch data from API
+    const fetchData = async () => {
+      await fetchCoaches();
+      await fetchUsers();
+      await fetchAssignments();
+    };
+    
+    fetchData();
   }, []);
 
-  const fetchCoaches = () => {
-    setTimeout(() => {
-      const mockCoaches = [
-        {
-          id: 1,
-          name: 'Nguyễn Văn A',
-          email: 'coach.a@nosmoke.com',
-          phone: '0901234567',
-          specialization: 'Tư vấn tâm lý',
-          experience: '5 năm',
-          bio: 'Chuyên gia tư vấn tâm lý với 5 năm kinh nghiệm hỗ trợ cai nghiện thuốc lá.',
-          rating: 4.8,
-          totalSessions: 156,
-          isActive: true,
-          availableSlots: 5
-        },
-        {
-          id: 2,
-          name: 'Trần Thị B',
-          email: 'coach.b@nosmoke.com',
-          phone: '0912345678',
-          specialization: 'Y tá cấp cứu',
-          experience: '7 năm',
-          bio: 'Y tá cấp cứu với chuyên môn về các vấn đề hô hấp và tim mạch liên quan đến hút thuốc.',
-          rating: 4.5,
-          totalSessions: 203,
-          isActive: true,
-          availableSlots: 3
-        },
-        {
-          id: 3,
-          name: 'Lê Văn C',
-          email: 'coach.c@nosmoke.com',
-          phone: '0898765432',
-          specialization: 'Huấn luyện viên cá nhân',
-          experience: '3 năm',
-          bio: 'Huấn luyện viên cá nhân chuyên về phát triển thói quen lành mạnh thay thế việc hút thuốc.',
-          rating: 4.2,
-          totalSessions: 89,
-          isActive: false,
-          availableSlots: 0
-        },
-      ];
-      setCoaches(mockCoaches);
+  const fetchCoaches = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching coaches from API...');
+      
+      const data = await api.fetch('/api/admin/coaches');
+      console.log('Received coaches data:', data);
+      
+      if (data.success && Array.isArray(data.data)) {
+        // Map backend field names to frontend field names
+        const mappedCoaches = data.data.map(coach => {
+          // Handle name field more explicitly to debug the "Unknown" issue
+          let coachName = 'Unknown';
+          if (coach.full_name && coach.full_name.trim()) {
+            coachName = coach.full_name;
+          } else if (coach.name && coach.name.trim()) {
+            coachName = coach.name;
+          }
+          
+          // Handle experience field to ensure it includes "năm" if appropriate
+          let experienceValue = coach.experience || '';
+          if (experienceValue && !experienceValue.toString().includes('năm')) {
+            experienceValue = `${experienceValue} năm`.trim();
+          }
+          
+          console.log(`Coach ID ${coach.id}: name=${coachName}, exp=${experienceValue}`);
+          
+          return {
+            id: coach.id,
+            name: coachName,
+            email: coach.email || '',
+            phone: coach.phone || '',
+            specialization: coach.specialization || '',
+            experience: experienceValue,
+            bio: coach.bio || '',
+            isActive: coach.is_active === 1 || Boolean(coach.isActive),
+            rating: coach.rating !== null && coach.rating !== undefined ? parseFloat(coach.rating) : 0,
+            totalSessions: coach.appointment_count || coach.totalSessions || 0,
+            availableSlots: coach.available_slots_count || (Array.isArray(coach.available_slots) ? coach.available_slots.length : 0) || coach.availableSlots || 0
+          };
+        });
+        setCoaches(mappedCoaches);
+      } else {
+        console.error('Invalid response format from API:', data);
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching coaches:', error);
+      message.error('Không thể tải dữ liệu huấn luyện viên. Vui lòng thử lại sau.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
-  const fetchUsers = () => {
-    setTimeout(() => {
-      const mockUsers = [
-        {
-          id: 1,
-          name: 'Phạm Văn X',
-          email: 'user1@example.com',
-          membershipStatus: 'premium',
-          coachAssigned: false
-        },
-        {
-          id: 2,
-          name: 'Hoàng Thị Y',
-          email: 'user2@example.com',
-          membershipStatus: 'premium',
-          coachAssigned: true
-        },
-        {
-          id: 3,
-          name: 'Đỗ Văn Z',
-          email: 'user3@example.com',
-          membershipStatus: 'premium',
-          coachAssigned: false
+  const fetchUsers = async () => {
+    try {
+      console.log('Fetching premium users from API...');
+      try {
+        const data = await api.fetch('/api/admin/users/premium');
+        console.log('Received premium users data:', data);
+        
+        if (data.success && Array.isArray(data.data)) {
+          // Map backend field names to frontend field names
+          const mappedUsers = data.data.map(user => ({
+            id: user.id,
+            name: user.name || user.full_name || 'Unknown',
+            email: user.email || '',
+            membershipStatus: user.membershipStatus || 'premium',
+            coachAssigned: user.coachAssigned || false
+          }));
+          setUsers(mappedUsers);
+        } else {
+          throw new Error('Invalid response format');
         }
-      ];
-      setUsers(mockUsers);
-    }, 1200);
+      } catch (apiError) {
+        // If API fails, use mock data temporarily
+        console.warn('Using mock user data until backend endpoint is ready');
+        setUsers(MOCK_USERS);
+        // Don't show error to user for mock data
+      }
+    } catch (error) {
+      console.error('Error in fetchUsers:', error);
+      // Still use mock data as fallback
+      setUsers(MOCK_USERS);
+    }
   };
 
-  const fetchAssignments = () => {
-    setTimeout(() => {
-      const mockAssignments = [
-        {
-          id: 1,
-          userId: 2,
-          userName: 'Hoàng Thị Y',
-          coachId: 1,
-          coachName: 'Nguyễn Văn A',
-          startDate: '2023-07-01',
-          status: 'active',
-          sessionsCompleted: 4,
-          nextSession: '2023-08-15'
+  const fetchAssignments = async () => {
+    try {
+      console.log('Fetching coach assignments from API...');
+      
+      try {
+        const data = await api.fetch('/api/admin/coach-assignments');
+        console.log('Received coach assignments data:', data);
+        
+        if (data.success && Array.isArray(data.data)) {
+          // Map backend field names to frontend field names
+          const mappedAssignments = data.data.map(assignment => ({
+            id: assignment.id,
+            userId: assignment.userId || assignment.user_id,
+            coachId: assignment.coachId || assignment.coach_id,
+            userName: assignment.userName || assignment.user_name || 'Unknown User',
+            coachName: assignment.coachName || assignment.coach_name || 'Unknown Coach',
+            startDate: assignment.startDate || assignment.start_date,
+            sessionsCompleted: assignment.sessionsCompleted || assignment.sessions_completed || 0,
+            nextSession: assignment.nextSession || assignment.next_session,
+            status: assignment.status || 'active'
+          }));
+          setAssignments(mappedAssignments);
+        } else {
+          throw new Error('Invalid response format');
         }
-      ];
-      setAssignments(mockAssignments);
-    }, 1400);
+      } catch (apiError) {
+        // If API fails, use mock data temporarily
+        console.warn('Using mock assignment data until backend endpoint is ready');
+        setAssignments(MOCK_ASSIGNMENTS);
+        // Don't show error to user for mock data
+      }
+    } catch (error) {
+      console.error('Error in fetchAssignments:', error);
+      // Still use mock data as fallback
+      setAssignments(MOCK_ASSIGNMENTS);
+    }
   };
 
-  const fetchSessionHistory = (coachId) => {
-    // Mô phỏng API call để lấy lịch sử phiên tư vấn
-    setTimeout(() => {
-      const mockSessionHistories = [
-        {
-          id: 1,
-          userId: 2,
-          userName: 'Hoàng Thị Y',
-          date: '2023-07-15',
-          duration: 45, // phút
-          notes: 'Thảo luận về chiến lược đối phó với cơn thèm thuốc.',
-          rating: 5
-        },
-        {
-          id: 2,
-          userId: 2,
-          userName: 'Hoàng Thị Y',
-          date: '2023-07-22',
-          duration: 30, // phút
-          notes: 'Theo dõi tiến trình cai thuốc tuần đầu tiên.',
-          rating: 4
-        },
-        {
-          id: 3,
-          userId: 2,
-          userName: 'Hoàng Thị Y',
-          date: '2023-07-29',
-          duration: 40, // phút
-          notes: 'Thảo luận về các thói quen thay thế và kỹ thuật thư giãn.',
-          rating: 5
-        },
-        {
-          id: 4,
-          userId: 2,
-          userName: 'Hoàng Thị Y',
-          date: '2023-08-05',
-          duration: 35, // phút
-          notes: 'Đánh giá tiến độ và điều chỉnh kế hoạch cai thuốc.',
-          rating: 4
+  const fetchSessionHistory = async (coachId) => {
+    try {
+      console.log(`Fetching session history for coach ${coachId} from API...`);
+      try {
+        // Sử dụng một URL có thể debug được
+        const url = `/api/admin/coaches/${coachId}/sessions`;
+        console.log(`API URL: ${url}`);
+        
+        const data = await api.fetch(url);
+        console.log(`Received session history for coach ${coachId}:`, data);
+        
+        if (data.success && Array.isArray(data.data)) {
+          console.log(`Found ${data.data.length} session records for coach ${coachId}`);
+          
+          // Map backend field names to frontend field names
+          const mappedSessions = data.data.map(session => ({
+            id: session.id,
+            coachId: session.coachId || session.coach_id,
+            userId: session.userId || session.user_id,
+            userName: session.userName || session.user_name || 'Unknown User',
+            date: session.date || session.session_date || new Date().toISOString().split('T')[0],
+            time: session.time || '',
+            duration: session.duration || session.duration_minutes || 0,
+            rating: session.rating !== null && session.rating !== undefined ? parseFloat(session.rating) : 0,
+            notes: '' // Không còn trường notes từ backend
+          }));
+          
+          console.log('Mapped session data:', mappedSessions);
+          setSessionHistories(mappedSessions);
+        } else {
+          console.warn('API returned success=false or data is not an array:', data);
+          throw new Error(data.message || 'Invalid response format');
         }
-      ];
-      setSessionHistories(mockSessionHistories);
-    }, 500);
+      } catch (apiError) {
+        console.warn('API error:', apiError);
+        // If API fails, use mock data temporarily
+        console.warn('Using mock session history data until backend endpoint is ready');
+        // Filter mock data for this specific coach
+        const filteredSessions = MOCK_SESSION_HISTORIES.filter(session => session.coachId === coachId);
+        console.log(`Using ${filteredSessions.length} mock sessions for coach ${coachId}`);
+        setSessionHistories(filteredSessions);
+        // Don't show error to user for mock data
+      }
+    } catch (error) {
+      console.error(`Error fetching session history for coach ${coachId}:`, error);
+      message.error('Không thể tải lịch sử phiên tư vấn. Vui lòng thử lại sau.');
+      setSessionHistories([]);
+    }
   };
 
   const showModal = (coach = null) => {
     setEditingCoach(coach);
     if (coach) {
+      console.log('Setting form values for coach:', coach);
+      
+      // Process experience field to remove "năm" suffix for form editing
+      let experienceValue = coach.experience || '';
+      if (typeof experienceValue === 'string' && experienceValue.includes('năm')) {
+        experienceValue = experienceValue.replace(' năm', '').trim();
+      }
+      
       form.setFieldsValue({
         name: coach.name,
         email: coach.email,
         phone: coach.phone,
         specialization: coach.specialization,
-        experience: coach.experience,
+        experience: experienceValue, // Use cleaned value for form
         bio: coach.bio,
-        isActive: coach.isActive
+        isActive: coach.isActive !== undefined ? coach.isActive : true
       });
     } else {
       form.resetFields();
@@ -225,6 +334,7 @@ export default function AdminCoaches() {
         isActive: true
       });
     }
+    console.log('Form values after setting:', form.getFieldsValue());
     setIsModalVisible(true);
   };
 
@@ -252,83 +362,209 @@ export default function AdminCoaches() {
     setIsViewModalVisible(false);
   };
 
-  const handleSubmit = (values) => {
-    if (editingCoach) {
-      // Cập nhật huấn luyện viên hiện có
-      setCoaches(coaches.map(c => 
-        c.id === editingCoach.id 
-          ? { ...c, ...values }
-          : c
-      ));
-      message.success('Thông tin huấn luyện viên đã được cập nhật thành công!');
-    } else {
-      // Tạo huấn luyện viên mới
-      const newCoach = {
-        id: Date.now(),
+  const handleSubmit = async (values) => {
+    try {
+      const url = editingCoach 
+        ? `/api/admin/coaches/${editingCoach.id}` 
+        : '/api/admin/coaches';
+      
+      const method = editingCoach ? 'PUT' : 'POST';
+      
+      // Process experience field - store only numeric value to prevent database truncation
+      let experienceValue = values.experience;
+      // Remove any "năm" or non-numeric characters for backend storage
+      if (typeof experienceValue === 'string') {
+        const numericMatch = experienceValue.match(/^(\d+)/);
+        if (numericMatch && numericMatch[1]) {
+          experienceValue = numericMatch[1];
+        }
+      }
+      
+      // Convert field names for backend compatibility
+      const convertedValues = {
         ...values,
-        rating: 0,
-        totalSessions: 0,
-        availableSlots: 10
+        experience: experienceValue,
+        is_active: values.isActive,
+        full_name: values.name // Map name to full_name for backend compatibility
       };
-      setCoaches([...coaches, newCoach]);
-      message.success('Huấn luyện viên đã được thêm thành công!');
+      
+      console.log(`${editingCoach ? 'Updating' : 'Creating'} coach with API...`);
+      console.log('Form values:', values);
+      console.log('Converted values:', convertedValues);
+      
+      const data = await api.fetch(url, {
+        method,
+        body: JSON.stringify(convertedValues),
+      });
+      
+      console.log(`Coach ${editingCoach ? 'updated' : 'created'} successfully:`, data);
+      
+      if (data.success) {
+        message.success(`Huấn luyện viên đã được ${editingCoach ? 'cập nhật' : 'thêm'} thành công!`);
+        fetchCoaches(); // Refresh the coaches list
+        setIsModalVisible(false);
+      } else {
+        throw new Error(data.message || 'Operation failed');
+      }
+    } catch (error) {
+      console.error(`Error ${editingCoach ? 'updating' : 'creating'} coach:`, error);
+      message.error(`Không thể ${editingCoach ? 'cập nhật' : 'thêm'} huấn luyện viên. Vui lòng thử lại sau.`);
     }
-    
-    setIsModalVisible(false);
   };
 
-  const handleAssignSubmit = (values) => {
-    const user = users.find(u => u.id === values.userId);
-    const newAssignment = {
-      id: Date.now(),
-      userId: values.userId,
-      userName: user.name,
-      coachId: selectedCoach.id,
-      coachName: selectedCoach.name,
-      startDate: new Date().toISOString().split('T')[0],
-      status: 'active',
-      sessionsCompleted: 0,
-      nextSession: values.nextSession
-    };
-    
-    setAssignments([...assignments, newAssignment]);
-    
-    // Cập nhật trạng thái người dùng
-    setUsers(users.map(u => 
-      u.id === values.userId 
-        ? { ...u, coachAssigned: true }
-        : u
-    ));
-    
-    setIsAssignModalVisible(false);
-    message.success('Đã phân công huấn luyện viên cho người dùng thành công!');
+  const handleAssignSubmit = async (values) => {
+    try {
+      console.log('Assigning coach to user with API...');
+      try {
+        const data = await api.fetch('/api/admin/coach-assignments', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: values.userId,
+            coachId: selectedCoach.id,
+            nextSession: values.nextSession
+          }),
+        });
+        
+        console.log('Coach assigned to user successfully:', data);
+        
+        if (data.success) {
+          message.success('Đã phân công huấn luyện viên cho người dùng thành công!');
+          setIsAssignModalVisible(false);
+          fetchAssignments(); // Refresh the assignments list
+          fetchUsers(); // Refresh the users list to update their coach assignment status
+        } else {
+          throw new Error(data.message || 'Assignment failed');
+        }
+      } catch (apiError) {
+        console.warn('Using mock data for coach assignment as endpoint is not available');
+        
+        // Find the user in mock data
+        const user = MOCK_USERS.find(u => u.id === values.userId);
+        if (user) {
+          // Update mock user status
+          user.coachAssigned = true;
+          
+          // Create new mock assignment
+          const newAssignment = {
+            id: Date.now(), // Use timestamp as temporary ID
+            userId: values.userId,
+            coachId: selectedCoach.id,
+            userName: user.name,
+            coachName: selectedCoach.name,
+            startDate: new Date().toISOString().split('T')[0],
+            sessionsCompleted: 0,
+            nextSession: values.nextSession,
+            status: 'active'
+          };
+          
+          // Add to mock data
+          MOCK_ASSIGNMENTS.push(newAssignment);
+          
+          message.success('Đã phân công huấn luyện viên cho người dùng thành công! (Dữ liệu giả)');
+          setIsAssignModalVisible(false);
+          setAssignments([...MOCK_ASSIGNMENTS]);
+          setUsers([...MOCK_USERS]);
+        } else {
+          throw new Error('User not found in mock data');
+        }
+      }
+    } catch (error) {
+      console.error('Error assigning coach to user:', error);
+      message.error('Không thể phân công huấn luyện viên. Vui lòng thử lại sau.');
+    }
   };
 
-  const handleDelete = (id) => {
-    setCoaches(coaches.filter(c => c.id !== id));
-    message.success('Huấn luyện viên đã được xóa thành công!');
+  const handleDelete = async (id) => {
+    try {
+      console.log(`Deleting coach ${id} with API...`);
+      const data = await api.fetch(`/api/admin/coaches/${id}`, {
+        method: 'DELETE',
+      });
+      
+      console.log(`Coach ${id} deleted successfully:`, data);
+      
+      if (data.success) {
+        message.success('Huấn luyện viên đã được xóa thành công!');
+        fetchCoaches(); // Refresh the coaches list
+      } else {
+        throw new Error(data.message || 'Deletion failed');
+      }
+    } catch (error) {
+      console.error(`Error deleting coach ${id}:`, error);
+      message.error('Không thể xóa huấn luyện viên. Vui lòng thử lại sau.');
+    }
   };
 
-  const handleRemoveAssignment = (id) => {
-    const assignment = assignments.find(a => a.id === id);
-    
-    setAssignments(assignments.filter(a => a.id !== id));
-    
-    // Cập nhật trạng thái người dùng
-    setUsers(users.map(u => 
-      u.id === assignment.userId 
-        ? { ...u, coachAssigned: false }
-        : u
-    ));
-    
-    message.success('Đã hủy phân công huấn luyện viên!');
+  const handleRemoveAssignment = async (id) => {
+    try {
+      console.log(`Removing coach assignment ${id} with API...`);
+      try {
+        const data = await api.fetch(`/api/admin/coach-assignments/${id}`, {
+          method: 'DELETE',
+        });
+        
+        console.log(`Coach assignment ${id} removed successfully:`, data);
+        
+        if (data.success) {
+          message.success('Đã hủy phân công huấn luyện viên!');
+          fetchAssignments(); // Refresh the assignments list
+          fetchUsers(); // Refresh the users list to update their coach assignment status
+        } else {
+          throw new Error(data.message || 'Removal failed');
+        }
+      } catch (apiError) {
+        // If API fails, update mock data temporarily
+        console.warn('Using mock data for removing assignment until backend endpoint is ready');
+        
+        // Find the assignment in mock data
+        const assignmentIndex = MOCK_ASSIGNMENTS.findIndex(a => a.id === id);
+        if (assignmentIndex !== -1) {
+          const assignment = MOCK_ASSIGNMENTS[assignmentIndex];
+          
+          // Find the user and update status
+          const user = MOCK_USERS.find(u => u.id === assignment.userId);
+          if (user) {
+            user.coachAssigned = false;
+          }
+          
+          // Remove the assignment from mock data
+          MOCK_ASSIGNMENTS.splice(assignmentIndex, 1);
+          
+          message.success('Đã hủy phân công huấn luyện viên! (Dữ liệu giả)');
+          setAssignments([...MOCK_ASSIGNMENTS]);
+          setUsers([...MOCK_USERS]);
+        } else {
+          throw new Error('Assignment not found in mock data');
+        }
+      }
+    } catch (error) {
+      console.error(`Error removing coach assignment ${id}:`, error);
+      message.error('Không thể hủy phân công huấn luyện viên. Vui lòng thử lại sau.');
+    }
   };
 
-  const handleToggleStatus = (id, currentStatus) => {
-    setCoaches(coaches.map(c => 
-      c.id === id ? { ...c, isActive: !currentStatus } : c
-    ));
-    message.success(`Huấn luyện viên đã được ${currentStatus ? 'khóa' : 'kích hoạt'}!`);
+  const handleToggleStatus = async (id, currentStatus) => {
+    try {
+      console.log(`Toggling status for coach ${id} with API...`);
+      const data = await api.fetch(`/api/admin/coaches/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          isActive: !currentStatus
+        }),
+      });
+      
+      console.log(`Coach ${id} status toggled successfully:`, data);
+      
+      if (data.success) {
+        message.success(`Huấn luyện viên đã được ${currentStatus ? 'khóa' : 'kích hoạt'}!`);
+        fetchCoaches(); // Refresh the coaches list
+      } else {
+        throw new Error(data.message || 'Status toggle failed');
+      }
+    } catch (error) {
+      console.error(`Error toggling status for coach ${id}:`, error);
+      message.error(`Không thể ${currentStatus ? 'khóa' : 'kích hoạt'} huấn luyện viên. Vui lòng thử lại sau.`);
+    }
   };
 
   const handleSearch = (value) => {
@@ -337,9 +573,9 @@ export default function AdminCoaches() {
 
   const filteredCoaches = coaches.filter(
     (coach) =>
-      coach.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      coach.email.toLowerCase().includes(searchText.toLowerCase()) ||
-      coach.specialization.toLowerCase().includes(searchText.toLowerCase())
+      (coach.name || coach.full_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (coach.email || '').toLowerCase().includes(searchText.toLowerCase()) ||
+      (coach.specialization || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
   const coachColumns = [
@@ -370,29 +606,58 @@ export default function AdminCoaches() {
       key: 'specialization',
     },
     {
+      title: 'Kinh nghiệm',
+      dataIndex: 'experience',
+      key: 'experience',
+      render: experience => {
+        // If it's empty, return empty string
+        if (!experience) {
+          return '';
+        }
+        // If experience already includes "năm", just return it
+        if (typeof experience === 'string' && experience.includes('năm')) {
+          return experience;
+        }
+        // Otherwise add "năm" to any value (number or string)
+        return `${experience} năm`;
+      },
+    },
+    {
       title: 'Đánh giá',
       dataIndex: 'rating',
       key: 'rating',
-      render: rating => (
-        <Space>
-          <StarOutlined style={{ color: '#faad14' }} /> {rating.toFixed(1)}
-        </Space>
-      ),
-      sorter: (a, b) => a.rating - b.rating,
+      render: rating => {
+        // Convert to number to handle SQL null, undefined, or string values
+        const numericRating = rating !== null && rating !== undefined ? parseFloat(rating) : 0;
+        return (
+          <Space>
+            <StarOutlined style={{ color: '#faad14' }} /> {numericRating.toFixed(1)}
+          </Space>
+        );
+      },
+      sorter: (a, b) => {
+        const ratingA = a.rating !== null && a.rating !== undefined ? parseFloat(a.rating) : 0;
+        const ratingB = b.rating !== null && b.rating !== undefined ? parseFloat(b.rating) : 0;
+        return ratingA - ratingB;
+      },
     },
     {
       title: 'Phiên tư vấn',
       dataIndex: 'totalSessions',
       key: 'totalSessions',
-      sorter: (a, b) => a.totalSessions - b.totalSessions,
+      render: totalSessions => totalSessions || 0,
+      sorter: (a, b) => (a.totalSessions || 0) - (b.totalSessions || 0),
     },
     {
       title: 'Slot trống',
       dataIndex: 'availableSlots',
       key: 'availableSlots',
-      render: slots => (
-        <Badge count={slots} style={{ backgroundColor: slots > 0 ? '#52c41a' : '#f5222d' }} />
-      )
+      render: slots => {
+        const slotCount = slots || 0;
+        return (
+          <Badge count={slotCount} style={{ backgroundColor: slotCount > 0 ? '#52c41a' : '#f5222d' }} />
+        );
+      }
     },
     {
       title: 'Trạng thái',
@@ -657,8 +922,9 @@ export default function AdminCoaches() {
             name="experience"
             label="Kinh nghiệm"
             rules={[{ required: true, message: 'Vui lòng nhập kinh nghiệm!' }]}
+            tooltip="Có thể nhập số (ví dụ: 5) hoặc văn bản đầy đủ (ví dụ: 5 năm)"
           >
-            <Input placeholder="Ví dụ: 5 năm" />
+            <Input placeholder="Ví dụ: 5" />
           </Form.Item>
 
           <Form.Item
@@ -800,7 +1066,7 @@ export default function AdminCoaches() {
               <Col span={8}>
                 <Statistic
                   title="Đánh giá trung bình"
-                  value={selectedCoach.rating}
+                  value={selectedCoach.rating !== null && selectedCoach.rating !== undefined ? parseFloat(selectedCoach.rating) : 0}
                   precision={1}
                   valueStyle={{ color: '#faad14' }}
                   prefix={<StarOutlined />}
@@ -810,7 +1076,7 @@ export default function AdminCoaches() {
               <Col span={8}>
                 <Statistic
                   title="Tổng số phiên"
-                  value={selectedCoach.totalSessions}
+                  value={selectedCoach.totalSessions || 0}
                   valueStyle={{ color: '#1890ff' }}
                   prefix={<CheckCircleOutlined />}
                 />
@@ -818,48 +1084,53 @@ export default function AdminCoaches() {
               <Col span={8}>
                 <Statistic
                   title="Slot trống"
-                  value={selectedCoach.availableSlots}
-                  valueStyle={{ color: selectedCoach.availableSlots > 0 ? '#52c41a' : '#cf1322' }}
+                  value={selectedCoach.availableSlots || 0}
+                  valueStyle={{ color: (selectedCoach.availableSlots || 0) > 0 ? '#52c41a' : '#cf1322' }}
                 />
               </Col>
             </Row>
 
-            <Divider orientation="left">Thông tin liên hệ</Divider>
+            <Divider />
             
-            <p><strong>Email:</strong> {selectedCoach.email}</p>
-            <p><strong>Điện thoại:</strong> {selectedCoach.phone}</p>
+            <div>
+              <Title level={5}>
+                <HistoryOutlined /> Lịch sử phiên tư vấn
+                <Tag color="blue" style={{ marginLeft: 8 }}>
+                  {sessionHistories.length} phiên
+                </Tag>
+              </Title>
+              
+              <List
+                itemLayout="horizontal"
+                dataSource={sessionHistories}
+                renderItem={item => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          <span>Phiên với {item.userName} - {new Date(item.date).toLocaleDateString('vi-VN')}</span>
+                          <Tag color="gold">{item.rating !== null && item.rating !== undefined ? parseFloat(item.rating) : 0} <StarOutlined /></Tag>
+                        </Space>
+                      }
+                      description={
+                        <div>
+                          <p><strong>Thời lượng:</strong> {item.duration} phút</p>
+                          <p><strong>Thời gian:</strong> {item.time || 'Không có thông tin'}</p>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+                locale={{ emptyText: "Chưa có phiên tư vấn nào" }}
+              />
+            </div>
 
-            <Divider orientation="left">
-              Lịch sử phiên tư vấn
-              <Tag color="blue" style={{ marginLeft: 8 }}>
-                {sessionHistories.length} phiên
-              </Tag>
-            </Divider>
+            <Divider />
             
-            <List
-              itemLayout="horizontal"
-              dataSource={sessionHistories}
-              renderItem={item => (
-                <List.Item>
-                  <List.Item.Meta
-                    avatar={<Avatar icon={<HistoryOutlined />} />}
-                    title={
-                      <Space>
-                        <span>Phiên với {item.userName} - {new Date(item.date).toLocaleDateString('vi-VN')}</span>
-                        <Tag color="gold">{item.rating} <StarOutlined /></Tag>
-                      </Space>
-                    }
-                    description={
-                      <div>
-                        <p><strong>Thời lượng:</strong> {item.duration} phút</p>
-                        <p><strong>Ghi chú:</strong> {item.notes}</p>
-                      </div>
-                    }
-                  />
-                </List.Item>
-              )}
-              locale={{ emptyText: "Chưa có phiên tư vấn nào" }}
-            />
+            <div>
+              <p><strong>Email:</strong> {selectedCoach.email}</p>
+              <p><strong>Số điện thoại:</strong> {selectedCoach.phone}</p>
+            </div>
           </div>
         )}
       </Modal>

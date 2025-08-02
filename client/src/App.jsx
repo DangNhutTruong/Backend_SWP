@@ -380,7 +380,7 @@ const router = createBrowserRouter([
       },
       {
         path: "users",
-        element: <div>Quản lý người dùng - Chức năng đang phát triển</div>
+        element: <AdminUsers />
       },
       {
         path: "memberships",
@@ -447,6 +447,7 @@ const SimpleBackToTop = () => {
 // Import debug utilities for development
 import debugAuth from "./utils/authDebug.js";
 import debugAuthNew from "./utils/authDebugNew.js";
+import AdminUsers from "./page/admin/AdminUsers.jsx";
 
 // Make debug utilities available globally in development
 if (import.meta.env.DEV) {

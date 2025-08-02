@@ -132,6 +132,10 @@ app.use('/api/community', communityRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/test', testRoutes);
 
+// Admin routes
+import adminRoutes from './routes/adminRoutes.js';
+app.use('/api/admin', adminRoutes);
+
 // Đăng ký route payments với debug chi tiết
 console.log('📌 Registering payment routes...');
 try {
