@@ -38,9 +38,14 @@ router.delete('/packages/:packageId', deletePackage);
 
 // Payment management endpoints
 router.get('/payments', getPayments);
+router.get('/payments/stats', getPaymentAnalytics);
 
 // Analytics endpoints
 router.get('/analytics', getAnalytics);
+router.get('/membership-distribution', getMembershipStats);
+router.get('/recent-activities', getAnalytics); // Uses same endpoint but different data
+router.get('/progress', getAnalytics); // Uses same endpoint but different data
+router.get('/monthly-growth', getRevenueByMonth);
 
 // User management endpoints
 router.get('/users/with-membership', getUsersWithMembership);

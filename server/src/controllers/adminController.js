@@ -556,14 +556,12 @@ export const getPaymentAnalytics = async (req, res) => {
     `);
 
     const analytics = {
-      paymentMethods: paymentMethods.reduce((acc, method) => {
-        acc[method.payment_method] = {
-          count: method.count,
-          percentage: method.percentage,
-          revenue: method.revenue
-        };
-        return acc;
-      }, {}),
+      paymentMethods: paymentMethods.map(row => ({
+        method: row.payment_method,
+        count: row.count,
+        amount: parseFloat(row.total_amount),
+        percentage: parseFloat(row.percentage)
+      })),
       conversionRates: {
         freeToPro: parseFloat(freeToPro.toFixed(1)),
         proToPremium: parseFloat(proToPremium.toFixed(1)),

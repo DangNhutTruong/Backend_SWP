@@ -1216,24 +1216,25 @@ export default function AdminMemberships() {
               </Col>
               <Col span={12}>
                 <Card title="📊 Phương thức thanh toán">
-                  {analyticsData.paymentMethods?.map((method, index) => (
-                    <div key={index} style={{ marginBottom: 16 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{method.method?.toUpperCase()}</span>
-                        <Tag color={method.method === 'zalopay' ? 'cyan' : method.method === 'momo' ? 'green' : 'blue'}>
-                          {method.count} giao dịch
-                        </Tag>
+                  {analyticsData.paymentMethods?.length > 0 ? 
+                    analyticsData.paymentMethods.map((method, index) => (
+                      <div key={index} style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{method.method?.toUpperCase()}</span>
+                          <Tag color={method.method === 'zalopay' ? 'cyan' : method.method === 'momo' ? 'green' : 'blue'}>
+                            {method.count} giao dịch
+                          </Tag>
+                        </div>
+                        <Progress 
+                          percent={method.percentage} 
+                          format={percent => `${percent}%`}
+                          strokeColor={method.method === 'zalopay' ? '#1890ff' : method.method === 'momo' ? '#52c41a' : '#faad14'}
+                        />
+                        <Text type="secondary">
+                          {method.amount.toLocaleString('vi-VN')} ₫
+                        </Text>
                       </div>
-                      <Progress 
-                        percent={method.percentage} 
-                        format={percent => `${percent}%`}
-                        strokeColor={method.method === 'zalopay' ? '#1890ff' : method.method === 'momo' ? '#52c41a' : '#faad14'}
-                      />
-                      <Text type="secondary">
-                        {method.amount.toLocaleString('vi-VN')} ₫
-                      </Text>
-                    </div>
-                  )) || <Text type="secondary">Chưa có dữ liệu</Text>}
+                    )) : <Text type="secondary">Chưa có dữ liệu</Text>}
                 </Card>
               </Col>
             </Row>

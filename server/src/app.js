@@ -16,7 +16,7 @@ import coachRoutes from './routes/coachRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import testRoutes from './routes/testRoutes.js';
-import adminRoutes from './routes/admin.js';
+import adminRoutes from './routes/adminRoutes.js';
 import createAppointmentsStatusRoutes from './routes/appointmentsStatusRoutes.js';
 import communityRoutes from './routes/communityRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
@@ -131,10 +131,6 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/test', testRoutes);
-
-// Admin routes
-import adminRoutes from './routes/adminRoutes.js';
-app.use('/api/admin', adminRoutes);
 
 // Đăng ký route payments với debug chi tiết
 console.log('📌 Registering payment routes...');
