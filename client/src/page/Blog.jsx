@@ -51,20 +51,21 @@ export default function Blog() {
     }
   };
 
-  // Load tin tức thực tế từ RSS feeds
+    // Load tin tức về thuốc lá từ API
   const loadNewsArticles = async () => {
     try {
       setLoadingNews(true);
       setNewsError(null);
-      console.log('🔄 Đang tải tin tức thực tế...');
+      console.log('🔄 Đang tải tin tức về cai thuốc lá...');
       
-      const response = await newsService.getCombinedNews();
+      // Chỉ tải tin tức liên quan đến thuốc lá
+      const response = await newsService.getCombinedNews(); // Đã được sửa để chỉ lấy tin về thuốc lá
+      
       if (response.success) {
         const articles = response.data || [];
-        console.log('✅ Đã tải được', articles.length, 'bài tin tức');
+        console.log('✅ Đã tải được', articles.length, 'bài tin tức về thuốc lá');
         setNewsArticles(articles);
         
-        // Hiển thị thông báo về nguồn dữ liệu
         if (response.message) {
           showToast(response.message, 'info', 2000);
         }
@@ -79,7 +80,7 @@ export default function Blog() {
       try {
         const fallbackResponse = await newsService.getMockNews();
         setNewsArticles(fallbackResponse.data || []);
-        showToast('Sử dụng dữ liệu mẫu do không thể kết nối RSS feeds', 'warning', 3000);
+        showToast('Sử dụng dữ liệu mẫu về cai thuốc lá', 'warning', 3000);
       } catch (fallbackError) {
         console.error('❌ Lỗi khi tải dữ liệu mẫu:', fallbackError);
         showToast('Không thể tải tin tức', 'error');
@@ -88,7 +89,7 @@ export default function Blog() {
       setLoadingNews(false);
     }
   };
-
+  
   useEffect(() => {
     loadPosts();
     loadNewsArticles(); // Tải tin tức thực tế
@@ -173,12 +174,21 @@ export default function Blog() {
     }
   };
 
+  // Hàm giải mã HTML entities
+  const decodeHtmlEntities = (text) => {
+    if (!text) return '';
+    
+    // Tạo một phần tử tạm để giải mã HTML entities
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    return doc.body.textContent || '';
+  };
+  
   // Component bài viết thông thường (hiển thị cả description)
   const BlogPostCard = ({ post }) => {
     // Xử lý format khác nhau từ API và hard code
     const imageUrl = post.urlToImage || post.image || '/image/articles/default.jpg';
-    const postTitle = post.title;
-    const postDescription = post.description || post.excerpt || '';
+    const postTitle = decodeHtmlEntities(post.title);
+    const postDescription = decodeHtmlEntities(post.description || post.excerpt || '');
     const postUrl = post.url;
     const sourceName = post.source?.name || '';
 
@@ -229,7 +239,10 @@ export default function Blog() {
         {/* Bài viết mới nhất */}
         <div className="latest-posts-section">
           <div className="section-header-with-actions">
-            <h2 className="section-title" style={{ marginTop: '20px' }}>Tin tức mới nhất về cai thuốc lá</h2>
+            <h2 className="section-title" style={{ marginTop: '20px' }}>
+              <span className="highlight-text">Tin tức về cai thuốc lá</span>
+              
+            </h2>
             <button 
               onClick={loadNewsArticles} 
               className="refresh-news-btn"
@@ -272,7 +285,7 @@ export default function Blog() {
           {!loadingNews && !newsError && newsArticles.length === 0 && (
             <div className="empty-news-container">
               <FaInfoCircle />
-              <p>Hiện tại chưa có tin tức mới. Hãy thử lại sau.</p>
+              <p>Hiện tại chưa có tin tức về cai thuốc lá. Hãy thử lại sau.</p>
               <button onClick={loadNewsArticles} className="retry-btn">
                 Tải lại
               </button>
@@ -389,9 +402,16 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
     }
   };
 
-  const handleClose = () => {
+  const handleClose = (e) => {
+    e.stopPropagation(); // Ngăn chặn sự kiện lan tỏa
     setIsVisible(false);
     setTimeout(() => onClose && onClose(), 300);
+  };
+
+  // Cắt ngắn thông báo quá dài và thêm dấu "..."
+  const truncateMessage = (msg) => {
+    // Thông báo vẫn hiển thị đầy đủ, CSS sẽ xử lý việc xuống dòng
+    return msg;
   };
 
   return (
@@ -400,9 +420,9 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
         {getIcon()}
       </div>
       <div className="toast-content">
-        <p className="toast-message">{message}</p>
+        <p className="toast-message">{truncateMessage(message)}</p>
       </div>
-      <button className="toast-close" onClick={handleClose}>
+      <button className="toast-close" onClick={handleClose} title="Đóng">
         <FaTimes />
       </button>
     </div>

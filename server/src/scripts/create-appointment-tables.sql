@@ -40,9 +40,43 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 -- Add indexes for improved query performance (compatible with older MySQL versions)
-ALTER TABLE appointments ADD INDEX idx_appointments_coach_id (coach_id);
-ALTER TABLE appointments ADD INDEX idx_appointments_user_id (user_id);
-ALTER TABLE appointments ADD INDEX idx_appointments_status (status);
-ALTER TABLE appointments ADD INDEX idx_appointments_date_time (date, time);
-ALTER TABLE coach_availability ADD INDEX idx_coach_availability (coach_id, day_of_week);
-ALTER TABLE feedback ADD INDEX idx_feedback_coach (coach_id);
+-- Using conditional index creation to avoid duplicate key errors
+
+-- For appointments table
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'appointments' AND index_name = 'idx_appointments_coach_id');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE appointments ADD INDEX idx_appointments_coach_id (coach_id)', 'SELECT "Index idx_appointments_coach_id already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'appointments' AND index_name = 'idx_appointments_user_id');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE appointments ADD INDEX idx_appointments_user_id (user_id)', 'SELECT "Index idx_appointments_user_id already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'appointments' AND index_name = 'idx_appointments_status');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE appointments ADD INDEX idx_appointments_status (status)', 'SELECT "Index idx_appointments_status already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'appointments' AND index_name = 'idx_appointments_date_time');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE appointments ADD INDEX idx_appointments_date_time (date, time)', 'SELECT "Index idx_appointments_date_time already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- For coach_availability table
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'coach_availability' AND index_name = 'idx_coach_availability');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE coach_availability ADD INDEX idx_coach_availability (coach_id, day_of_week)', 'SELECT "Index idx_coach_availability already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- For feedback table
+SET @IndexExists = (SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'feedback' AND index_name = 'idx_feedback_coach');
+SET @sql = IF(@IndexExists = 0, 'ALTER TABLE feedback ADD INDEX idx_feedback_coach (coach_id)', 'SELECT "Index idx_feedback_coach already exists"');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

@@ -6,13 +6,13 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 320px;
+  max-width: 380px; /* Tăng kích thước tối đa để hiển thị nội dung dài hơn */
   width: 100%;
 }
 
 .toast {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Thay đổi từ center sang flex-start để nội dung dài không bị cắt */
   padding: 12px 16px;
   border-radius: 8px;
   color: white;
@@ -20,6 +20,7 @@
   animation: slide-in 0.3s ease forwards;
   position: relative;
   transition: all 0.3s ease;
+  min-height: 48px; /* Đảm bảo chiều cao tối thiểu */
 }
 
 .toast-exit {
@@ -43,16 +44,23 @@
   font-size: 18px;
   display: flex;
   align-items: center;
+  margin-top: 2px; /* Căn chỉnh biểu tượng khi toast dùng align-items: flex-start */
+  flex-shrink: 0; /* Ngăn icon co lại khi không gian bị giới hạn */
 }
 
 .toast-content {
   flex: 1;
+  padding-right: 10px; /* Thêm khoảng trống bên phải để không bị nút đóng che */
+  min-width: 0; /* Đảm bảo có thể co lại khi cần thiết */
 }
 
 .toast-message {
   margin: 0;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
+  word-wrap: break-word; /* Đảm bảo văn bản dài sẽ xuống dòng */
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .toast-close {
@@ -64,6 +72,9 @@
   margin-left: 10px;
   opacity: 0.7;
   transition: opacity 0.2s;
+  flex-shrink: 0; /* Ngăn nút co lại khi không gian bị giới hạn */
+  align-self: flex-start; /* Căn chỉnh với phần đầu của toast */
+  margin-top: 2px;
 }
 
 .toast-close:hover {

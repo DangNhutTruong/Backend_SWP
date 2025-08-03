@@ -1,5 +1,6 @@
 import RssParser from 'rss-parser';
 import axios from 'axios';
+import { decode } from 'html-entities';
 
 /**
  * News Controller - Handles real news fetching from RSS feeds and APIs
@@ -9,6 +10,12 @@ class NewsController {
         this.parser = new RssParser({
             customFields: {
                 item: ['media:content', 'enclosure']
+            },
+            defaultRSS: 2.0,
+            xml2js: {
+                normalize: true,
+                normalizeTags: false,
+                explicitArray: false
             }
         });
     }
@@ -32,21 +39,57 @@ class NewsController {
             // Lấy tin tức từ các RSS feeds
             for (const feedUrl of rssFeeds) {
                 try {
-                    const feed = await this.parser.parseURL(feedUrl);
+                    // Khai báo biến feed ở đầu để có thể truy cập từ bất kỳ đâu trong block
+                    let feed;
                     
-                    // Lọc các bài viết liên quan đến thuốc lá
+                    // Thử tải feed với Axios trước để xử lý trực tiếp XML
+                    try {
+                        const feedResponse = await axios.get(feedUrl, {
+                            headers: {
+                                'Accept': 'application/rss+xml, application/xml, text/xml',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            },
+                            responseType: 'text',
+                            timeout: 5000 // Timeout 5 giây
+                        });
+                        
+                        // Đảm bảo XML được encode đúng cách
+                        const xmlContent = feedResponse.data
+                            .replace(/[\u00A0-\u9999<>&]/gim, function(i) {
+                                return '&#'+i.charCodeAt(0)+';';
+                            })
+                            .replace(/&#60;/g, '<')
+                            .replace(/&#62;/g, '>');
+                            
+                        // Parse XML đã được xử lý
+                        feed = await this.parser.parseString(xmlContent);
+                    } catch (xmlError) {
+                        console.warn(`Không thể xử lý XML trực tiếp, dùng parseURL: ${xmlError.message}`);
+                        // Fallback to standard parsing
+                        feed = await this.parser.parseURL(feedUrl);
+                    }
+                    
+                    // Lọc các bài viết liên quan đến thuốc lá với danh sách từ khóa phong phú hơn
+                    const smokingKeywords = [
+                        'thuốc lá', 'hút thuốc', 'cai thuốc', 'nicotine', 
+                        'khói thuốc', 'phổi', 'ung thư phổi', 'sức khỏe hô hấp',
+                        'cai nghiện', 'bỏ thuốc', 'hút thuốc lá', 'thuốc lá điện tử',
+                        'vape', 'thuốc lào', 'shisha', 'hookah', 'thuốc lá thế hệ mới',
+                        'bệnh phổi', 'bệnh hô hấp', 'nghiện thuốc', 'tác hại thuốc lá',
+                        'hậu quả hút thuốc', 'sức khỏe phổi'
+                    ];
+                    
                     const smokingRelated = feed.items.filter(item => {
                         const title = item.title?.toLowerCase() || '';
                         const description = item.contentSnippet?.toLowerCase() || '';
                         const content = item.content?.toLowerCase() || '';
                         
-                        return title.includes('thuốc lá') || 
-                               title.includes('hút thuốc') || 
-                               title.includes('cai thuốc') ||
-                               title.includes('nicotine') ||
-                               description.includes('thuốc lá') ||
-                               description.includes('hút thuốc') ||
-                               content.includes('thuốc lá');
+                        // Kiểm tra xem bài viết có chứa các từ khóa liên quan đến thuốc lá không
+                        return smokingKeywords.some(keyword => 
+                            title.includes(keyword) || 
+                            description.includes(keyword) || 
+                            content.includes(keyword)
+                        );
                     }).map(item => this.formatArticle(item, 'smoking'));
 
                     allArticles.push(...smokingRelated);
@@ -55,14 +98,15 @@ class NewsController {
                 }
             }
 
-            // Sắp xếp theo ngày mới nhất và giới hạn số lượng
+            // Sắp xếp theo ngày mới nhất và giới hạn số lượng (tối đa 6 bài)
+            const actualLimit = Math.min(6, limit); // Đảm bảo giới hạn tối đa 6 bài
             const sortedArticles = allArticles
                 .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-                .slice(0, limit);
+                .slice(0, actualLimit);
 
-            // Nếu không có tin tức thật, trả về mock data
+            // Nếu không có tin tức thật, trả về mock data (cũng giới hạn 6 bài)
             if (sortedArticles.length === 0) {
-                return res.json(this.getMockSmokingNews(limit));
+                return res.json(this.getMockSmokingNews(Math.min(6, limit)));
             }
 
             res.json({
@@ -96,7 +140,35 @@ class NewsController {
 
             for (const feedUrl of rssFeeds) {
                 try {
-                    const feed = await this.parser.parseURL(feedUrl);
+                    // Khai báo biến feed ở đầu để có thể truy cập từ bất kỳ đâu trong block
+                    let feed;
+                    
+                    // Thử tải feed với Axios trước để xử lý trực tiếp XML
+                    try {
+                        const feedResponse = await axios.get(feedUrl, {
+                            headers: {
+                                'Accept': 'application/rss+xml, application/xml, text/xml',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            },
+                            responseType: 'text',
+                            timeout: 5000 // Timeout 5 giây
+                        });
+                        
+                        // Đảm bảo XML được encode đúng cách
+                        const xmlContent = feedResponse.data
+                            .replace(/[\u00A0-\u9999<>&]/gim, function(i) {
+                                return '&#'+i.charCodeAt(0)+';';
+                            })
+                            .replace(/&#60;/g, '<')
+                            .replace(/&#62;/g, '>');
+                            
+                        // Parse XML đã được xử lý
+                        feed = await this.parser.parseString(xmlContent);
+                    } catch (xmlError) {
+                        console.warn(`Không thể xử lý XML trực tiếp, dùng parseURL: ${xmlError.message}`);
+                        // Fallback to standard parsing
+                        feed = await this.parser.parseURL(feedUrl);
+                    }
                     
                     const healthArticles = feed.items
                         .slice(0, 5) // Lấy 5 bài mới nhất từ mỗi nguồn
@@ -154,11 +226,40 @@ class NewsController {
 
             for (const feedUrl of rssFeeds) {
                 try {
-                    const feed = await this.parser.parseURL(feedUrl);
+                    // Khai báo biến feed ở đầu để có thể truy cập từ bất kỳ đâu trong block
+                    let feed;
+                    
+                    // Thử tải feed với Axios trước để xử lý trực tiếp XML
+                    try {
+                        const feedResponse = await axios.get(feedUrl, {
+                            headers: {
+                                'Accept': 'application/rss+xml, application/xml, text/xml',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            },
+                            responseType: 'text',
+                            timeout: 5000 // Timeout 5 giây
+                        });
+                        
+                        // Đảm bảo XML được encode đúng cách
+                        const xmlContent = feedResponse.data
+                            .replace(/[\u00A0-\u9999<>&]/gim, function(i) {
+                                return '&#'+i.charCodeAt(0)+';';
+                            })
+                            .replace(/&#60;/g, '<')
+                            .replace(/&#62;/g, '>');
+                            
+                        // Parse XML đã được xử lý
+                        feed = await this.parser.parseString(xmlContent);
+                    } catch (xmlError) {
+                        console.warn(`Không thể xử lý XML trực tiếp, dùng parseURL: ${xmlError.message}`);
+                        // Fallback to standard parsing
+                        feed = await this.parser.parseURL(feedUrl);
+                    }
                     
                     const matchingArticles = feed.items.filter(item => {
-                        const title = item.title?.toLowerCase() || '';
-                        const description = item.contentSnippet?.toLowerCase() || '';
+                        // Giải mã HTML entities trước khi tìm kiếm
+                        const title = decode(item.title?.toLowerCase() || '');
+                        const description = decode(item.contentSnippet?.toLowerCase() || '');
                         const searchKeyword = keyword.toLowerCase();
                         
                         return title.includes(searchKeyword) || description.includes(searchKeyword);
@@ -210,11 +311,44 @@ class NewsController {
             }
         }
 
+        // Hàm giải mã các HTML entities trong văn bản
+        const decodeHtmlEntities = (text) => {
+            if (!text) return '';
+            try {
+                // Sử dụng thư viện html-entities để decode
+                return decode(text, { level: 'html5' });
+            } catch (e) {
+                console.error('Lỗi khi giải mã HTML entities:', e);
+                return text; // Trả về văn bản gốc nếu có lỗi
+            }
+        };
+
+        // Hàm loại bỏ các thẻ HTML
+        const stripHtml = (html) => {
+            if (!html) return '';
+            return html
+                .replace(/<\/?[^>]+(>|$)/g, ' ') // Loại bỏ các thẻ HTML
+                .replace(/\s+/g, ' ')            // Giảm khoảng trắng liên tiếp thành một
+                .trim();                          // Loại bỏ khoảng trắng đầu và cuối
+        };
+
+        // Áp dụng giải mã và làm sạch cho title và description
+        const title = decodeHtmlEntities(item.title) || 'Tiêu đề không có';
+        
+        // Ưu tiên contentSnippet vì nó thường đã được tách khỏi HTML
+        let cleanDescription = item.contentSnippet || stripHtml(item.content) || '';
+        const description = decodeHtmlEntities(cleanDescription) || 'Mô tả không có';
+        
+        // Tạo đoạn trích ngắn gọn
+        const excerpt = description.length > 200 ? 
+            description.substring(0, 200).trim() + '...' : 
+            description;
+
         return {
             id: `rss-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: item.title || 'Tiêu đề không có',
-            description: item.contentSnippet || item.content || 'Mô tả không có',
-            excerpt: (item.contentSnippet || item.content || '').substring(0, 200) + '...',
+            title: title,
+            description: description,
+            excerpt: excerpt,
             url: item.link || '#',
             urlToImage: imageUrl,
             publishedAt: item.pubDate || new Date().toISOString(),
