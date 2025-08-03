@@ -34,6 +34,7 @@ import CoachMessaging from "./page/coach/CoachMessaging.jsx"; // Import CoachMes
 import AdminBlog from "./page/admin/AdminBlog.jsx"; // Import AdminBlog
 import AdminQuitPlans from "./page/admin/AdminQuitPlans.jsx"; // Import AdminQuitPlans
 import AdminCoaches from "./page/admin/AdminCoaches.jsx"; // Import AdminCoaches
+import AdminMemberships from "./page/admin/AdminMemberships.jsx"; // Import AdminMemberships
 import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
 import "./style.css";
@@ -379,11 +380,11 @@ const router = createBrowserRouter([
       },
       {
         path: "users",
-        element: <div>Quản lý người dùng - Chức năng đang phát triển</div>
+        element: <AdminUsers />
       },
       {
         path: "memberships",
-        element: <div>Quản lý gói thành viên & thanh toán - Chức năng đang phát triển</div>
+        element: <AdminMemberships />
       },
       {
         path: "blog",
@@ -446,6 +447,7 @@ const SimpleBackToTop = () => {
 // Import debug utilities for development
 import debugAuth from "./utils/authDebug.js";
 import debugAuthNew from "./utils/authDebugNew.js";
+import AdminUsers from "./page/admin/AdminUsers.jsx";
 
 // Make debug utilities available globally in development
 if (import.meta.env.DEV) {

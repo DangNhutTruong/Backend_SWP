@@ -417,6 +417,19 @@ export default function Admin() {
     }
   };
   
+  // Handler functions for coach management
+  const handleViewCoach = (coach) => {
+    showCoachModal(coach, 'view');
+  };
+
+  const handleEditClick = (coach) => {
+    showCoachModal(coach, 'edit');
+  };
+
+  const handleAvailabilityClick = (coach) => {
+    showCoachModal(coach, 'availability');
+  };
+  
   // Coach Table Columns
   const coachColumns = [
     {
@@ -652,7 +665,7 @@ export default function Admin() {
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={Math.round((paymentStats.paymentMethods?.zalopay || 0) / metrics.totalPayments * 100)} 
+                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.zalopay || 0) / metrics.totalPayments * 100) : 0} 
                       size="small"
                       format={() => 'ZaloPay'}
                       strokeColor="#2673dd"
@@ -664,7 +677,7 @@ export default function Admin() {
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={Math.round((paymentStats.paymentMethods?.momo || 0) / metrics.totalPayments * 100)} 
+                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.momo || 0) / metrics.totalPayments * 100) : 0} 
                       size="small"
                       format={() => 'MoMo'}
                       strokeColor="#d82d8b"
@@ -676,7 +689,7 @@ export default function Admin() {
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={Math.round((paymentStats.paymentMethods?.banking || 0) / metrics.totalPayments * 100)} 
+                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.banking || 0) / metrics.totalPayments * 100) : 0} 
                       size="small"
                       format={() => 'Banking'}
                       strokeColor="#52c41a"
@@ -704,9 +717,9 @@ export default function Admin() {
                     <div className="membership-color" style={{ backgroundColor: '#5B8FF9' }} />
                     <div className="membership-detail">
                       <div className="membership-name">Free</div>
-                      <div className="membership-count">{membershipDistribution.free.count} người dùng</div>
+                      <div className="membership-count">{membershipDistribution.free?.count || 0} người dùng</div>
                       <Progress 
-                        percent={membershipDistribution.free.percentage}
+                        percent={membershipDistribution.free?.percentage || 0}
                         strokeColor="#5B8FF9"
                         showInfo={false}
                       />
@@ -716,9 +729,9 @@ export default function Admin() {
                     <div className="membership-color" style={{ backgroundColor: '#5CD65C' }} />
                     <div className="membership-detail">
                       <div className="membership-name">Basic</div>
-                      <div className="membership-count">{membershipDistribution.basic.count} người dùng</div>
+                      <div className="membership-count">{membershipDistribution.basic?.count || 0} người dùng</div>
                       <Progress 
-                        percent={membershipDistribution.basic.percentage}
+                        percent={membershipDistribution.basic?.percentage || 0}
                         strokeColor="#5CD65C"
                         showInfo={false}
                       />
@@ -728,9 +741,9 @@ export default function Admin() {
                     <div className="membership-color" style={{ backgroundColor: '#FFBF00' }} />
                     <div className="membership-detail">
                       <div className="membership-name">Premium</div>
-                      <div className="membership-count">{membershipDistribution.premium.count} người dùng</div>
+                      <div className="membership-count">{membershipDistribution.premium?.count || 0} người dùng</div>
                       <Progress 
-                        percent={membershipDistribution.premium.percentage}
+                        percent={membershipDistribution.premium?.percentage || 0}
                         strokeColor="#FFBF00"
                         showInfo={false}
                       />
@@ -744,21 +757,21 @@ export default function Admin() {
                   <Col span={8}>
                     <Statistic
                       title="Người dùng Free"
-                      value={membershipDistribution.free.count}
+                      value={membershipDistribution.free?.count || 0}
                       valueStyle={{ color: '#5B8FF9' }}
                     />
                   </Col>
                   <Col span={8}>
                     <Statistic
                       title="Người dùng Basic"
-                      value={membershipDistribution.basic.count}
+                      value={membershipDistribution.basic?.count || 0}
                       valueStyle={{ color: '#5CD65C' }}
                     />
                   </Col>
                   <Col span={8}>
                     <Statistic
                       title="Người dùng Premium"
-                      value={membershipDistribution.premium.count}
+                      value={membershipDistribution.premium?.count || 0}
                       valueStyle={{ color: '#FFBF00' }}
                     />
                   </Col>
@@ -907,16 +920,16 @@ export default function Admin() {
               <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Giảm hút thuốc trung bình"
-                  value={progressData.avgSmokingReduction}
+                  value={progressData.avgSmokingReduction || 0}
                   suffix="%"
                   valueStyle={{ color: '#52c41a' }}
                 />
-                <Progress percent={progressData.avgSmokingReduction} strokeColor="#52c41a" />
+                <Progress percent={progressData.avgSmokingReduction || 0} strokeColor="#52c41a" />
               </Col>
               <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Tổng số ngày không hút thuốc"
-                  value={progressData.daysWithoutSmoking}
+                  value={progressData.daysWithoutSmoking || 0}
                   valueStyle={{ color: '#1890ff' }}
                   formatter={(value) => value.toLocaleString()}
                 />
@@ -925,7 +938,7 @@ export default function Admin() {
               <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Số tiền tiết kiệm mỗi ngày"
-                  value={(progressData.moneyDailySaved / 1000000).toFixed(2)}
+                  value={((progressData.moneyDailySaved || 0) / 1000000).toFixed(2)}
                   suffix="tr đ"
                   valueStyle={{ color: '#722ed1' }}
                 />
@@ -934,7 +947,7 @@ export default function Admin() {
               <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Thử thách hoàn thành"
-                  value={progressData.totalChallengesCompleted}
+                  value={progressData.totalChallengesCompleted || 0}
                   valueStyle={{ color: '#fa8c16' }}
                   formatter={(value) => value.toLocaleString()}
                 />
