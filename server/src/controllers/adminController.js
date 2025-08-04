@@ -77,16 +77,15 @@ export const getAnalytics = async (req, res) => {
       ORDER BY month ASC
     `);
 
-    // 3. Payment methods breakdown
+    // 3. Payment methods breakdown - ZaloPay only
     const [paymentMethods] = await pool.execute(`
       SELECT 
-        payment_method,
+        'zalopay' as payment_method,
         COUNT(*) as count,
         SUM(amount) as total_amount,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM payments WHERE payment_status = 'completed'), 1) as percentage
+        100.0 as percentage
       FROM payments 
       WHERE payment_status = 'completed'
-      GROUP BY payment_method
     `);
 
     // 4. Package popularity
@@ -544,16 +543,28 @@ export const sendExpiryNotifications = async (req, res) => {
 export const getPaymentAnalytics = async (req, res) => {
   try {
     
-    // Get payment method statistics
+    // Get payment method statistics - ZaloPay only
     const [paymentMethods] = await pool.execute(`
       SELECT 
-        payment_method,
+        'zalopay' as payment_method,
         COUNT(*) as count,
         SUM(amount) as revenue,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM payments WHERE payment_status = 'completed'), 1) as percentage
+        100.0 as percentage
       FROM payments 
       WHERE payment_status = 'completed'
-      GROUP BY payment_method
+    `);
+
+    // Get ZaloPay transaction details
+    const [zalopayDetails] = await pool.execute(`
+      SELECT 
+        COUNT(*) as total_transactions,
+        COUNT(CASE WHEN payment_status = 'completed' THEN 1 END) as successful_transactions,
+        COUNT(CASE WHEN payment_status = 'failed' THEN 1 END) as failed_transactions,
+        COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_transactions,
+        SUM(CASE WHEN payment_status = 'completed' THEN amount ELSE 0 END) as total_revenue,
+        AVG(CASE WHEN payment_status = 'completed' THEN amount END) as avg_transaction_value
+      FROM payments 
+      WHERE payment_method = 'zalopay' OR payment_method IS NULL
     `);
 
     // Calculate conversion rates
@@ -575,13 +586,26 @@ export const getPaymentAnalytics = async (req, res) => {
       WHERE payment_status = 'failed'
     `);
 
+    const zalopay = zalopayDetails[0];
+    
     const analytics = {
-      paymentMethods: paymentMethods.map(row => ({
-        method: row.payment_method,
-        count: row.count,
-        amount: parseFloat(row.revenue || 0),
-        percentage: parseFloat(row.percentage || 0)
-      })),
+      paymentMethods: [{
+        method: 'ZaloPay',
+        count: paymentMethods[0]?.count || 0,
+        amount: parseFloat(paymentMethods[0]?.revenue || 0),
+        percentage: 100.0
+      }],
+      zalopayDetails: {
+        totalTransactions: zalopay.total_transactions || 0,
+        successfulTransactions: zalopay.successful_transactions || 0,
+        failedTransactions: zalopay.failed_transactions || 0,
+        pendingTransactions: zalopay.pending_transactions || 0,
+        totalRevenue: parseFloat(zalopay.total_revenue || 0),
+        avgTransactionValue: parseFloat(zalopay.avg_transaction_value || 0),
+        successRate: zalopay.total_transactions > 0 
+          ? parseFloat(((zalopay.successful_transactions / zalopay.total_transactions) * 100).toFixed(1))
+          : 0
+      },
       conversionRates: {
         freeToPro: parseFloat(freeToPro.toFixed(1)),
         proToPremium: parseFloat(proToPremium.toFixed(1)),
@@ -1730,7 +1754,7 @@ export const getPaymentStatistics = async (req, res) => {
       FROM payments
     `);
 
-    // Transform payment methods data
+    // Transform payment methods data for ZaloPay only
     const methodsData = {
       zalopay: 0,
       momo: 0,
@@ -1738,16 +1762,27 @@ export const getPaymentStatistics = async (req, res) => {
     };
 
     paymentMethods.forEach(method => {
-      if (method.payment_method === 'zalopay') {
+      if (method.payment_method === 'zalopay' || method.payment_method === null) {
         methodsData.zalopay = method.count;
-      } else if (method.payment_method === 'momo') {
-        methodsData.momo = method.count;
-      } else if (method.payment_method === 'banking' || method.payment_method === 'bank') {
-        methodsData.banking = method.count;
       }
     });
 
+    // Get ZaloPay specific statistics
+    const [zalopayStats] = await pool.execute(`
+      SELECT 
+        COUNT(*) as total_transactions,
+        SUM(amount) as total_amount,
+        AVG(amount) as avg_amount,
+        COUNT(CASE WHEN payment_status = 'completed' THEN 1 END) as successful_transactions,
+        COUNT(CASE WHEN payment_status = 'failed' THEN 1 END) as failed_transactions,
+        COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_transactions
+      FROM payments 
+      WHERE payment_method = 'zalopay' OR payment_method IS NULL
+    `);
+
     const stats = totalStats[0];
+    const zaloPay = zalopayStats[0];
+    
     const result = {
       completed: stats.completed_payments || 0,
       pending: stats.pending_payments || 0,
@@ -1755,13 +1790,25 @@ export const getPaymentStatistics = async (req, res) => {
       refunded: stats.refunded_payments || 0,
       avgTransactionAmount: parseFloat(stats.avg_transaction_amount || 0),
       totalRevenue: parseFloat(stats.total_revenue || 0),
+      // ZaloPay specific data since it's the only payment method
       paymentMethods: methodsData,
-      paymentMethodsDetailed: paymentMethods.map(method => ({
-        method: method.payment_method,
-        count: method.count,
-        totalAmount: parseFloat(method.total_amount || 0),
-        avgAmount: parseFloat(method.avg_amount || 0)
-      }))
+      zalopayDetails: {
+        totalTransactions: zaloPay.total_transactions || 0,
+        totalAmount: parseFloat(zaloPay.total_amount || 0),
+        avgAmount: parseFloat(zaloPay.avg_amount || 0),
+        successfulTransactions: zaloPay.successful_transactions || 0,
+        failedTransactions: zaloPay.failed_transactions || 0,
+        pendingTransactions: zaloPay.pending_transactions || 0,
+        successRate: zaloPay.total_transactions > 0 
+          ? parseFloat(((zaloPay.successful_transactions / zaloPay.total_transactions) * 100).toFixed(1))
+          : 0
+      },
+      paymentMethodsDetailed: [{
+        method: 'ZaloPay',
+        count: zaloPay.total_transactions || 0,
+        totalAmount: parseFloat(zaloPay.total_amount || 0),
+        avgAmount: parseFloat(zaloPay.avg_amount || 0)
+      }]
     };
 
     res.json({

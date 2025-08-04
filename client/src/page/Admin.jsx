@@ -109,42 +109,20 @@ export default function Admin() {
       if (response.success && response.data) {
         console.log('Received payment statistics:', response.data);
         
-        // Transform the API response to match the UI expectations
+        // Use the actual API response data directly since backend now returns ZaloPay-only data
         const transformedStats = {
-          completed: 0,
-          pending: 0,
-          failed: response.data.failedPayments?.count || 0,
-          refunded: 0,
-          avgTransactionAmount: 0,
+          completed: response.data.completed || 0,
+          pending: response.data.pending || 0,
+          failed: response.data.failed || 0,
+          refunded: response.data.refunded || 0,
+          avgTransactionAmount: response.data.avgTransactionAmount || 0,
           paymentMethods: {
-            zalopay: 0,
-            momo: 0,
-            banking: 0
-          }
+            zalopay: response.data.paymentMethods?.zalopay || 0
+            // momo: response.data.paymentMethods?.momo || 0,
+            // banking: response.data.paymentMethods?.banking || 0
+          },
+          zalopayDetails: response.data.zalopayDetails || {}
         };
-
-        // Calculate completed payments from payment methods
-        if (response.data.paymentMethods && Array.isArray(response.data.paymentMethods)) {
-          let totalCompleted = 0;
-          let totalRevenue = 0;
-          
-          response.data.paymentMethods.forEach(method => {
-            totalCompleted += method.count;
-            totalRevenue += method.amount;
-            
-            // Map payment methods
-            if (method.method === 'zalopay') {
-              transformedStats.paymentMethods.zalopay = method.count;
-            } else if (method.method === 'momo') {
-              transformedStats.paymentMethods.momo = method.count;
-            } else if (method.method === 'banking' || method.method === 'bank') {
-              transformedStats.paymentMethods.banking = method.count;
-            }
-          });
-          
-          transformedStats.completed = totalCompleted;
-          transformedStats.avgTransactionAmount = totalCompleted > 0 ? totalRevenue / totalCompleted : 0;
-        }
 
         setPaymentStats(transformedStats);
       } else {
@@ -703,10 +681,10 @@ export default function Admin() {
                 />
               </Col>
               <Col span={12}>
-                <Tooltip title="ZaloPay, MoMo, Chuyển khoản ngân hàng">
+                <Tooltip title="Chỉ sử dụng ZaloPay">
                   <Statistic
                     title="Phương thức thanh toán"
-                    value={3}
+                    value={1}
                     valueStyle={{ color: '#722ed1' }}
                     suffix="phương thức"
                   />
@@ -717,13 +695,48 @@ export default function Admin() {
             <Divider />
             
             <div>
+              <Title level={5}>Thống kê chi tiết ZaloPay</Title>
+              {paymentStats.zalopayDetails && (
+                <Row gutter={[16, 16]}>
+                  <Col span={8}>
+                    <Statistic
+                      title="Tỷ lệ thành công"
+                      value={paymentStats.zalopayDetails.successRate || 0}
+                      precision={1}
+                      suffix="%"
+                      valueStyle={{ color: '#52c41a' }}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Tổng giao dịch"
+                      value={paymentStats.zalopayDetails.totalTransactions || 0}
+                      valueStyle={{ color: '#1890ff' }}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Giá trị trung bình"
+                      value={paymentStats.zalopayDetails.avgAmount || 0}
+                      precision={0}
+                      valueStyle={{ color: '#722ed1' }}
+                      formatter={(value) => `${(value / 1000).toFixed(0)}k đ`}
+                    />
+                  </Col>
+                </Row>
+              )}
+            </div>
+            
+            <Divider />
+            
+            <div>
               <Title level={5}>Phân bổ phương thức thanh toán</Title>
               <Row gutter={[16, 16]}>
                 <Col span={8}>
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.zalopay || 0) / metrics.totalPayments * 100) : 0} 
+                      percent={paymentStats.paymentMethods?.zalopay > 0 ? 100 : 0} 
                       size="small"
                       format={() => 'ZaloPay'}
                       strokeColor="#2673dd"
@@ -731,30 +744,30 @@ export default function Admin() {
                     <div style={{marginTop: 10}}>{paymentStats.paymentMethods?.zalopay || 0} giao dịch</div>
                   </div>
                 </Col>
-                <Col span={8}>
+                {/* <Col span={8}>
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.momo || 0) / metrics.totalPayments * 100) : 0} 
+                      percent={0} 
                       size="small"
                       format={() => 'MoMo'}
                       strokeColor="#d82d8b"
                     />
-                    <div style={{marginTop: 10}}>{paymentStats.paymentMethods?.momo || 0} giao dịch</div>
+                    <div style={{marginTop: 10}}>0 giao dịch</div>
                   </div>
-                </Col>
-                <Col span={8}>
+                </Col> */}
+                {/* <Col span={8}>
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
-                      percent={metrics.totalPayments > 0 ? Math.round((paymentStats.paymentMethods?.banking || 0) / metrics.totalPayments * 100) : 0} 
+                      percent={0} 
                       size="small"
                       format={() => 'Banking'}
                       strokeColor="#52c41a"
                     />
-                    <div style={{marginTop: 10}}>{paymentStats.paymentMethods?.banking || 0} giao dịch</div>
+                    <div style={{marginTop: 10}}>0 giao dịch</div>
                   </div>
-                </Col>
+                </Col> */}
               </Row>
             </div>
           </Card>
