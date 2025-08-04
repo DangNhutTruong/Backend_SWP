@@ -3,34 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/JourneyStepper.css';
 import { createQuitPlan, updateQuitPlan, getUserPlans, deletePlan } from '../services/quitPlanService';
 import { logDebug } from '../utils/debugHelpers';
-import JourneyPlanManager from './JourneyPlanManager';
-
-// API cho multiple plans
-const createMultiplePlan = async (planData) => {
-  // Lấy token theo đúng thứ tự priority
-  const token = localStorage.getItem('nosmoke_token') || 
-               localStorage.getItem('auth_token') ||
-               sessionStorage.getItem('nosmoke_token') || 
-               sessionStorage.getItem('auth_token');
-  
-  console.log('🔑 Using token for createMultiplePlan:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
-  
-  const response = await fetch('/api/quit-plans/multiple', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(planData)
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to create plan');
-  }
-  
-  return await response.json();
-};
 
 // Debug function to check authentication status
 const checkAuthStatus = () => {
@@ -45,16 +17,6 @@ const checkAuthStatus = () => {
   const hasToken = !!(tokenLocal || tokenSession);
   const hasUser = !!(userLocal || userSession);
   const isPersistent = !!(tokenLocal && userLocal); // Có ghi nhớ đăng nhập
-  const activeToken = tokenLocal || tokenSession;
-  
-  console.log('🔐 Auth Status:', {
-    hasToken,
-    hasUser,
-    isPersistent,
-    tokenExists: !!activeToken,
-    tokenLength: activeToken ? activeToken.length : 0,
-    fromStorage: tokenLocal ? 'localStorage' : tokenSession ? 'sessionStorage' : 'none'
-  });
 
   return { hasToken, hasUser, isPersistent, tokenLocal, tokenSession };
 };
@@ -376,79 +338,6 @@ export default function JourneyStepper({ onPlanCreated }) {
       alert('Không thể cập nhật kế hoạch. Vui lòng thử lại.');
     }
   };
-
-  // Hàm xử lý khi người dùng click "Tạo kế hoạch mới"
-  const handleCreateNewPlan = () => {
-    console.log('🎯 Tạo kế hoạch mới được click');
-    
-    // Kiểm tra auth status trước khi reset
-    const authStatus = checkAuthStatus();
-    console.log('🔑 Auth status trước khi tạo kế hoạch mới:', authStatus);
-    
-    if (!authStatus.hasToken) {
-      alert('Bạn cần đăng nhập để tạo kế hoạch mới. Vui lòng click nút "Đăng nhập nhanh" ở góc trên cùng.');
-      return;
-    }
-    
-    // Reset tất cả về trạng thái ban đầu
-    setCurrentStep(1);
-    setIsCompleted(false);
-    setShowCompletionScreen(false);
-    setIsEditing(false);
-    setIsFullEdit(false);
-    setShowWelcomeBack(false);
-    
-    // Reset formData về giá trị mặc định
-    setFormData({
-      cigarettesPerDay: 10,
-      packPrice: 25000,
-      smokingYears: 5,
-      reasonToQuit: 'sức khỏe',
-      selectedPlan: null,
-    });
-    
-    // Scroll to top để user thấy form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Quick login function for development
-  const handleQuickLogin = async () => {
-    try {
-      console.log('🔓 Đăng nhập nhanh...');
-      
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: 'hieutrung1029@gmail.com',
-          password: '123456'
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        // Lưu token và user info
-        localStorage.setItem('nosmoke_token', data.data.token);
-        localStorage.setItem('nosmoke_user', JSON.stringify(data.data.user));
-        
-        console.log('✅ Đăng nhập thành công!');
-        alert('Đăng nhập thành công! Bạn có thể tạo kế hoạch ngay bây giờ.');
-        
-        // Reload để cập nhật auth status
-        window.location.reload();
-      } else {
-        console.error('❌ Lỗi đăng nhập:', data.message);
-        alert('Lỗi đăng nhập: ' + data.message);
-      }
-    } catch (error) {
-      console.error('❌ Lỗi kết nối:', error);
-      alert('Lỗi kết nối: ' + error.message);
-    }
-  };
-
   // Function to update active steps
   const animateProgressBar = (newStep) => {
     // No longer need to animate step-line since it has been removed
@@ -514,14 +403,14 @@ export default function JourneyStepper({ onPlanCreated }) {
       logDebug('QuitPlan', '📤 Gửi dữ liệu lên API', planDataForAPI);
       logDebug('QuitPlan', '📋 Weeks data structure:', planDataForAPI.weeks);
 
-      // Gọi API multiple plans để lưu kế hoạch lên database
-      const apiResponse = await createMultiplePlan(planDataForAPI);
+      // Gọi API để lưu kế hoạch lên database
+      const apiResponse = await createQuitPlan(planDataForAPI);
 
       // Đồng bộ ngay vào localStorage sau khi API thành công
       if (apiResponse.success) {
         const createdPlan = {
           ...planDataForAPI,
-          id: apiResponse.data?.plan?.id || Date.now(),
+          id: apiResponse.data?.id || Date.now(),
           plan_name: planDataForAPI.planName,
           initial_cigarettes: planDataForAPI.initialCigarettes,
           total_weeks: planDataForAPI.totalWeeks,
@@ -1046,33 +935,13 @@ export default function JourneyStepper({ onPlanCreated }) {
 
   return (
     <div className="journey-container">
-      {/* Quick Login for Development */}
-      {!checkAuthStatus().hasToken && (
-        <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 9999 }}>
-          <button 
-            onClick={handleQuickLogin}
-            style={{
-              background: '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '10px 15px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            🔓 Đăng nhập nhanh
-          </button>
-        </div>
-      )}
-
       {showWelcomeBack && (
         <div className="welcome-back-notification">
           <div className="notification-content">
             <i className="fas fa-check-circle"></i>
             <div className="notification-text">
               <p className="notification-title">Chào mừng bạn trở lại!</p>
-              <p className="notification-message">Bạn đã có kế hoạch cai thuốc lá.</p>
+              <p className="notification-message">Bạn đã có kế hoạch cai thuốc lá. Mỗi người chỉ được tạo 1 kế hoạch duy nhất.</p>
             </div>
           </div>
           <button className="notification-close" onClick={() => setShowWelcomeBack(false)}>
@@ -1177,17 +1046,6 @@ export default function JourneyStepper({ onPlanCreated }) {
                   <button className="btn-edit-plan" onClick={handleEditAllPlan}>
                     <i className="fas fa-pencil-alt"></i> Chỉnh sửa lại kế hoạch
                   </button>
-                  <button 
-                    className="btn-edit-plan btn-create-new" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🎯 Button clicked!');
-                      handleCreateNewPlan();
-                    }}
-                  >
-                    <i className="fas fa-plus-circle"></i> Tạo kế hoạch mới
-                  </button>
                   <button className="btn-edit-plan btn-clear-plan" onClick={handleClearPlan}>
                     <i className="fas fa-trash-alt"></i> Xóa kế hoạch
                   </button>
@@ -1235,12 +1093,6 @@ export default function JourneyStepper({ onPlanCreated }) {
                 ))}
               </div>
             </div>
-            
-            {/* Danh sách các kế hoạch */}
-            <div className="completion-plans-manager">
-              <JourneyPlanManager onCreateNew={handleCreateNewPlan} />
-            </div>
-            
             <div className="completion-actions">
               <h3 className="actions-title">Tiếp theo bạn nên làm gì?</h3>
               <div className="action-buttons">
@@ -1834,7 +1686,7 @@ export default function JourneyStepper({ onPlanCreated }) {
         )}
         </div>
         <div className="stepper-footer">
-          2025 Kế Hoạch Cai Thuốc - Nền tảng hỗ trợ sức khỏe cộng đồng
+          © 2025 Kế Hoạch Cai Thuốc • Nền tảng hỗ trợ sức khỏe cộng đồng
         </div>
 
       </div>
