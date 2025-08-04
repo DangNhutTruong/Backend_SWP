@@ -15,6 +15,9 @@ export const createQuitPlan = async (req, res) => {
 
         // Accept both planName and plan_name to be more flexible
         const planName = req.body.planName || req.body.plan_name;
+        console.log('📝 Plan name received:', planName);
+        console.log('📝 Plan name from planName field:', req.body.planName);
+        console.log('📝 Plan name from plan_name field:', req.body.plan_name);
         const startDate = req.body.startDate || req.body.start_date;
         const initialCigarettes = req.body.initialCigarettes || req.body.initial_cigarettes;
         // Accept planType as strategy or use strategy directly

@@ -171,6 +171,16 @@ const router = createBrowserRouter([
     ), // Route riêng để tạo kế hoạch mới
   },
   {
+    path: "/journey/completion",
+    element: (
+      <Layout>
+        <ProtectedRoute>
+          <JourneyStepper />
+        </ProtectedRoute>
+      </Layout>
+    ), // Route riêng để test completion screen với activePlan từ localStorage
+  },
+  {
     path: "/journey/plans",
     element: (
       <Layout>

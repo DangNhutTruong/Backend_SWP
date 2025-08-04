@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Real Failed Plan</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .output { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background: #f5f5f5; }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e9; border-color: #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>Create Real Failed Plan in Database</h1>
+    
+    <div>
+        <button onclick="createFailedPlan()">1. Tạo Failed Plan trong Database</button>
+        <button onclick="createCompletedPlan()">2. Tạo Completed Plan trong Database</button>
+        <button onclick="createOngoingPlan()">3. Tạo Ongoing Plan trong Database</button>
+        <button onclick="checkUserPlans()">4. Kiểm tra Plans của User</button>
+        <button onclick="goToQuitPlanList()">5. Mở QuitPlanList</button>
+        <button onclick="clearLogs()">6. Clear Logs</button>
+    </div>
+    
+    <div id="output" class="output"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        async function createFailedPlan() {
+            try {
+                log('🚀 Tạo failed plan trong database...', 'info');
+                
+                // Get auth token
+                const token = localStorage.getItem('nosmoke_token') || 
+                             sessionStorage.getItem('nosmoke_token') ||
+                             localStorage.getItem('auth_token') ||
+                             sessionStorage.getItem('auth_token');
+                
+                if (!token) {
+                    log('❌ Không tìm thấy auth token. Vui lòng đăng nhập trước.', 'error');
+                    return;
+                }
+
+                // Create plan data
+                const planData = {
+                    plan_name: 'Kế hoạch test failed từ database',
+                    initial_cigarettes: 15,
+                    goal: 'Test failed plan functionality',
+                    metadata: {
+                        packPrice: 30000,
+                        smokingYears: 7,
+                        selectedPlanId: 2
+                    },
+                    total_weeks: 8,
+                    is_active: false,
+                    status: 'ongoing' // Tạo ongoing trước, sau đó update thành failed
+                };
+
+                // Step 1: Create plan
+                const createResponse = await fetch('http://localhost:5000/api/quit-plans', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(planData)
+                });
+
+                if (!createResponse.ok) {
+                    throw new Error(`Create failed: ${createResponse.statusText}`);
+                }
+
+                const createdPlan = await createResponse.json();
+                const planId = createdPlan.data?.id || createdPlan.id;
+                
+                log(`✅ Plan created with ID: ${planId}`, 'success');
+
+                // Step 2: Update status to failed
+                const updateResponse = await fetch(`http://localhost:5000/api/quit-plans/${planId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status: 'failed' })
+                });
+
+                if (!updateResponse.ok) {
+                    throw new Error(`Update failed: ${updateResponse.statusText}`);
+                }
+
+                const updatedPlan = await updateResponse.json();
+                log(`✅ Plan status updated to 'failed'`, 'success');
+                log(`📋 Plan ID: ${planId} - Status: failed`, 'info');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        async function createCompletedPlan() {
+            try {
+                log('🚀 Tạo completed plan trong database...', 'info');
+                
+                const token = localStorage.getItem('nosmoke_token') || 
+                             sessionStorage.getItem('nosmoke_token') ||
+                             localStorage.getItem('auth_token') ||
+                             sessionStorage.getItem('auth_token');
+                
+                if (!token) {
+                    log('❌ Không tìm thấy auth token. Vui lòng đăng nhập trước.', 'error');
+                    return;
+                }
+
+                const planData = {
+                    plan_name: 'Kế hoạch hoàn thành thành công',
+                    initial_cigarettes: 20,
+                    goal: 'Test completed plan functionality',
+                    metadata: {
+                        packPrice: 35000,
+                        smokingYears: 10,
+                        selectedPlanId: 3
+                    },
+                    total_weeks: 12,
+                    is_active: false,
+                    status: 'ongoing'
+                };
+
+                // Create plan
+                const createResponse = await fetch('http://localhost:5000/api/quit-plans', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(planData)
+                });
+
+                if (!createResponse.ok) {
+                    throw new Error(`Create failed: ${createResponse.statusText}`);
+                }
+
+                const createdPlan = await createResponse.json();
+                const planId = createdPlan.data?.id || createdPlan.id;
+                
+                log(`✅ Plan created with ID: ${planId}`, 'success');
+
+                // Update to completed
+                const updateResponse = await fetch(`http://localhost:5000/api/quit-plans/${planId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ 
+                        status: 'completed',
+                        completedDate: new Date().toISOString()
+                    })
+                });
+
+                if (!updateResponse.ok) {
+                    throw new Error(`Update failed: ${updateResponse.statusText}`);
+                }
+
+                log(`✅ Plan status updated to 'completed'`, 'success');
+                log(`📋 Plan ID: ${planId} - Status: completed`, 'info');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        async function createOngoingPlan() {
+            try {
+                log('🚀 Tạo ongoing plan trong database...', 'info');
+                
+                const token = localStorage.getItem('nosmoke_token') || 
+                             sessionStorage.getItem('nosmoke_token') ||
+                             localStorage.getItem('auth_token') ||
+                             sessionStorage.getItem('auth_token');
+                
+                if (!token) {
+                    log('❌ Không tìm thấy auth token. Vui lòng đăng nhập trước.', 'error');
+                    return;
+                }
+
+                const planData = {
+                    plan_name: 'Kế hoạch đang thực hiện',
+                    initial_cigarettes: 12,
+                    goal: 'Test ongoing plan functionality',
+                    metadata: {
+                        packPrice: 25000,
+                        smokingYears: 5,
+                        selectedPlanId: 1
+                    },
+                    total_weeks: 6,
+                    is_active: true,
+                    status: 'ongoing'
+                };
+
+                const createResponse = await fetch('http://localhost:5000/api/quit-plans', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(planData)
+                });
+
+                if (!createResponse.ok) {
+                    throw new Error(`Create failed: ${createResponse.statusText}`);
+                }
+
+                const createdPlan = await createResponse.json();
+                const planId = createdPlan.data?.id || createdPlan.id;
+                
+                log(`✅ Ongoing plan created with ID: ${planId}`, 'success');
+                log(`📋 Plan ID: ${planId} - Status: ongoing`, 'info');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        async function checkUserPlans() {
+            try {
+                log('🔍 Kiểm tra plans của user...', 'info');
+                
+                const token = localStorage.getItem('nosmoke_token') || 
+                             sessionStorage.getItem('nosmoke_token') ||
+                             localStorage.getItem('auth_token') ||
+                             sessionStorage.getItem('auth_token');
+                
+                if (!token) {
+                    log('❌ Không tìm thấy auth token', 'error');
+                    return;
+                }
+
+                const response = await fetch('http://localhost:5000/api/quit-plans/user', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const plans = data.data || data;
+                
+                log(`📋 Tìm thấy ${plans.length} plans:`, 'success');
+                plans.forEach(plan => {
+                    log(`- ID: ${plan.id}, Name: ${plan.plan_name}, Status: ${plan.status}`, 'info');
+                });
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function goToQuitPlanList() {
+            window.open('/journey', '_blank');
+            log('🔗 Mở QuitPlanList trong tab mới', 'info');
+        }
+
+        // Check on page load
+        window.onload = function() {
+            log('🚀 Page loaded. Sẵn sàng tạo failed plan thực trong database.', 'info');
+        };
+    </script>
+</body>
+</html>
