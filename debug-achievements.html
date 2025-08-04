@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Achievements API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .button { padding: 10px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 10px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🏆 Debug Achievements API</h1>
+    
+    <button class="button" onclick="testAPI()">Test API</button>
+    <button class="button" onclick="testFrontendCall()">Test Frontend API Call</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="result">Testing API...</div>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/admin/achievements');
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="result">
+                        <h3>✅ API Test Success</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Success:</strong> ${data.success}</p>
+                        <p><strong>Achievements Count:</strong> ${data.data?.achievements?.length || 0}</p>
+                        <h4>Sample Achievement:</h4>
+                        <pre>${JSON.stringify(data.data?.achievements?.[0] || {}, null, 2)}</pre>
+                        <h4>Full Response:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result">
+                        <h3>❌ API Test Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFrontendCall() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="result">Testing Frontend-style API call...</div>';
+            
+            try {
+                // Simulate the frontend api.fetch call
+                const response = await fetch('http://localhost:5000/api/admin/achievements', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Add any headers the frontend might be sending
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="result">
+                        <h3>✅ Frontend-style Call Success</h3>
+                        <p><strong>Response OK:</strong> ${response.ok}</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Data Success:</strong> ${data.success}</p>
+                        <p><strong>Achievements Count:</strong> ${data.data?.achievements?.length || 0}</p>
+                        <h4>First 3 Achievements:</h4>
+                        <pre>${JSON.stringify(data.data?.achievements?.slice(0, 3) || [], null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="result">
+                        <h3>❌ Frontend-style Call Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

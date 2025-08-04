@@ -33,6 +33,15 @@ export default function Admin() {
   const [progressData, setProgressData] = useState({});
   const [paymentStats, setPaymentStats] = useState({});
 
+  // Achievements State
+  const [achievements, setAchievements] = useState([]);
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
+  const [achievementsLoading, setAchievementsLoading] = useState(false);
+  const [achievementsStats, setAchievementsStats] = useState({
+    totalUsersEarned: 0,
+    achievementInstances: 0
+  });
+
   // Coach Management State
   const [coaches, setCoaches] = useState([]);
   const [coachStats, setCoachStats] = useState({
@@ -118,8 +127,6 @@ export default function Admin() {
           avgTransactionAmount: response.data.avgTransactionAmount || 0,
           paymentMethods: {
             zalopay: response.data.paymentMethods?.zalopay || 0
-            // momo: response.data.paymentMethods?.momo || 0,
-            // banking: response.data.paymentMethods?.banking || 0
           },
           zalopayDetails: response.data.zalopayDetails || {}
         };
@@ -465,6 +472,37 @@ export default function Admin() {
   const handleAvailabilityClick = (coach) => {
     showCoachModal(coach, 'availability');
   };
+
+  const handleAchievementsClick = async () => {
+    setAchievementsModalVisible(true);
+    setAchievementsLoading(true);
+    
+    try {
+      console.log('Fetching achievements from API...');
+      const response = await api.fetch('/api/admin/achievements');
+      
+      if (response.success && response.data) {
+        console.log('Received achievements data:', response.data);
+        setAchievements(response.data.achievements || []);
+        setAchievementsStats({
+          totalUsersEarned: response.data.totalUsersEarned || 0,
+          achievementInstances: response.data.achievementInstances || 0
+        });
+      } else {
+        console.error('Invalid response format from API:', response);
+        alert('Không thể tải danh sách thành tựu. Vui lòng thử lại sau.');
+      }
+    } catch (error) {
+      console.error('Error fetching achievements:', error);
+      alert('Không thể tải danh sách thành tựu. Vui lòng thử lại sau.');
+    } finally {
+      setAchievementsLoading(false);
+    }
+  };
+
+  const handleAchievementsModalClose = () => {
+    setAchievementsModalVisible(false);
+  };
   
   // Coach Table Columns
   const coachColumns = [
@@ -608,13 +646,18 @@ export default function Admin() {
         </Col>
 
         <Col xs={24} sm={12} md={8} lg={6} xl={4}>
-          <Card className="metric-card">
+          <Card 
+            className="metric-card clickable-card" 
+            onClick={handleAchievementsClick}
+            style={{ cursor: 'pointer' }}
+            hoverable
+          >
             <Statistic
               title="🏆 Thành tựu"
               value={metrics.achievements}
               valueStyle={{ color: '#faad14' }}
             />
-            <Text type="secondary">Loại huy hiệu</Text>
+            <Text type="secondary">Tổng số loại thành tựu • Click để xem chi tiết</Text>
           </Card>
         </Col>
 
@@ -731,43 +774,24 @@ export default function Admin() {
             
             <div>
               <Title level={5}>Phân bổ phương thức thanh toán</Title>
-              <Row gutter={[16, 16]}>
-                <Col span={8}>
+              <Row gutter={[16, 16]} justify="center">
+                <Col span={12}>
                   <div style={{textAlign: 'center'}}>
                     <Progress 
                       type="circle" 
                       percent={paymentStats.paymentMethods?.zalopay > 0 ? 100 : 0} 
-                      size="small"
+                      size="default"
                       format={() => 'ZaloPay'}
                       strokeColor="#2673dd"
                     />
-                    <div style={{marginTop: 10}}>{paymentStats.paymentMethods?.zalopay || 0} giao dịch</div>
+                    <div style={{marginTop: 10, fontSize: '16px', fontWeight: 'bold'}}>
+                      {paymentStats.paymentMethods?.zalopay || 0} giao dịch (100%)
+                    </div>
+                    <div style={{color: '#666', fontSize: '14px'}}>
+                      Phương thức thanh toán duy nhất
+                    </div>
                   </div>
                 </Col>
-                {/* <Col span={8}>
-                  <div style={{textAlign: 'center'}}>
-                    <Progress 
-                      type="circle" 
-                      percent={0} 
-                      size="small"
-                      format={() => 'MoMo'}
-                      strokeColor="#d82d8b"
-                    />
-                    <div style={{marginTop: 10}}>0 giao dịch</div>
-                  </div>
-                </Col> */}
-                {/* <Col span={8}>
-                  <div style={{textAlign: 'center'}}>
-                    <Progress 
-                      type="circle" 
-                      percent={0} 
-                      size="small"
-                      format={() => 'Banking'}
-                      strokeColor="#52c41a"
-                    />
-                    <div style={{marginTop: 10}}>0 giao dịch</div>
-                  </div>
-                </Col> */}
               </Row>
             </div>
           </Card>
@@ -1334,6 +1358,137 @@ export default function Admin() {
             <Button type="primary">Thêm khung giờ mới</Button>
           </div>
         )}
+      </Modal>
+
+      {/* Achievements Details Modal */}
+      <Modal
+        title={
+          <Space>
+            <TrophyOutlined style={{ color: '#faad14' }} />
+            Chi tiết thành tựu hệ thống
+          </Space>
+        }
+        visible={achievementsModalVisible}
+        onCancel={handleAchievementsModalClose}
+        footer={null}
+        width={900}
+        className="achievements-modal"
+      >
+        <div className="achievements-content">
+          <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Col span={8}>
+              <Card size="small">
+                <Statistic
+                  title="Tổng số thành tựu"
+                  value={achievements.length}
+                  valueStyle={{ color: '#faad14' }}
+                  prefix={<TrophyOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small">
+                <Statistic
+                  title="Người dùng duy nhất đã đạt thành tựu"
+                  value={achievementsStats.totalUsersEarned}
+                  valueStyle={{ color: '#52c41a' }}
+                  prefix={<UserAddOutlined />}
+                  suffix="người"
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  Số người dùng duy nhất có ít nhất 1 thành tựu
+                </Text>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small">
+                <Statistic
+                  title="Tổng lượt đạt thành tựu"
+                  value={achievementsStats.achievementInstances}
+                  valueStyle={{ color: '#1890ff' }}
+                  prefix={<LineChartOutlined />}
+                  suffix="lượt"
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  {achievements.length > 0 ? 
+                    `${Math.round(achievementsStats.achievementInstances / achievements.length * 10) / 10} lượt/thành tựu` 
+                    : '0 lượt/thành tựu'
+                  }
+                </Text>
+              </Card>
+            </Col>
+          </Row>
+
+          <Table
+            dataSource={achievements}
+            loading={achievementsLoading}
+            rowKey="id"
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            columns={[
+              {
+                title: 'ID',
+                dataIndex: 'id',
+                key: 'id',
+                width: 50,
+                sorter: (a, b) => a.id - b.id,
+              },
+              {
+                title: 'Hình ảnh',
+                dataIndex: 'icon_url',
+                key: 'icon_url',
+                width: 80,
+                render: (iconUrl, record) => (
+                  <Avatar 
+                    src={iconUrl || '/image/default-achievement.png'} 
+                    icon={<TrophyOutlined />}
+                    size="large"
+                    style={{ backgroundColor: '#faad14' }}
+                  />
+                ),
+              },
+              {
+                title: 'Tên thành tựu',
+                dataIndex: 'name',
+                key: 'name',
+                width: 200,
+                render: (text) => <strong style={{ color: '#faad14' }}>{text}</strong>,
+              },
+              {
+                title: 'Mô tả',
+                dataIndex: 'description',
+                key: 'description',
+                ellipsis: true,
+                render: (text) => (
+                  <Tooltip title={text}>
+                    <Text>{text}</Text>
+                  </Tooltip>
+                ),
+              },
+              {
+                title: 'Người đã đạt',
+                dataIndex: 'usersEarned',
+                key: 'usersEarned',
+                width: 120,
+                sorter: (a, b) => a.usersEarned - b.usersEarned,
+                render: (count) => (
+                  <Tag color={count > 0 ? 'green' : 'default'}>
+                    {count} người
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Ngày tạo',
+                dataIndex: 'created_at',
+                key: 'created_at',
+                width: 120,
+                render: (date) => moment(date).format('DD/MM/YYYY'),
+                sorter: (a, b) => moment(a.created_at).unix() - moment(b.created_at).unix(),
+              },
+            ]}
+            scroll={{ x: 800 }}
+            size="small"
+          />
+        </div>
       </Modal>
 
       {/* Additional Statistics */}

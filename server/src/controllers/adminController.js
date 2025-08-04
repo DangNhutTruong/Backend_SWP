@@ -1487,11 +1487,11 @@ export const getMetrics = async (req, res) => {
       communityPosts = 0;
     }
 
-    // 13. Achievements (check if table exists first)
+    // 13. Total achievement types available in the system
     let achievements = 0;
     try {
       const [achievementsResult] = await pool.execute(
-        'SELECT COUNT(*) as count FROM user_achievements'
+        'SELECT COUNT(*) as count FROM achievement'
       );
       achievements = achievementsResult[0]?.count || 0;
     } catch (error) {
@@ -2217,6 +2217,84 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi xóa người dùng',
+      error: error.message
+    });
+  }
+};
+
+// Get all achievements for admin dashboard
+export const getAchievements = async (req, res) => {
+  try {
+    
+    // Get all achievements from database
+    const [achievements] = await pool.execute(`
+      SELECT 
+        id,
+        name,
+        description,
+        icon_url
+      FROM achievement 
+      ORDER BY id ASC
+    `);
+
+    // Get count of ACTIVE users who earned each achievement
+    const [userCounts] = await pool.execute(`
+      SELECT 
+        ua.achievement_id,
+        COUNT(DISTINCT ua.smoker_id) as users_earned
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+      GROUP BY ua.achievement_id
+    `);
+
+    // Create a map for easier lookup
+    const earnedCountsMap = {};
+    userCounts.forEach(count => {
+      earnedCountsMap[count.achievement_id] = count.users_earned;
+    });
+
+    // Combine achievements with user counts
+    const achievementsWithCounts = achievements.map(achievement => ({
+      ...achievement,
+      usersEarned: earnedCountsMap[achievement.id] || 0,
+      created_at: new Date().toISOString() // Default date since column doesn't exist
+    }));
+
+    // Get total UNIQUE users who have earned ANY achievement
+    const [totalUniqueUsersResult] = await pool.execute(`
+      SELECT COUNT(DISTINCT ua.smoker_id) as unique_users
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+    `);
+    
+    const totalUniqueUsers = totalUniqueUsersResult[0]?.unique_users || 0;
+    
+    // Get total achievement instances (sum of all earned achievements)
+    const [totalInstancesResult] = await pool.execute(`
+      SELECT COUNT(*) as total_instances
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+    `);
+    
+    const totalInstances = totalInstancesResult[0]?.total_instances || 0;
+
+    res.json({
+      success: true,
+      data: {
+        achievements: achievementsWithCounts,
+        totalAchievements: achievements.length,
+        totalUsersEarned: totalUniqueUsers,
+        achievementInstances: totalInstances
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching achievements:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách thành tựu',
       error: error.message
     });
   }
