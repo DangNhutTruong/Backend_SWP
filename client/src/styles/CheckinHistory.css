@@ -1,0 +1,532 @@
+/* CheckinHistory.css */
+
+/* Container cho toàn bộ component */
+.checkin-history-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* Nút toggle sidebar */
+.toggle-history-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #3498db;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 15px;
+    width: 100%;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-history-sidebar:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Style cho nút nhỏ gọn để đặt ngang hàng với "Kế hoạch của bạn" */
+.toggle-history-sidebar.compact-button {
+    width: auto;
+    display: inline-flex;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    margin-right: 15px;
+    margin-bottom: 10px;
+    background-color: #2e86de;
+}
+
+.toggle-history-sidebar.compact-button:hover {
+    background-color: #2574b9;
+}
+
+.sidebar-toggle-icon {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
+
+/* Sidebar chứa lịch sử check-in */
+.checkin-history-sidebar {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 90%;
+    max-width: 1000px;
+    height: 100vh;
+    background-color: white;
+    box-shadow: -3px 0 10px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.checkin-history-sidebar.open {
+    right: 0;
+}
+
+.checkin-history {
+    width: 100%;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.history-title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    color: #34495e;
+    font-size: 1.5rem;
+}
+
+.title-icon {
+    margin-right: 10px;
+    color: #3498db;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 15px;
+}
+
+.history-header-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.refresh-btn, .close-sidebar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    border: none;
+    cursor: pointer;
+    color: #555;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.refresh-btn:hover {
+    background-color: #3498db;
+    color: white;
+}
+
+.close-sidebar-btn {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.close-sidebar-btn:hover {
+    background-color: #e74c3c;
+    color: white;
+}
+
+/* Hiệu ứng overlay khi sidebar mở */
+.checkin-history-wrapper::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.checkin-history-sidebar.open ~ .checkin-history-wrapper::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+.history-table-container {
+    overflow-x: auto;
+    margin-bottom: 15px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.history-table th,
+.history-table td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.history-table th {
+    background-color: #f1f5f9;
+    color: #2c3e50;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.history-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+.date-cell {
+    font-weight: 500;
+    text-align: left;
+    min-width: 120px;
+    position: relative;
+}
+
+.today-badge {
+    background-color: #3498db;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-left: 8px;
+    display: inline-block;
+}
+
+.today-row {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+.target-cell,
+.actual-cell,
+.avoided-cell {
+    min-width: 70px;
+}
+
+.avoided-details {
+    font-size: 0.7rem;
+    color: #7f8c8d;
+    margin-top: 2px;
+}
+
+.health-cell {
+    min-width: 100px;
+}
+
+.health-score {
+    position: relative;
+    height: 20px;
+    background-color: #ecf0f1;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.health-bar {
+    height: 100%;
+    background-color: #2ecc71;
+    border-radius: 10px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: width 0.3s ease;
+}
+
+.health-value {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: bold;
+    line-height: 20px;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.success {
+    color: #2ecc71;
+    font-weight: 600;
+}
+
+.warning {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.actions-cell {
+    width: 60px;
+}
+
+.edit-btn,
+.save-btn,
+.cancel-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.edit-btn {
+    color: #3498db;
+}
+
+.save-btn {
+    color: #2ecc71;
+}
+
+.cancel-btn {
+    color: #e74c3c;
+}
+
+.edit-btn:hover,
+.save-btn:hover,
+.cancel-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.edit-actions {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+
+.edit-input {
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.edit-textarea {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    gap: 10px;
+}
+
+.pagination-btn {
+    border: none;
+    background: #f1f5f9;
+    color: #3498db;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #e1e8ed;
+}
+
+.pagination-btn:disabled {
+    color: #ccc;
+    cursor: not-allowed;
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #7f8c8d;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    color: #bdc3c7;
+    margin-bottom: 15px;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: #e74c3c;
+}
+
+.error-message {
+    margin-bottom: 15px;
+}
+
+.warning-message {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border-left: 4px solid #ffc107;
+}
+
+.retry-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.retry-button:hover {
+    background-color: #2980b9;
+}
+
+/* Responsive CSS cho mobile */
+@media (max-width: 768px) {
+    .checkin-history-sidebar {
+        width: 100%;
+    }
+    
+    .history-table th, 
+    .history-table td {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+}
+
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    animation: fadeInOut 3s forwards;
+}
+
+.toast-notification.success {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.toast-notification.error {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.toast-notification.info {
+    background-color: #3498db;
+    color: white;
+}
+
+.toast-notification.warning {
+    background-color: #f39c12;
+    color: white;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(20px); }
+    10% { opacity: 1; transform: translateY(0); }
+    90% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-20px); }
+}
+
+@media (max-width: 768px) {
+    .checkin-history {
+        padding: 15px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 8px 6px;
+        font-size: 0.8rem;
+    }
+
+    .notes-cell {
+        max-width: 100px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* Các style cho header đã được định nghĩa ở trên */
+
+/* Style cho nút tải lại */
+.refresh-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s;
+}
+
+/* Style cho các ngày chưa check-in */
+.empty-checkin-row {
+    background-color: #f9f9f9;
+    color: #888;
+    font-style: italic;
+}
+
+.refresh-btn:hover {
+    background-color: #3e8e41;
+}
+
+.refresh-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Chỉnh sửa margin cho tiêu đề trong header mới */
+.history-header .history-title {
+    margin-bottom: 0;
+}
+
+/* Style cho text helper */
+.history-helper-text {
+    margin-bottom: 15px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Style cho các giá trị trống (N/A) */
+.empty-value {
+    color: #999;
+    font-style: italic;
+}

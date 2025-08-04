@@ -5,15 +5,15 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 // Utility function to get auth headers
 const getAuthHeaders = () => {
     // Tìm token từ cả localStorage và sessionStorage với đúng key
-    const token = localStorage.getItem('nosmoke_token') || 
-                 sessionStorage.getItem('nosmoke_token') ||
-                 localStorage.getItem('auth_token') || 
-                 sessionStorage.getItem('auth_token');
-    
+    const token = localStorage.getItem('nosmoke_token') ||
+        sessionStorage.getItem('nosmoke_token') ||
+        localStorage.getItem('auth_token') ||
+        sessionStorage.getItem('auth_token');
+
     if (!token) {
         throw new Error('Access token is required');
     }
-    
+
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -55,7 +55,7 @@ export const getUserPlans = async () => {
     try {
         logDebug('QuitPlan', '🚀 Fetching user quit plans from database...');
 
-        const response = await fetch(`${API_BASE_URL}/api/quit-plans/multiple`, {
+        const response = await fetch(`${API_BASE_URL}/api/quit-plans/user`, {
             method: 'GET',
             headers: getAuthHeaders()
         });
@@ -67,15 +67,15 @@ export const getUserPlans = async () => {
         }
 
         logDebug('QuitPlan', '✅ User quit plans fetched from database', data);
-        // Backend trả về { success: true, message: "...", data: {...plans: [...]} }
-        const plansData = data.data?.plans || data.plans || data.data || data;
-        
+        // Backend trả về { success: true, message: "...", data: [...] }
+        const plansData = data.data || data;
+
         if (plansData.length > 0) {
             logDebug('QuitPlan', `✅ Tìm thấy ${plansData.length} kế hoạch trong database`);
         } else {
             logDebug('QuitPlan', 'ℹ️ Không tìm thấy kế hoạch nào trong database', null, true); // Force print này
         }
-        
+
         return plansData;
     } catch (error) {
         console.error('❌ Error fetching user plans from database:', error);
@@ -129,10 +129,10 @@ export const getUserActivePlan = async () => {
         }
 
         console.log('✅ User active quit plan fetched:', data);
-        
+
         // Process data to ensure proper structure
         const planData = data.data || data;
-        
+
         // Ensure weeks data is properly parsed if it's a string
         if (planData.weeks && typeof planData.weeks === 'string') {
             try {
@@ -141,8 +141,8 @@ export const getUserActivePlan = async () => {
                 console.error('Error parsing weeks data:', e);
             }
         }
-        
-        return { 
+
+        return {
             success: true,
             plan: planData,
             message: 'Active plan retrieved successfully'
@@ -178,6 +178,31 @@ export const updateQuitPlan = async (planId, updateData) => {
     }
 };
 
+// Update plan status
+export const updatePlanStatus = async (planId, status) => {
+    try {
+        logDebug('QuitPlan', `🚀 Updating plan ${planId} status to ${status}`);
+
+        const response = await fetch(`${API_BASE_URL}/api/quit-plans/${planId}/status`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to update plan status');
+        }
+
+        logDebug('QuitPlan', `✅ Plan ${planId} status updated to ${status}`, data);
+        return data.data || data;
+    } catch (error) {
+        logDebug('QuitPlan', `❌ Error updating plan ${planId} status:`, error, true);
+        throw error;
+    }
+};
+
 // Delete a quit plan
 export const deletePlan = async (planId) => {
     try {
@@ -195,7 +220,7 @@ export const deletePlan = async (planId) => {
         }
 
         console.log('✅ Quit plan deleted successfully:', data);
-        
+
         // Clear progress data khi xóa plan
         try {
             console.log('🔍 Attempting to clear progress data...');
@@ -205,7 +230,7 @@ export const deletePlan = async (planId) => {
         } catch (progressError) {
             console.warn('⚠️ Could not clear progress data:', progressError);
         }
-        
+
         return data.data || data;
     } catch (error) {
         console.error('❌ Error deleting quit plan:', error);
@@ -228,11 +253,11 @@ export const getUserPlansBySmokerId = async (userId) => {
         ];
 
         let lastError = null;
-        
+
         for (const endpoint of endpoints) {
             try {
                 logDebug('QuitPlan', `🔍 Trying endpoint: ${endpoint}`);
-                
+
                 const response = await fetch(endpoint, {
                     method: 'GET',
                     headers: getAuthHeaders()
@@ -241,9 +266,9 @@ export const getUserPlansBySmokerId = async (userId) => {
                 if (response.ok) {
                     const data = await response.json();
                     logDebug('QuitPlan', `✅ User ${userId} quit plans fetched from ${endpoint}`, data);
-                    
+
                     const plansData = data.data || data.plans || data;
-                    
+
                     if (Array.isArray(plansData) && plansData.length > 0) {
                         logDebug('QuitPlan', `✅ Tìm thấy ${plansData.length} kế hoạch cho user ${userId}`);
                         return plansData;
@@ -269,7 +294,7 @@ export const getUserPlansBySmokerId = async (userId) => {
         logDebug('QuitPlan', `⚠️ All endpoints failed for user ${userId}. Last error:`, lastError, true);
         logDebug('QuitPlan', `ℹ️ User ${userId} has no quit plans or endpoints not available`);
         return [];
-        
+
     } catch (error) {
         logDebug('QuitPlan', `❌ Error fetching quit plans for user ${userId}:`, error, true);
         return [];
@@ -283,5 +308,6 @@ export default {
     getUserActivePlan,
     getUserPlansBySmokerId,
     updateQuitPlan,
+    updatePlanStatus,
     deletePlan
 };

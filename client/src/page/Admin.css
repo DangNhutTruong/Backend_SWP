@@ -1,6 +1,6 @@
-.admin-container {
+.admin-dashboard {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -8,51 +8,175 @@
   margin-bottom: 24px;
 }
 
-.admin-tabs {
-  background-color: #fff;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+/* Key Metrics Cards */
+.key-metrics {
+  margin-bottom: 24px;
 }
 
-.tab-content {
-  padding: 16px 0;
-}
-
-.db-check-card {
-  margin-bottom: 16px;
-}
-
-.system-status-card {
-  margin-bottom: 20px;
-}
-
-.status-header {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  text-align: center;
-  border-radius: 8px;
+.metric-card {
+  height: 100%;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
   transition: all 0.3s;
 }
 
-.stat-card:hover {
+.metric-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
-.stat-title {
-  font-size: 14px;
+.metric-card .ant-statistic-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.metric-card .ant-statistic-content {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* Chart Cards */
+.chart-card {
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+}
+
+.data-visualization {
+  margin-bottom: 24px;
+}
+
+/* Stat Highlight Cards */
+.stat-highlight-card {
+  height: 100%;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+}
+
+.stat-highlight-card .ant-statistic-title {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-highlight-card .ant-progress {
+  margin-top: 20px;
+}
+
+/* Activity Card */
+.activity-card {
+  height: 100%;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.activity-card .ant-list-item {
+  padding: 12px 0;
+}
+
+/* Custom chart visualizations */
+.growth-visual {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 180px;
+  margin-top: 20px;
+  padding: 0 20px;
+}
+
+.month-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+}
+
+.month-bar {
+  width: 24px;
+  background-color: #1890ff;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease;
+}
+
+.month-label {
+  margin-top: 8px;
+  font-size: 12px;
   color: #8c8c8c;
-  margin-bottom: 8px;
+}
+
+.membership-distribution {
+  padding: 20px 0;
+}
+
+.membership-item {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.membership-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  margin-right: 12px;
+  margin-top: 4px;
+}
+
+.membership-detail {
+  flex: 1;
+}
+
+.membership-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.membership-count {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+}
+
+.membership-percentage {
+  font-size: 12px;
+  color: #8c8c8c;
+  text-align: right;
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: bold;
   color: #1890ff;
+}
+
+/* Coach Management Styles */
+.coach-management {
+  margin-top: 16px;
+}
+
+.coach-card {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+}
+
+.coach-detail h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.coach-detail h3 {
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.coach-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.coach-availability h3 {
+  margin-bottom: 20px;
 }
 
 @media (max-width: 768px) {

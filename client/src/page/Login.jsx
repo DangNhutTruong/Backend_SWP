@@ -30,6 +30,8 @@ export default function Login() {
         // Redirect based on user role
         if (result.user && result.user.role === 'coach') {
           navigate('/coach');
+        } else if (result.user && result.user.role === 'admin') {
+          navigate('/admin');
         } else {
           navigate(from);
         }

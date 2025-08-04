@@ -8,6 +8,7 @@ import Home from "./page/Home.jsx";
 import ProfilePage from "./page/Profile.jsx"; // Đổi tên từ Tools sang ProfilePage
 import ProgressPage from "./page/Progress.jsx"; // Import component Progress
 import MembershipDebugger from "./components/MembershipDebugger.jsx"; // Import component để debug membership
+import Admin from "./page/Admin.jsx"; // Import component Admin
 
 import TestPage from "./page/TestPage.jsx"; // Thêm trang test đơn giản
 import Blog from "./page/Blog.jsx"; // Import component Blog
@@ -20,16 +21,26 @@ import BookAppointment from "./page/BookAppointment.jsx"; // Import component Bo
 import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Import ProtectedRoute
 import RoleBasedRoute from "./components/RoleBasedRoute.jsx"; // Import RoleBasedRoute
 import CoachRedirect from "./components/CoachRedirect.jsx"; // Import CoachRedirect
+import AdminRedirect from "./components/AdminRedirect.jsx"; // Import AdminRedirect
 import AccessDenied from "./page/AccessDenied.jsx"; // Import AccessDenied
 import UserProfile from "./page/User.jsx"; // Import UserProfile component
 import CoachLayout from "./components/CoachLayout.jsx"; // Import CoachLayout
+import AdminLayout from "./components/AdminLayout.jsx"; // Import AdminLayout
 import CoachDashboardNew from "./page/coach/CoachDashboardNew.jsx"; // Import CoachDashboardNew
 import CoachBookings from "./page/coach/CoachBookings.jsx"; // Import CoachBookings
 import CoachMessaging from "./page/coach/CoachMessaging.jsx"; // Import CoachMessaging
+
+// Import Admin components
+import AdminBlog from "./page/admin/AdminBlog.jsx"; // Import AdminBlog
+import AdminQuitPlans from "./page/admin/AdminQuitPlans.jsx"; // Import AdminQuitPlans
+import AdminCoaches from "./page/admin/AdminCoaches.jsx"; // Import AdminCoaches
+import AdminMemberships from "./page/admin/AdminMemberships.jsx"; // Import AdminMemberships
 import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
 import "./style.css";
 import JourneyStepper from "./components/JourneyStepper.jsx";
+import QuitPlanList from "./components/QuitPlanList.jsx"; // Import QuitPlanList component
+import JourneyRouter from "./components/JourneyRouter.jsx"; // Import JourneyRouter component
 import Notification from "./page/Notification.jsx"; // Import component Notification
 import SettingsPage from "./page/Settings.jsx"; // Import component Settings
 import Pay from "./page/Pay.jsx";
@@ -68,7 +79,9 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <CoachRedirect>
-          <Home />
+          <AdminRedirect>
+            <Home />
+          </AdminRedirect>
         </CoachRedirect>
       </Layout>
     ),
@@ -85,7 +98,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <UserProfile isStandalone={true} />
+            <AdminRedirect>
+              <UserProfile isStandalone={true} />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -97,7 +112,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <ProfilePage />
+            <AdminRedirect>
+              <ProfilePage />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -109,7 +126,9 @@ const router = createBrowserRouter([
       <Layout>
         <ProtectedRoute>
           <CoachRedirect>
-            <ProgressPage />
+            <AdminRedirect>
+              <ProgressPage />
+            </AdminRedirect>
           </CoachRedirect>
         </ProtectedRoute>
       </Layout>
@@ -136,17 +155,47 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <ProtectedRoute>
+          <JourneyRouter />
+        </ProtectedRoute>
+      </Layout>
+    ), // Sử dụng JourneyRouter để tự động chọn giữa QuitPlanList và JourneyStepper
+  },
+  {
+    path: "/journey/create",
+    element: (
+      <Layout>
+        <ProtectedRoute>
           <JourneyStepper />
         </ProtectedRoute>
       </Layout>
-    ), // Sử dụng JourneyStepper cho trang Công Cụ
+    ), // Route riêng để tạo kế hoạch mới
+  },
+  {
+    path: "/journey/plans",
+    element: (
+      <Layout>
+        <ProtectedRoute>
+          <JourneyRouter />
+        </ProtectedRoute>
+      </Layout>
+    ), // Route để xem danh sách kế hoạch - sử dụng JourneyRouter để tự động chọn component phù hợp
+  },
+  {
+    path: "/journey/plan/:planId",
+    element: (
+      <Layout>
+        <ProtectedRoute>
+          <JourneyStepper />
+        </ProtectedRoute>
+      </Layout>
+    ), // Route để xem chi tiết kế hoạch cụ thể
   },
   {
     path: "/plan",
     element: (
       <Layout>
         <ProtectedRoute>
-          <JourneyStepper />
+          <JourneyRouter />
         </ProtectedRoute>
       </Layout>
     ), // Route alias cho /journey
@@ -348,6 +397,41 @@ const router = createBrowserRouter([
       }
     ]
   },
+  // Admin Route
+  {
+    path: "/admin",
+    element: (
+      <RoleBasedRoute allowedRoles={['admin']}>
+        <AdminLayout />
+      </RoleBasedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Admin />
+      },
+      {
+        path: "users",
+        element: <AdminUsers />
+      },
+      {
+        path: "memberships",
+        element: <AdminMemberships />
+      },
+      {
+        path: "blog",
+        element: <AdminBlog />
+      },
+      {
+        path: "quit-plans",
+        element: <AdminQuitPlans />
+      },
+      {
+        path: "coaches",
+        element: <AdminCoaches />
+      }
+    ]
+  },
   {
     path: "/access-denied",
     element: (
@@ -395,6 +479,7 @@ const SimpleBackToTop = () => {
 // Import debug utilities for development
 import debugAuth from "./utils/authDebug.js";
 import debugAuthNew from "./utils/authDebugNew.js";
+import AdminUsers from "./page/admin/AdminUsers.jsx";
 
 // Make debug utilities available globally in development
 if (import.meta.env.DEV) {

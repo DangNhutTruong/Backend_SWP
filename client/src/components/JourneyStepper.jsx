@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/JourneyStepper.css';
 import { createQuitPlan, updateQuitPlan, getUserPlans, deletePlan } from '../services/quitPlanService';
 import { logDebug } from '../utils/debugHelpers';
@@ -34,10 +35,10 @@ const createMultiplePlan = async (planData) => {
 // Debug function to check authentication status
 const checkAuthStatus = () => {
   // Tìm token từ cả localStorage và sessionStorage với đúng key (tương thích với quitPlanService.js)
-  const tokenLocal = localStorage.getItem('nosmoke_token') || 
-                    localStorage.getItem('auth_token');
-  const tokenSession = sessionStorage.getItem('nosmoke_token') || 
-                      sessionStorage.getItem('auth_token');
+  const tokenLocal = localStorage.getItem('nosmoke_token') ||
+    localStorage.getItem('auth_token');
+  const tokenSession = sessionStorage.getItem('nosmoke_token') ||
+    sessionStorage.getItem('auth_token');
   const userLocal = localStorage.getItem('nosmoke_user');
   const userSession = sessionStorage.getItem('nosmoke_user');
 
@@ -58,7 +59,9 @@ const checkAuthStatus = () => {
   return { hasToken, hasUser, isPersistent, tokenLocal, tokenSession };
 };
 
-export default function JourneyStepper() {
+export default function JourneyStepper({ onPlanCreated }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
@@ -80,16 +83,47 @@ export default function JourneyStepper() {
     { id: 4, name: "Xác nhận" },
   ];
 
-  // Kiểm tra kế hoạch từ database khi component được gắn vào
+  // Kiểm tra nếu đang ở route tạo mới
+  const isCreatingNew = location.pathname === '/journey/create';
+
+  // Reset states khi đang tạo kế hoạch mới
   useEffect(() => {
+    if (isCreatingNew) {
+      console.log('🆕 ĐANG TẠO KẾ HOẠCH MỚI - Reset tất cả states');
+      setCurrentStep(1);
+      setIsCompleted(false);
+      setShowCompletionScreen(false);
+      setIsEditing(false);
+      setIsFullEdit(false);
+      setShowWelcomeBack(false);
+      setFormData({
+        cigarettesPerDay: 10,
+        packPrice: 25000,
+        smokingYears: 5,
+        reasonToQuit: 'sức khỏe',
+        selectedPlan: null,
+      });
+      console.log('✅ Reset hoàn tất - Sẵn sàng tạo kế hoạch mới');
+    }
+  }, [isCreatingNew, location.pathname]);
+
+  // Kiểm tra kế hoạch từ database khi component được gắn vào (CHỈ khi KHÔNG phải tạo mới)
+  useEffect(() => {
+    // Nếu đang tạo kế hoạch mới, bỏ qua việc kiểm tra kế hoạch hiện có
+    if (isCreatingNew) {
+      console.log('🚫 Bỏ qua kiểm tra kế hoạch hiện có vì đang tạo mới');
+      return;
+    }
+
     // Check authentication status
     const authStatus = checkAuthStatus();
 
     // Nếu có đăng nhập, kiểm tra kế hoạch từ database
     if (authStatus.hasToken) {
+      console.log('🔍 Kiểm tra kế hoạch hiện có từ database...');
       checkExistingPlanFromDatabase();
     }
-  }, []);
+  }, [isCreatingNew]);
 
   // Hàm kiểm tra kế hoạch từ database - CHÍNH THỨC
   const checkExistingPlanFromDatabase = async () => {
@@ -98,10 +132,9 @@ export default function JourneyStepper() {
       const userPlans = await getUserPlans();
 
       if (userPlans && userPlans.length > 0) {
-        // Tìm kế hoạch active trước (status = 'ongoing' hoặc 'active')
+        // Tìm kế hoạch active trước (status = 'ongoing')
         let planToUse = userPlans.find(plan =>
           plan.status === 'ongoing' ||
-          plan.status === 'active' ||
           plan.is_active === true
         );
 
@@ -112,17 +145,17 @@ export default function JourneyStepper() {
 
         if (planToUse) {
           console.log('✅ Tìm thấy kế hoạch trong DATABASE:', planToUse.plan_name);
-          
+
           // Đồng bộ ngay vào localStorage
           localStorage.setItem('activePlan', JSON.stringify(planToUse));
-          
+
           // Trigger reload cho Progress component
-          window.dispatchEvent(new CustomEvent('localStorageChanged', { 
-            detail: { key: 'activePlan' } 
+          window.dispatchEvent(new CustomEvent('localStorageChanged', {
+            detail: { key: 'activePlan' }
           }));
-          
+
           console.log('✅ Đã trigger reload cho Progress component');
-          
+
           // Cập nhật state để hiển thị màn hình hoàn thành
           setIsCompleted(true);
           setShowCompletionScreen(true);
@@ -156,12 +189,12 @@ export default function JourneyStepper() {
         console.log('ℹ️ Không tìm thấy kế hoạch trong DATABASE');
         // Xóa localStorage nếu database không có dữ liệu
         localStorage.removeItem('activePlan');
-        
+
         // Trigger reload cho Progress component
-        window.dispatchEvent(new CustomEvent('localStorageChanged', { 
-          detail: { key: 'activePlan' } 
+        window.dispatchEvent(new CustomEvent('localStorageChanged', {
+          detail: { key: 'activePlan' }
         }));
-        
+
         console.log('✅ Đã trigger reload cho Progress component (không có kế hoạch)');
       }
     } catch (error) {
@@ -313,10 +346,10 @@ export default function JourneyStepper() {
 
         // Cập nhật localStorage để đồng bộ
         localStorage.setItem('activePlan', JSON.stringify(updatedPlan));
-        
+
         // Trigger reload cho Progress component
-        window.dispatchEvent(new CustomEvent('localStorageChanged', { 
-          detail: { key: 'activePlan' } 
+        window.dispatchEvent(new CustomEvent('localStorageChanged', {
+          detail: { key: 'activePlan' }
         }));
 
         console.log('✅ Đã đồng bộ dữ liệu vào localStorage sau khi cập nhật');
@@ -500,18 +533,24 @@ export default function JourneyStepper() {
 
         // Lưu vào localStorage để đồng bộ
         localStorage.setItem('activePlan', JSON.stringify(createdPlan));
-        
+
         // Trigger reload cho Progress component
-        window.dispatchEvent(new CustomEvent('localStorageChanged', { 
-          detail: { key: 'activePlan' } 
+        window.dispatchEvent(new CustomEvent('localStorageChanged', {
+          detail: { key: 'activePlan' }
         }));
 
-        console.log('✅ Đã đồng bộ kế hoạch mới vào localStorage');
+        // Trigger event để QuitPlanList refresh danh sách kế hoạch
+        window.dispatchEvent(new CustomEvent('planCreated', {
+          detail: { plan: createdPlan }
+        }));
+
+        console.log('✅ Đã đồng bộ kế hoạch mới vào localStorage và dispatch events');
       }
 
       // Hiển thị thông báo thành công với số tuần
       const planWeeks = completeSelectedPlan?.totalWeeks || planDataForAPI.totalWeeks || 8;
       alert(`Đã tạo kế hoạch cai thuốc thành công! Thời gian dự kiến: ${planWeeks} tuần.`);
+      console.log('✅ Kế hoạch đã được tạo thành công, chuẩn bị chuyển hướng...');
 
       // Nếu API thành công, cập nhật UI
       setTimeout(() => {
@@ -524,8 +563,15 @@ export default function JourneyStepper() {
 
         // Chuyển đến màn hình hoàn thành sau khi lưu thành công
         setTimeout(() => {
+          console.log('🏁 Hiển thị màn hình hoàn thành...');
           setIsCompleted(true);
           setShowCompletionScreen(true);
+
+          // Bỏ auto-navigation - chỉ để người dùng tự chọn bằng nút
+          // setTimeout(() => {
+          //   console.log('🔄 Chuyển hướng đến danh sách kế hoạch...');
+          //   navigate('/journey/plans');
+          // }, 1500);
         }, 1000);
       }, 1000);
 
@@ -607,13 +653,18 @@ export default function JourneyStepper() {
       // Đồng bộ xóa localStorage
       localStorage.removeItem('activePlan');
       localStorage.removeItem('quitPlanCompletion');
-      
+
       // Trigger reload cho Progress component
-      window.dispatchEvent(new CustomEvent('localStorageChanged', { 
-        detail: { key: 'activePlan' } 
+      window.dispatchEvent(new CustomEvent('localStorageChanged', {
+        detail: { key: 'activePlan' }
       }));
 
-      console.log('✅ Đã đồng bộ xóa dữ liệu khỏi localStorage');
+      // Trigger event để QuitPlanList và JourneyRouter refresh
+      window.dispatchEvent(new CustomEvent('planDeleted', {
+        detail: { allPlansDeleted: true }
+      }));
+
+      console.log('✅ Đã đồng bộ xóa dữ liệu khỏi localStorage và dispatch events');
 
       // Reset lại trạng thái
       setFormData({
@@ -641,6 +692,12 @@ export default function JourneyStepper() {
 
       // Thông báo thành công
       alert('Đã xóa toàn bộ kế hoạch cai thuốc và tiến trình của bạn. Bạn có thể tạo kế hoạch mới.');
+
+      // Navigate về trang danh sách kế hoạch sau khi event được dispatch
+      setTimeout(() => {
+        console.log('🔄 Navigating to plans list after deletion...');
+        navigate('/journey/plans');
+      }, 300);
     }
   };
 
@@ -798,8 +855,8 @@ export default function JourneyStepper() {
           week: i,
           amount: Math.round(currentAmount),
           reduction: weeklyReduction,
-          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
-                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' :
+            i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -854,8 +911,8 @@ export default function JourneyStepper() {
           week: i,
           amount: Math.round(currentAmount),
           reduction: weeklyReduction,
-          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
-                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' :
+            i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -910,8 +967,8 @@ export default function JourneyStepper() {
           week: i,
           amount: Math.round(currentAmount),
           reduction: weeklyReduction,
-          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' : 
-                 i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
+          phase: i <= plan.totalWeeks * 0.3 ? 'Thích nghi' :
+            i <= plan.totalWeeks * 0.7 ? 'Ổn định' : 'Hoàn thiện'
         });
       }
     });
@@ -1102,8 +1159,8 @@ export default function JourneyStepper() {
                   <div className="plan-summary-item">
                     <span className="summary-label">Kế hoạch được tạo:</span>
                     <span className="summary-value">
-                      {formData.selectedPlan && formData.selectedPlan.createdAt ? 
-                        `${new Date(formData.selectedPlan.createdAt).toLocaleDateString('vi-VN')} ${new Date(formData.selectedPlan.createdAt).toLocaleTimeString('vi-VN')}` : 
+                      {formData.selectedPlan && formData.selectedPlan.createdAt ?
+                        `${new Date(formData.selectedPlan.createdAt).toLocaleDateString('vi-VN')} ${new Date(formData.selectedPlan.createdAt).toLocaleTimeString('vi-VN')}` :
                         new Date().toLocaleString('vi-VN')}
                     </span>
                   </div>
@@ -1111,8 +1168,8 @@ export default function JourneyStepper() {
                     <div className="plan-summary-item">
                       <span className="summary-label">Cập nhật lần cuối:</span>
                       <span className="summary-value">
-                        {new Date(formData.selectedPlan.updatedAt).toLocaleDateString('vi-VN') + ' ' + 
-                         new Date(formData.selectedPlan.updatedAt).toLocaleTimeString('vi-VN')}
+                        {new Date(formData.selectedPlan.updatedAt).toLocaleDateString('vi-VN') + ' ' +
+                          new Date(formData.selectedPlan.updatedAt).toLocaleTimeString('vi-VN')}
                       </span>
                     </div>
                   )}
@@ -1187,7 +1244,14 @@ export default function JourneyStepper() {
             <div className="completion-actions">
               <h3 className="actions-title">Tiếp theo bạn nên làm gì?</h3>
               <div className="action-buttons">
-                <a href="/dashboard" className="action-button primary">
+                <button
+                  onClick={() => navigate('/journey/plans')}
+                  className="action-button primary"
+                >
+                  <span className="action-icon">📋</span>
+                  <span className="action-text">Xem danh sách kế hoạch</span>
+                </button>
+                <a href="/dashboard" className="action-button secondary">
                   <span className="action-icon">📊</span>
                   <span className="action-text">Theo dõi tiến độ</span>
                 </a>
@@ -1731,13 +1795,23 @@ export default function JourneyStepper() {
                     </div>
                   </div>
                 </div>                  <div className="form-actions">
-                  <button className="btn-back" onClick={handleBack}>
-                    <span className="btn-arrow">←</span> Quay lại
-                  </button>
-                  {isCompleted ? (
-                    <button className="btn-back-to-summary" onClick={handleBackToSummary}>
-                      Xem tổng quan kế hoạch
+                  <div className="nav-buttons">
+                    <button className="btn-back" onClick={handleBack}>
+                      <span className="btn-arrow">←</span> Quay lại
                     </button>
+                    <button className="btn-back-to-list" onClick={() => navigate('/journey/plans')}>
+                      📋 Danh sách kế hoạch
+                    </button>
+                  </div>
+                  {isCompleted ? (
+                    <div className="completion-actions">
+                      <button className="btn-back-to-summary" onClick={handleBackToSummary}>
+                        Xem tổng quan kế hoạch
+                      </button>
+                      <button className="btn-go-to-plans" onClick={() => navigate('/journey/plans')}>
+                        📋 Danh sách kế hoạch
+                      </button>
+                    </div>
                   ) : isEditing && isFullEdit ? (
                     // Nếu đang edit toàn bộ - sử dụng handleContinue thống nhất
                     <button className="btn-submit" onClick={handleContinue}>

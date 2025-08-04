@@ -92,3 +92,21 @@ export const optionalAuth = async (req, res, next) => {
         next();
     }
 };
+
+// Require admin role
+export const requireAdmin = (req, res, next) => {
+    try {
+        if (!req.user) {
+            return sendError(res, 'Authentication required', 401);
+        }
+
+        if (req.user.role !== 'admin') {
+            return sendError(res, 'Admin access required', 403);
+        }
+
+        next();
+    } catch (error) {
+        console.error('Admin middleware error:', error);
+        return sendError(res, 'Authorization failed', 500);
+    }
+};

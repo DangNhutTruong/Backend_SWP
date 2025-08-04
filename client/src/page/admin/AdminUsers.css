@@ -1,0 +1,346 @@
+.admin-users-container {
+  padding: 24px;
+  background: #f5f5f5;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* Global avatar reset - remove all possible border effects */
+.admin-users-container * {
+  --ant-avatar-border-radius: 50%;
+}
+
+.admin-users-container .ant-avatar,
+.admin-users-container .ant-avatar-image,
+.admin-users-container .ant-avatar > img {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 50% !important;
+}
+
+/* Force remove all avatar borders and outlines globally */
+.admin-users-container .ant-avatar::before,
+.admin-users-container .ant-avatar::after {
+  display: none !important;
+}
+
+.admin-users-container .ant-avatar {
+  position: relative !important;
+}
+
+.admin-users-container .ant-avatar:hover,
+.admin-users-container .ant-avatar:focus,
+.admin-users-container .ant-avatar:active {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure no pseudo-elements create borders */
+*[class*="avatar"]::before,
+*[class*="avatar"]::after {
+  border: none !important;
+  outline: none !important;
+}
+
+.admin-users-header {
+  margin-bottom: 24px;
+  padding: 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.admin-users-header h2 {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.admin-users-header .ant-typography {
+  margin-bottom: 0;
+}
+
+.search-container {
+  margin-bottom: 16px;
+  padding: 16px 0;
+}
+
+.user-detail-info {
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.user-detail-info .ant-row {
+  margin-bottom: 12px;
+}
+
+.user-detail-info strong {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+/* Statistics cards improvements */
+.statistics-row {
+  margin-bottom: 24px;
+}
+
+.statistics-card {
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  background: white;
+}
+
+.statistics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.statistics-card .ant-card-body {
+  padding: 20px;
+}
+
+/* Filters section */
+.filters-row {
+  margin-bottom: 20px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Table container */
+.ant-table-wrapper {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+/* Table customizations */
+.ant-table {
+  background: white;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  border-bottom: 2px solid #e8e8e8;
+  padding: 16px 12px;
+}
+
+.ant-table-tbody > tr > td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #e6f7ff;
+}
+
+.ant-table-tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* Action buttons in table */
+.ant-btn + .ant-btn {
+  margin-left: 8px;
+}
+
+/* Filters and search section */
+.filters-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.filters-section .ant-row {
+  align-items: end;
+}
+
+.filters-section .ant-select,
+.filters-section .ant-input {
+  height: 40px;
+}
+
+.filters-section .ant-btn {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal customizations */
+.ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Card customizations */
+.ant-card-small > .ant-card-head {
+  padding: 0 12px;
+  min-height: 38px;
+}
+
+.ant-card-small > .ant-card-body {
+  padding: 12px;
+}
+
+/* Statistics cards */
+.ant-statistic-title {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+}
+
+.ant-statistic-content {
+  color: #262626;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Form customizations */
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+/* Button customizations */
+.ant-btn-primary {
+  border-radius: 6px;
+}
+
+.ant-btn-danger {
+  border-radius: 6px;
+}
+
+/* Tag customizations */
+.ant-tag {
+  border-radius: 12px;
+  font-size: 11px;
+  padding: 0 8px;
+  line-height: 20px;
+}
+
+/* Avatar customizations - Remove all borders */
+.ant-avatar {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-users-container {
+    padding: 16px;
+  }
+  
+  .ant-table-scroll {
+    overflow-x: auto;
+  }
+  
+  .ant-statistic {
+    text-align: center;
+  }
+}
+
+/* Loading states */
+.ant-table-tbody > tr.ant-table-placeholder:hover > td {
+  background: transparent !important;
+}
+
+/* Filter section */
+.filters-section {
+  background: #fafafa;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+/* Detail modal improvements */
+.user-detail-section {
+  margin-bottom: 20px;
+}
+
+.user-detail-section .ant-descriptions-item-label {
+  font-weight: 600;
+  color: #262626;
+}
+
+.user-progress-chart {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+/* Action buttons styling */
+.action-buttons .ant-btn {
+  margin-right: 8px;
+}
+
+.action-buttons .ant-btn:last-child {
+  margin-right: 0;
+}
+
+/* Status indicators */
+.status-active {
+  color: #52c41a;
+  font-weight: 500;
+}
+
+.status-inactive {
+  color: #ff4d4f;
+  font-weight: 500;
+}
+
+/* Form improvements */
+.ant-form-item-required::before {
+  color: #ff4d4f;
+}
+
+/* Table row hover effects */
+.ant-table-tbody > tr:hover {
+  background: #e6f7ff;
+  cursor: pointer;
+}
+
+/* Avatar styling - Complete removal of all borders and effects */
+.user-avatar {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Additional specificity for all avatar instances */
+.admin-users-container .ant-avatar,
+.admin-users-container .user-avatar,
+.ant-table .ant-avatar,
+.ant-modal .ant-avatar {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Statistics cards enhancement */
+.statistics-card {
+  transition: all 0.3s ease;
+}
+
+.statistics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

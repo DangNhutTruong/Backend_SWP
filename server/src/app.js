@@ -16,6 +16,7 @@ import coachRoutes from './routes/coachRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import testRoutes from './routes/testRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import createAppointmentsStatusRoutes from './routes/appointmentsStatusRoutes.js';
 import communityRoutes from './routes/communityRoutes.js';
 import newsRoutes from './routes/newsRoutes.js';
@@ -120,6 +121,7 @@ app.options('/api/appointments/:id/status', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/appointments-update', createAppointmentsStatusRoutes());
 app.use('/api', healthRoutes);
 // app.use('/api/packages', packageRoutes);
