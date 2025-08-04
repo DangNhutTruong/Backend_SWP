@@ -175,7 +175,7 @@ export const createQuitPlan = async (req, res) => {
                 JSON.stringify(planDetails),
                 startDate,
                 endDate,
-                'ongoing'
+                req.body.status || 'ongoing' // Cho phép client truyền trạng thái, mặc định là 'ongoing'
             ]
         );
 
@@ -213,15 +213,14 @@ export const createQuitPlan = async (req, res) => {
         console.error('❌ Create quit plan error:', error);
 
         // More specific error handling
-        if (error.code === 'ER_DUP_ENTRY') {
-            return sendError(res, 'A quit plan already exists for this user', 409);
-        } else if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+        if (error.code === 'ER_NO_REFERENCED_ROW_2') {
             return sendError(res, 'Invalid user reference', 400);
         } else if (error.code === 'ER_DATA_TOO_LONG') {
             return sendError(res, 'Data provided is too long', 400);
         } else if (error.code === 'ER_BAD_NULL_ERROR') {
             return sendError(res, 'Required field is missing', 400);
         }
+        // Đã loại bỏ lỗi ER_DUP_ENTRY vì giờ một user có thể tạo nhiều kế hoạch
 
         return sendError(res, `Failed to create quit plan: ${error.message}`, 500);
     }
@@ -264,7 +263,7 @@ export const getUserPlans = async (req, res) => {
                 status: plan.status,
                 created_at: plan.created_at,
                 // Add is_active based on status
-                is_active: plan.status === 'ongoing' || plan.status === 'active',
+                is_active: plan.status === 'ongoing',
                 // Extract data from plan_details JSON
                 strategy: planDetails.strategy || 'gradual',
                 planType: planDetails.strategy || 'gradual',
@@ -451,6 +450,50 @@ export const deletePlan = async (req, res) => {
     } catch (error) {
         console.error('Delete plan error:', error);
         return sendError(res, 'Failed to delete quit plan', 500);
+    }
+};
+
+// Update plan status
+export const updatePlanStatus = async (req, res) => {
+    try {
+        const planId = req.params.id;
+        const { status } = req.body;
+
+        if (!status) {
+            return sendError(res, 'Status is required', 400);
+        }
+
+        // Kiểm tra trạng thái hợp lệ
+        const validStatuses = ['ongoing', 'completed', 'failed'];
+        if (!validStatuses.includes(status)) {
+            return sendError(res, `Status must be one of: ${validStatuses.join(', ')}`, 400);
+        }
+
+        // Kiểm tra kế hoạch tồn tại và thuộc về user
+        const [existingPlans] = await pool.query(
+            'SELECT * FROM quit_smoking_plan WHERE id = ? AND smoker_id = ?',
+            [planId, req.user.id]
+        );
+
+        if (!existingPlans || existingPlans.length === 0) {
+            return sendError(res, 'Quit plan not found', 404);
+        }
+
+        // Cập nhật trạng thái
+        await pool.query(
+            'UPDATE quit_smoking_plan SET status = ? WHERE id = ? AND smoker_id = ?',
+            [status, planId, req.user.id]
+        );
+
+        return sendSuccess(res, 'Plan status updated successfully', {
+            id: planId,
+            status,
+            is_active: status === 'ongoing'
+        });
+
+    } catch (error) {
+        console.error('Update plan status error:', error);
+        return sendError(res, 'Failed to update plan status', 500);
     }
 };
 
