@@ -104,18 +104,19 @@ class NewsService {
             console.log('📰 getCombinedNews: Starting to fetch news...');
             console.log('📰 API Base URL:', API_CONFIG.baseUrl);
             
-            // CHỈ lấy tin tức về thuốc lá
-            const smokingNews = await this.getSmokingNews({ limit: 10 }); // Lấy nhiều tin để có nhiều lựa chọn
+            // CHỈ lấy tin tức về thuốc lá từ API (đã có cache)
+            const smokingNews = await this.getSmokingNews({ limit: 6 });
             
             console.log('📰 smokingNews response:', smokingNews);
             
-            // Nếu không có tin tức về thuốc lá, sử dụng mock data
+            // Kiểm tra dữ liệu trả về
             if (!smokingNews.success || !smokingNews.data || smokingNews.data.length === 0) {
                 console.log('⚠️ No real news data available, using mock data');
                 return this.getMockNews();
             }
 
-            console.log('✅ Found real news data:', smokingNews.data.length, 'articles');
+            console.log('✅ Found news data:', smokingNews.data.length, 'articles');
+            console.log('📊 News source:', smokingNews.source || 'Unknown');
 
             // Sắp xếp theo ngày mới nhất
             const sortedArticles = smokingNews.data
@@ -147,12 +148,63 @@ class NewsService {
             return {
                 success: true,
                 data: finalArticles,
-                total: finalArticles.length
+                total: finalArticles.length,
+                source: smokingNews.source // Truyền thông tin nguồn
             };
         } catch (error) {
             console.error('❌ Error in getCombinedNews:', error);
             console.log('🔄 Falling back to mock data due to error');
             return this.getMockNews();
+        }
+    }
+
+    /**
+     * Get cache statistics
+     * @returns {Promise<Object>} Cache statistics
+     */
+    async getCacheStats() {
+        try {
+            console.log('📊 Fetching cache statistics...');
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/cache/stats`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Cache stats:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Error fetching cache stats:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Refresh news cache
+     * @returns {Promise<Object>} Refresh result
+     */
+    async refreshCache() {
+        try {
+            console.log('🔄 Refreshing news cache...');
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/cache/refresh`, {
+                method: 'POST',
+                headers: API_CONFIG.headers
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Cache refreshed:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ Error refreshing cache:', error);
+            return { success: false, error: error.message };
         }
     }
 
@@ -163,77 +215,34 @@ class NewsService {
     getMockNews() {
         const mockArticles = [
             {
-                id: 'mock-1',
-                title: 'Các nước giảm tác hại thuốc lá thế nào',
-                description: 'Tìm hiểu các chiến lược và chính sách hiệu quả của các quốc gia trên thế giới trong việc giảm thiểu tác hại từ thuốc lá.',
-                url: 'https://vnexpress.net/cac-nuoc-giam-tac-hai-thuoc-la-the-nao-4328671.html',
+                id: 'local-mock-1',
+                title: 'Tin tức về thuốc lá đang được cập nhật',
+                description: 'Hệ thống đang cập nhật tin tức mới nhất về thuốc lá từ các nguồn báo chí uy tín. Vui lòng quay lại sau.',
+                url: '#',
                 urlToImage: '/image/articles/e.jpg',
                 publishedAt: new Date().toISOString(),
                 source: {
-                    name: 'VnExpress'
+                    name: 'Hệ thống'
                 },
             },
             {
-                id: 'mock-2',
-                title: 'Tọa đàm về giảm thiểu tác hại thuốc lá',
-                description: 'Chuyên gia y tế thảo luận về những phương pháp tiên tiến nhất để giảm thiểu tác hại của thuốc lá đối với sức khỏe.',
-                url: 'https://vnexpress.net/toa-dam-ve-giam-thieu-tac-hai-thuoc-la-4377440.html',
+                id: 'local-mock-2',
+                title: 'Đang tải tin tức từ VnExpress, Tuổi Trẻ, Thanh Niên',
+                description: 'Chúng tôi đang thu thập tin tức mới nhất về tác hại thuốc lá và cách cai thuốc hiệu quả từ các trang báo uy tín.',
+                url: '#',
                 urlToImage: '/image/articles/r.jpg',
                 publishedAt: new Date(Date.now() - 86400000).toISOString(),
                 source: {
-                    name: 'VnExpress'
-                },
-            },
-            {
-                id: 'mock-3',
-                title: 'Giải pháp giảm tác hại thuốc lá từ góc nhìn toàn cầu',
-                description: 'Phân tích toàn diện về các giải pháp quốc tế trong cuộc chiến chống tác hại của thuốc lá và khói thuốc.',
-                url: 'https://vnexpress.net/giai-phap-giam-tac-hai-thuoc-la-tu-goc-nhin-toan-cau-4551056.html',
-                urlToImage: '/image/articles/OIP.jpg',
-                publishedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-                source: {
-                    name: 'VnExpress'
-                },
-            },
-            {
-                id: 'mock-4',
-                title: 'Nhồi máu cơ tim bởi thói quen hút thuốc \'giảm căng thẳng\'',
-                description: 'Cảnh báo về nguy cơ nhồi máu cơ tim ở những người có thói quen hút thuốc để giảm stress và căng thẳng.',
-                url: 'https://vnexpress.net/nhoi-mau-co-tim-boi-thoi-quen-hut-thuoc-giam-cang-thang-4812409.html',
-                urlToImage: '/image/articles/d.jpg',
-                publishedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-                source: {
-                    name: 'VnExpress'
-                },
-            },
-            {
-                id: 'mock-5',
-                title: 'Mẹo bảo vệ phổi cho người đang cai thuốc lá',
-                description: 'Hướng dẫn chi tiết các phương pháp hỗ trợ phục hồi và bảo vệ sức khỏe phổi trong quá trình cai thuốc lá.',
-                url: 'https://vnexpress.net/meo-bao-ve-phoi-cho-nguoi-dang-cai-thuoc-la-4881240.html',
-                urlToImage: '/image/articles/c.jpg',
-                publishedAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-                source: {
-                    name: 'VnExpress'
-                },
-            },
-            {
-                id: 'mock-6',
-                title: '6 triệu chứng thường gặp khi mới cai thuốc lá',
-                description: 'Những dấu hiệu và triệu chứng phổ biến mà cơ thể thường trải qua trong giai đoạn đầu cai thuốc lá.',
-                url: 'https://vnexpress.net/6-trieu-chung-thuong-gap-khi-moi-cai-thuoc-la-4893382.html',
-                urlToImage: '/image/articles/th.jpg',
-                publishedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-                source: {
-                    name: 'VnExpress'
+                    name: 'Hệ thống'
                 },
             }
         ];
 
         return {
             success: true,
-            data: mockArticles.slice(0, 6), // Đảm bảo tối đa 6 bài
-            total: Math.min(mockArticles.length, 6)
+            data: mockArticles,
+            total: mockArticles.length,
+            source: 'Local fallback'
         };
     }
 

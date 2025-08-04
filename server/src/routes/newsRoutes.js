@@ -1,8 +1,7 @@
 import express from 'express';
-import NewsController from '../controllers/newsController.js';
+import newsController from '../controllers/newsController.js';
 
 const router = express.Router();
-const newsController = new NewsController();
 
 /**
  * News Routes
@@ -33,5 +32,26 @@ router.get('/health', (req, res) => newsController.getHealthNews(req, res));
  * @param {number} [limit=10] - Number of articles to return
  */
 router.get('/search', (req, res) => newsController.searchNews(req, res));
+
+/**
+ * @route GET /api/news/cache/stats
+ * @desc Get cache statistics
+ * @access Public
+ */
+router.get('/cache/stats', (req, res) => newsController.getCacheStats(req, res));
+
+/**
+ * @route POST /api/news/cache/refresh
+ * @desc Force refresh news cache
+ * @access Public
+ */
+router.post('/cache/refresh', (req, res) => newsController.refreshCache(req, res));
+
+/**
+ * @route POST /api/news/cache/seed
+ * @desc Seed cache with sample articles (for testing)
+ * @access Public
+ */
+router.post('/cache/seed', (req, res) => newsController.seedCache(req, res));
 
 export default router;

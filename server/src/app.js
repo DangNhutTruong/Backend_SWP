@@ -87,6 +87,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/packages', packagesRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/payments', zaloPayRoutes);
+app.use('/api/news', newsRoutes);
 // Đăng ký routes cho achievement
 import achievementRoutes from './routes/achievementRoutes.js';
 app.use('/api', achievementRoutes);
