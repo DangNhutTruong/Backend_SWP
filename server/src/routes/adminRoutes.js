@@ -43,7 +43,8 @@ import {
 } from '../controllers/adminController.js';
 
 // Import simple blog management function
-import { getBlogPosts } from '../controllers/simpleBlogController.js';
+// import { getBlogPosts } from '../controllers/simpleBlogController.js';
+import { getBlogPosts } from '../controllers/blogController.js';
 
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
