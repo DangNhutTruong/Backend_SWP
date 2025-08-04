@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer } from 'react';
-import { FaCalendarAlt, FaEdit, FaSave, FaTimes, FaChevronLeft, FaChevronRight, FaSync } from 'react-icons/fa';
+import { FaCalendarAlt, FaEdit, FaSave, FaTimes, FaChevronLeft, FaChevronRight, FaSync, FaTrash } from 'react-icons/fa';
 import progressService from '../services/progressService';
 import { getCurrentUserId } from '../utils/userUtils';
 import { useAuth } from '../context/AuthContext';
@@ -91,8 +91,8 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return 0;
     };
 
-    // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến hiện tại
-    const generateDaysArray = (startDate) => {
+    // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (bao gồm cả ngày tương lai)
+    const generateDaysArray = (startDate, endDate = null) => {
         const today = new Date();
         const start = new Date(startDate);
         const days = [];
@@ -100,12 +100,26 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         // Nếu ngày bắt đầu không hợp lệ, sử dụng 30 ngày trước
         const validStartDate = !isNaN(start) ? start : new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        // Tạo mảng các ngày từ ngày bắt đầu đến hôm nay
-        for (let day = new Date(validStartDate); day <= today; day.setDate(day.getDate() + 1)) {
+        // Xác định ngày kết thúc: endDate nếu có, hoặc hôm nay
+        let validEndDate = today;
+        if (endDate) {
+            const end = new Date(endDate);
+            if (!isNaN(end)) {
+                // Sử dụng ngày kết thúc của kế hoạch, bao gồm cả ngày tương lai
+                validEndDate = end;
+            }
+        }
+
+        console.log('📅 generateDaysArray - Start:', validStartDate.toISOString().split('T')[0],
+            'End:', validEndDate.toISOString().split('T')[0]);
+
+        // Tạo mảng các ngày từ ngày bắt đầu đến ngày kết thúc
+        for (let day = new Date(validStartDate); day <= validEndDate; day.setDate(day.getDate() + 1)) {
             const dateStr = day.toISOString().split('T')[0];
             days.push(dateStr);
         }
 
+        console.log('📅 generateDaysArray - Generated', days.length, 'days');
         return days;
     };
 
@@ -144,6 +158,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 const plan = await loadUserPlan();
                 let initialCigarettesFromPlan = 30; // Giá trị mặc định nếu không tìm thấy kế hoạch
                 let planStartDate = null;
+                let planEndDate = null;
 
                 if (plan) {
                     initialCigarettesFromPlan = getInitialCigarettesFromPlan(plan) || 30;
@@ -151,6 +166,16 @@ const CheckinHistory = ({ onProgressUpdate }) => {
 
                     // Lấy ngày bắt đầu kế hoạch nếu có
                     planStartDate = plan.startDate || plan.start_date;
+
+                    // Tính ngày kết thúc dựa trên số tuần
+                    if (planStartDate && plan.weeks && plan.weeks.length > 0) {
+                        const startDate = new Date(planStartDate);
+                        const totalWeeks = plan.total_weeks || plan.totalWeeks || plan.weeks.length;
+                        const endDate = new Date(startDate);
+                        endDate.setDate(startDate.getDate() + (totalWeeks * 7));
+                        planEndDate = endDate.toISOString().split('T')[0];
+                        console.log('📅 CheckinHistory - Plan period:', planStartDate, 'to', planEndDate, `(${totalWeeks} weeks)`);
+                    }
 
                     // Lưu initialCigarettes vào localStorage để sử dụng khi cần
                     if (initialCigarettesFromPlan > 0) {
@@ -163,8 +188,16 @@ const CheckinHistory = ({ onProgressUpdate }) => {
 
                 console.log('🔍 CheckinHistory - Loading history for user:', userId);
 
-                // Gọi API để lấy lịch sử
-                const response = await progressService.getProgressByUserId(userId);
+                // Gọi API để lấy lịch sử theo plan_id cụ thể
+                let response;
+                if (plan && (plan.id || plan.plan_id)) {
+                    const planId = plan.id || plan.plan_id;
+                    console.log('🔍 CheckinHistory - Loading history for plan:', planId);
+                    response = await progressService.getProgressByUserId(userId, { plan_id: planId });
+                } else {
+                    console.log('🔍 CheckinHistory - Loading history without plan filter');
+                    response = await progressService.getProgressByUserId(userId);
+                }
 
                 if (response && response.success && response.data) {
                     // Format dữ liệu từ API
@@ -186,128 +219,46 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         historyMap.set(entry.date, entry);
                     });
 
-                    // Hàm tính mục tiêu hút thuốc cho một ngày cụ thể dựa trên kế hoạch
+                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (hoặc hiện tại)
+                    console.log('🔍 CheckinHistory - planStartDate:', planStartDate);
+                    console.log('🔍 CheckinHistory - planEndDate:', planEndDate);
+                    const allDays = generateDaysArray(planStartDate, planEndDate);
+                    console.log(`🔍 Generated ${allDays.length} days from plan start to end`);
+
+                    // Hàm tính mục tiêu cho từng ngày
                     const getTargetCigarettesForDate = (date, plan) => {
                         if (!plan || !plan.weeks || (!plan.startDate && !plan.start_date)) {
                             console.log('🔍 CheckinHistory - Không tìm thấy thông tin kế hoạch đầy đủ để tính mục tiêu');
-                            return 0; // Nếu không có kế hoạch, mục tiêu là 0
+                            return 0;
                         }
 
                         const planStartDate = new Date(plan.startDate || plan.start_date);
                         const targetDate = new Date(date);
+                        const daysSincePlanStart = Math.floor((targetDate - planStartDate) / (1000 * 60 * 60 * 24));
 
-                        // Tính số ngày kể từ ngày bắt đầu kế hoạch
-                        const daysSincePlanStart = Math.floor(
-                            (targetDate - planStartDate) / (1000 * 60 * 60 * 24)
-                        );
-
-                        // Nếu ngày trước khi bắt đầu kế hoạch, trả về mục tiêu = initialCigarettes
-                        // (người dùng chưa bắt đầu bỏ thuốc)
                         if (daysSincePlanStart < 0) {
-                            console.log('🔍 CheckinHistory - Ngày trước khi bắt đầu kế hoạch, sử dụng số điếu ban đầu làm mục tiêu');
                             return initialCigarettesFromPlan;
                         }
 
-                        // Tìm tuần phù hợp với ngày đó
                         let currentWeekIndex = 0;
                         let daysPassed = 0;
 
                         for (let i = 0; i < plan.weeks.length; i++) {
-                            const week = plan.weeks[i];
-                            const weekDuration = 7; // Mỗi tuần có 7 ngày
-
-                            if (daysSincePlanStart >= daysPassed &&
-                                daysSincePlanStart < daysPassed + weekDuration) {
+                            const weekDuration = 7;
+                            if (daysSincePlanStart >= daysPassed && daysSincePlanStart < daysPassed + weekDuration) {
                                 currentWeekIndex = i;
                                 break;
                             }
-
                             daysPassed += weekDuration;
                         }
 
-                        // Nếu ngày sau khi kết thúc kế hoạch, sử dụng mục tiêu của tuần cuối cùng
                         if (currentWeekIndex >= plan.weeks.length) {
                             currentWeekIndex = plan.weeks.length - 1;
                         }
 
                         const currentWeek = plan.weeks[currentWeekIndex];
-
-                        // Lấy mục tiêu từ tuần hiện tại
-                        let target = 0; // Mặc định là 0 nếu không tìm thấy
-
-                        if (currentWeek) {
-                            target = currentWeek.target ??
-                                currentWeek.amount ??
-                                currentWeek.cigarettes ??
-                                currentWeek.dailyCigarettes ??
-                                currentWeek.daily_cigarettes ??
-                                0;
-
-                            console.log(`🔍 CheckinHistory - Tuần ${currentWeekIndex + 1}, mục tiêu: ${target} điếu`);
-                        }
-
-                        return target;
+                        return currentWeek ? (currentWeek.target ?? currentWeek.amount ?? currentWeek.cigarettes ?? 0) : 0;
                     };
-
-                    // Chuẩn bị kế hoạch để tính toán mục tiêu theo từng ngày
-                    console.log('🔍 CheckinHistory - Preparing plan for target calculation');
-
-                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến hiện tại
-                    const allDays = generateDaysArray(planStartDate);
-                    console.log(`🔍 Generated ${allDays.length} days from plan start to today`);
-
-                    // Tạo lịch sử đầy đủ với tất cả các ngày
-                    const fullHistory = allDays.map(date => {
-                        // Nếu đã có dữ liệu cho ngày này, sử dụng nó
-                        if (historyMap.has(date)) {
-                            return historyMap.get(date);
-                        }
-                        // Tính mục tiêu cho ngày này dựa trên kế hoạch
-                        const targetForThisDay = getTargetCigarettesForDate(date, plan);
-
-                        // Nếu không có, tạo một bản ghi trống với mục tiêu đã tính
-                        return createEmptyCheckin(
-                            date,
-                            initialCigarettesFromPlan,
-                            targetForThisDay
-                        );
-                    });
-
-                    // Sắp xếp theo ngày giảm dần (mới nhất lên đầu)
-                    const sortedHistory = fullHistory.sort((a, b) =>
-                        new Date(b.date) - new Date(a.date)
-                    );
-
-                    setCheckinHistory(sortedHistory);
-                    console.log('✅ CheckinHistory - Loaded', sortedHistory.length, 'entries (including empty days)');
-                } else {
-                    // Fallback: Tạo lịch sử từ localStorage
-                    const localHistory = [];
-                    Object.keys(localStorage).forEach(key => {
-                        if (key.startsWith('checkin_') && !key.endsWith('_draft')) {
-                            try {
-                                const dateStr = key.replace('checkin_', '');
-                                const data = JSON.parse(localStorage.getItem(key));
-                                localHistory.push({
-                                    date: dateStr,
-                                    ...data,
-                                    isFromLocalStorage: true
-                                });
-                            } catch (e) {
-                                console.warn('Error parsing localStorage item:', key, e);
-                            }
-                        }
-                    });
-
-                    // Tạo Map từ dữ liệu localStorage để tra cứu nhanh
-                    const historyMap = new Map();
-                    localHistory.forEach(entry => {
-                        historyMap.set(entry.date, entry);
-                    });
-
-                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến hiện tại
-                    const allDays = generateDaysArray(planStartDate);
-                    console.log(`🔍 Generated ${allDays.length} days from plan start to today (localStorage fallback)`);
 
                     // Tạo lịch sử đầy đủ với tất cả các ngày
                     const fullHistory = allDays.map(date => {
@@ -323,8 +274,116 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         return createEmptyCheckin(date, initialCigarettesFromPlan, targetForThisDay);
                     });
 
-                    // Sắp xếp theo ngày giảm dần
-                    fullHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
+                    fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    setCheckinHistory(fullHistory);
+                    console.log('✅ CheckinHistory - Loaded', fullHistory.length, 'entries (including empty days)');
+                } else {
+                    // Fallback: Tạo lịch sử từ localStorage theo plan_id
+                    const localHistory = [];
+                    const planId = plan && (plan.id || plan.plan_id) ? (plan.id || plan.plan_id).toString() : 'default';
+
+                    Object.keys(localStorage).forEach(key => {
+                        // Chỉ tìm các key có format: checkin_planId_date cho kế hoạch hiện tại
+                        if (key.startsWith(`checkin_${planId}_`) && !key.endsWith('_draft')) {
+                            try {
+                                const dateStr = key.replace(`checkin_${planId}_`, '');
+                                const data = JSON.parse(localStorage.getItem(key));
+                                localHistory.push({
+                                    date: dateStr,
+                                    ...data,
+                                    isFromLocalStorage: true
+                                });
+                            } catch (e) {
+                                console.warn('Error parsing localStorage item:', key, e);
+                            }
+                        }
+                        // Chỉ dành cho kế hoạch không có ID (kế hoạch mặc định cũ)
+                        // và chỉ khi không có kế hoạch cụ thể nào được chọn
+                        else if (planId === 'default' && key.startsWith('checkin_') &&
+                            !key.includes('_', key.indexOf('_') + 1) && !key.endsWith('_draft')) {
+                            try {
+                                const dateStr = key.replace('checkin_', '');
+                                // Kiểm tra xem dateStr có phải là ngày hợp lệ không (YYYY-MM-DD format)
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                                    const data = JSON.parse(localStorage.getItem(key));
+                                    localHistory.push({
+                                        date: dateStr,
+                                        ...data,
+                                        isFromLocalStorage: true
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn('Error parsing localStorage item:', key, e);
+                            }
+                        }
+                    });
+
+                    console.log(`🔍 CheckinHistory - Found ${localHistory.length} localStorage entries for plan ${planId}`);
+
+                    // Tạo Map từ dữ liệu localStorage để tra cứu nhanh
+                    const historyMap = new Map();
+                    localHistory.forEach(entry => {
+                        historyMap.set(entry.date, entry);
+                    });
+
+                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (hoặc hiện tại)
+                    console.log('🔍 CheckinHistory - (localStorage fallback) planStartDate:', planStartDate);
+                    console.log('🔍 CheckinHistory - (localStorage fallback) planEndDate:', planEndDate);
+                    const allDays = generateDaysArray(planStartDate, planEndDate);
+                    console.log(`🔍 Generated ${allDays.length} days from plan start to end (localStorage fallback)`);
+
+                    // Hàm tính mục tiêu cho localStorage fallback
+                    const getTargetCigarettesForDate = (date, plan) => {
+                        if (!plan || !plan.weeks || (!plan.startDate && !plan.start_date)) {
+                            console.log('🔍 CheckinHistory - Không tìm thấy thông tin kế hoạch đầy đủ để tính mục tiêu');
+                            return 0;
+                        }
+
+                        const planStartDate = new Date(plan.startDate || plan.start_date);
+                        const targetDate = new Date(date);
+                        const daysSincePlanStart = Math.floor((targetDate - planStartDate) / (1000 * 60 * 60 * 24));
+
+                        if (daysSincePlanStart < 0) {
+                            return initialCigarettesFromPlan;
+                        }
+
+                        let currentWeekIndex = 0;
+                        let daysPassed = 0;
+
+                        for (let i = 0; i < plan.weeks.length; i++) {
+                            const weekDuration = 7;
+                            if (daysSincePlanStart >= daysPassed && daysSincePlanStart < daysPassed + weekDuration) {
+                                currentWeekIndex = i;
+                                break;
+                            }
+                            daysPassed += weekDuration;
+                        }
+
+                        if (currentWeekIndex >= plan.weeks.length) {
+                            currentWeekIndex = plan.weeks.length - 1;
+                        }
+
+                        const currentWeek = plan.weeks[currentWeekIndex];
+                        return currentWeek ? (currentWeek.target ?? currentWeek.amount ?? currentWeek.cigarettes ?? 0) : 0;
+                    };
+
+                    // Tạo lịch sử đầy đủ với tất cả các ngày
+                    const fullHistory = allDays.map(date => {
+                        // Nếu đã có dữ liệu cho ngày này từ localStorage, sử dụng nó
+                        if (historyMap.has(date)) {
+                            return historyMap.get(date);
+                        }
+
+                        // Tính mục tiêu cho ngày này dựa trên kế hoạch
+                        const targetForThisDay = getTargetCigarettesForDate(date, plan);
+
+                        // Nếu không có, tạo một bản ghi trống với mục tiêu đúng
+                        return createEmptyCheckin(date, initialCigarettesFromPlan, targetForThisDay);
+                    });
+
+                    // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
+                    fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                     setCheckinHistory(fullHistory);
                     console.log('✅ CheckinHistory - Loaded', fullHistory.length, 'entries (including empty days) from localStorage fallback');
                 }
@@ -332,12 +391,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 console.error('❌ Error loading checkin history:', err);
                 setError('Không thể tải lịch sử check-in. Vui lòng thử lại sau.');
 
-                // Fallback: Tìm trong localStorage
+                // Fallback: Tìm trong localStorage theo plan_id
                 const localHistory = [];
+                const planId = userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id).toString() : 'default';
+
                 Object.keys(localStorage).forEach(key => {
-                    if (key.startsWith('checkin_') && !key.endsWith('_draft')) {
+                    // Chỉ tìm các key có format: checkin_planId_date cho kế hoạch hiện tại
+                    if (key.startsWith(`checkin_${planId}_`) && !key.endsWith('_draft')) {
                         try {
-                            const dateStr = key.replace('checkin_', '');
+                            const dateStr = key.replace(`checkin_${planId}_`, '');
                             const data = JSON.parse(localStorage.getItem(key));
                             localHistory.push({
                                 date: dateStr,
@@ -347,10 +409,29 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             console.warn('Error parsing localStorage item:', key, e);
                         }
                     }
+                    // Chỉ dành cho kế hoạch không có ID (kế hoạch mặc định cũ)
+                    else if (planId === 'default' && key.startsWith('checkin_') &&
+                        !key.includes('_', key.indexOf('_') + 1) && !key.endsWith('_draft')) {
+                        try {
+                            const dateStr = key.replace('checkin_', '');
+                            // Kiểm tra xem dateStr có phải là ngày hợp lệ không
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                                const data = JSON.parse(localStorage.getItem(key));
+                                localHistory.push({
+                                    date: dateStr,
+                                    ...data
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error parsing localStorage item:', key, e);
+                        }
+                    }
                 });
 
-                // Sắp xếp theo ngày giảm dần
-                localHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+                console.log(`🔍 CheckinHistory - Found ${localHistory.length} localStorage entries for plan ${planId} in error fallback`);
+
+                // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
+                localHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                 if (localHistory.length > 0) {
                     setCheckinHistory(localHistory);
                     setError('Không thể tải từ máy chủ. Hiển thị dữ liệu lưu cục bộ.');
@@ -370,6 +451,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             // Reset và tải lại lịch sử
             setCheckinHistory([]);
             setLoading(true);
+            setCurrentPage(1); // Reset về trang đầu tiên khi đổi kế hoạch
 
             // Reload data with a small delay to ensure localStorage is updated
             setTimeout(() => {
@@ -387,8 +469,29 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         const plan = await loadUserPlan();
 
                         if (plan) {
+                            // Tính lại ngày bắt đầu và kết thúc cho kế hoạch mới
+                            const planStartDate = plan.startDate || plan.start_date;
+                            let planEndDate = null;
+
+                            if (planStartDate && plan.weeks && plan.weeks.length > 0) {
+                                const startDate = new Date(planStartDate);
+                                const totalWeeks = plan.total_weeks || plan.totalWeeks || plan.weeks.length;
+                                const endDate = new Date(startDate);
+                                endDate.setDate(startDate.getDate() + (totalWeeks * 7));
+                                planEndDate = endDate.toISOString().split('T')[0];
+                                console.log('📅 CheckinHistory (reload) - Plan period:', planStartDate, 'to', planEndDate, `(${totalWeeks} weeks)`);
+                            }
+
                             // Load lại history với kế hoạch mới
-                            const response = await progressService.getProgressByUserId(userId);
+                            let response;
+                            if (plan && (plan.id || plan.plan_id)) {
+                                const planId = plan.id || plan.plan_id;
+                                console.log('🔍 CheckinHistory (reload) - Loading history for plan:', planId);
+                                response = await progressService.getProgressByUserId(userId, { plan_id: planId });
+                            } else {
+                                console.log('🔍 CheckinHistory (reload) - Loading history without plan filter');
+                                response = await progressService.getProgressByUserId(userId);
+                            }
 
                             if (response && response.success && response.data) {
                                 const apiHistory = response.data.map(entry => ({
@@ -403,9 +506,65 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                     isFromApi: true
                                 }));
 
-                                // Sắp xếp theo ngày giảm dần
-                                apiHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-                                setCheckinHistory(apiHistory);
+                                // Tạo Map từ dữ liệu API để tra cứu nhanh
+                                const historyMap = new Map();
+                                apiHistory.forEach(entry => {
+                                    historyMap.set(entry.date, entry);
+                                });
+
+                                // Tạo full history cho toàn bộ thời gian kế hoạch
+                                console.log('🔍 CheckinHistory (reload) - planStartDate:', planStartDate);
+                                console.log('🔍 CheckinHistory (reload) - planEndDate:', planEndDate);
+                                const allDays = generateDaysArray(planStartDate, planEndDate);
+                                console.log(`🔍 CheckinHistory (reload) - Generated ${allDays.length} days`);
+
+                                const fullHistory = allDays.map(date => {
+                                    if (historyMap.has(date)) {
+                                        return historyMap.get(date);
+                                    }
+
+                                    // Tính mục tiêu cho ngày này dựa trên kế hoạch mới
+                                    const getTargetForDate = (targetDate, targetPlan) => {
+                                        if (!targetPlan || !targetPlan.weeks || (!targetPlan.startDate && !targetPlan.start_date)) {
+                                            return 0;
+                                        }
+
+                                        const planStart = new Date(targetPlan.startDate || targetPlan.start_date);
+                                        const dateToCheck = new Date(targetDate);
+                                        const daysSinceStart = Math.floor((dateToCheck - planStart) / (1000 * 60 * 60 * 24));
+
+                                        if (daysSinceStart < 0) {
+                                            return getInitialCigarettesFromPlan(targetPlan);
+                                        }
+
+                                        let weekIndex = 0;
+                                        let daysPassed = 0;
+
+                                        for (let i = 0; i < targetPlan.weeks.length; i++) {
+                                            if (daysSinceStart >= daysPassed && daysSinceStart < daysPassed + 7) {
+                                                weekIndex = i;
+                                                break;
+                                            }
+                                            daysPassed += 7;
+                                        }
+
+                                        if (weekIndex >= targetPlan.weeks.length) {
+                                            weekIndex = targetPlan.weeks.length - 1;
+                                        }
+
+                                        const week = targetPlan.weeks[weekIndex];
+                                        return week ? (week.target ?? week.amount ?? week.cigarettes ?? 0) : 0;
+                                    };
+
+                                    const targetForThisDay = getTargetForDate(date, plan);
+
+                                    // Tạo empty entry cho ngày chưa có dữ liệu
+                                    return createEmptyCheckin(date, getInitialCigarettesFromPlan(plan), targetForThisDay);
+                                });
+
+                                // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
+                                fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                                setCheckinHistory(fullHistory);
                             }
                         }
                     } catch (error) {
@@ -565,12 +724,18 @@ const CheckinHistory = ({ onProgressUpdate }) => {
 
             // Nếu là entry trống (chưa có trong DB), sử dụng createCheckin thay vì updateCheckin
             try {
+                // Thêm plan_id vào dữ liệu để đảm bảo checkin được lưu cho đúng kế hoạch
+                const dataWithPlanId = {
+                    ...updatedData,
+                    plan_id: userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id) : null
+                };
+
                 if (isEmptyEntry) {
-                    console.log('🔍 CheckinHistory - Creating new checkin for date', date);
-                    response = await progressService.createCheckin(userId, date, updatedData);
+                    console.log('🔍 CheckinHistory - Creating new checkin for date', date, 'with plan_id:', dataWithPlanId.plan_id);
+                    response = await progressService.createCheckin(userId, date, dataWithPlanId);
                 } else {
-                    console.log('🔍 CheckinHistory - Updating existing checkin for date', date);
-                    response = await progressService.updateCheckinByUserId(userId, date, updatedData);
+                    console.log('🔍 CheckinHistory - Updating existing checkin for date', date, 'with plan_id:', dataWithPlanId.plan_id);
+                    response = await progressService.updateCheckinByUserId(userId, date, dataWithPlanId);
                 }
             } catch (error) {
                 console.error('❌ Error in save operation:', error);
@@ -578,7 +743,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 // Nếu cập nhật không thành công (404), thử tạo mới
                 if (error.message && error.message.includes("404")) {
                     console.log('🔄 Falling back to creating new checkin due to 404 error');
-                    response = await progressService.createCheckin(userId, date, updatedData);
+                    const dataWithPlanId = {
+                        ...updatedData,
+                        plan_id: userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id) : null
+                    };
+                    response = await progressService.createCheckin(userId, date, dataWithPlanId);
                 } else {
                     // Nếu là lỗi khác, ném lại lỗi để xử lý ở catch block bên ngoài
                     throw error;
@@ -647,8 +816,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     notes: updatedData.notes
                 };
 
-                // Lưu vào localStorage
-                localStorage.setItem(`checkin_${date}`, JSON.stringify(updatedLocalData));
+                // Lưu vào localStorage với plan_id
+                const planId = userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id).toString() : 'default';
+                const localStorageKey = `checkin_${planId}_${date}`;
+                localStorage.setItem(localStorageKey, JSON.stringify(updatedLocalData));
+                console.log(`🔍 CheckinHistory - Saved to localStorage with key: ${localStorageKey}`);
 
                 // Gọi callback cập nhật dashboard nếu có - với dữ liệu đã tính toán mới
                 if (onProgressUpdate && date === new Date().toISOString().split('T')[0]) {
@@ -694,6 +866,127 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }, 3000);
     };
 
+    // Xóa dữ liệu checkin
+    const handleDeleteEntry = async (date) => {
+        // Hiển thị xác nhận trước khi xóa
+        const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa dữ liệu check-in ngày ${formatDisplayDate(date)}?`);
+
+        if (!confirmDelete) {
+            return;
+        }
+
+        try {
+            const userId = getCurrentUserId();
+            if (!userId) {
+                throw new Error('User not logged in');
+            }
+
+            // Tìm entry hiện tại
+            const currentEntry = checkinHistory.find(entry => entry.date === date);
+
+            // Nếu là entry trống (chưa có dữ liệu thực sự), chỉ cần reset về trạng thái trống
+            if (currentEntry?.isEmpty || currentEntry?.actualCigarettes === null) {
+                // Reset entry về trạng thái trống
+                const resetEntry = createEmptyCheckin(date, currentEntry?.initialCigarettes || 30, currentEntry?.targetCigarettes || 0);
+
+                setCheckinHistory(prev => prev.map(entry =>
+                    entry.date === date ? resetEntry : entry
+                ));
+
+                // Xóa khỏi localStorage
+                const planId = userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id).toString() : 'default';
+                const localStorageKey = `checkin_${planId}_${date}`;
+                localStorage.removeItem(localStorageKey);
+                console.log(`🗑️ Removed localStorage key: ${localStorageKey}`);
+
+                setToast({
+                    show: true,
+                    message: 'Đã xóa dữ liệu check-in!',
+                    type: 'success'
+                });
+
+                setTimeout(() => {
+                    setToast(prev => ({ ...prev, show: false }));
+                }, 3000);
+
+                return;
+            }
+
+            // Nếu có dữ liệu thực sự, gọi API để xóa
+            console.log('🗑️ Deleting checkin for date:', date);
+
+            try {
+                // Thử xóa từ API trước
+                const deleteResponse = await progressService.deleteCheckin(date);
+
+                if (deleteResponse && deleteResponse.success) {
+                    console.log('✅ Successfully deleted from API');
+                } else {
+                    console.warn('⚠️ API delete response not successful, but continuing with local cleanup');
+                }
+            } catch (apiError) {
+                console.warn('⚠️ Error deleting from API:', apiError);
+                // Tiếp tục với việc xóa local vì có thể API không hỗ trợ delete hoặc entry không tồn tại trong DB
+            }
+
+            // Reset entry về trạng thái trống (với mục tiêu được tính lại từ kế hoạch)
+            let targetForThisDay = 0;
+            if (userPlan && userPlan.weeks && (userPlan.startDate || userPlan.start_date)) {
+                const planStartDate = new Date(userPlan.startDate || userPlan.start_date);
+                const targetDate = new Date(date);
+                const daysSincePlanStart = Math.floor((targetDate - planStartDate) / (1000 * 60 * 60 * 24));
+
+                if (daysSincePlanStart >= 0 && userPlan.weeks.length > 0) {
+                    let weekIndex = Math.floor(daysSincePlanStart / 7);
+                    if (weekIndex >= userPlan.weeks.length) {
+                        weekIndex = userPlan.weeks.length - 1;
+                    }
+                    const week = userPlan.weeks[weekIndex];
+                    targetForThisDay = week ? (week.target ?? week.amount ?? week.cigarettes ?? 0) : 0;
+                }
+            }
+
+            const resetEntry = createEmptyCheckin(date, currentEntry?.initialCigarettes || 30, targetForThisDay);
+
+            // Cập nhật state
+            setCheckinHistory(prev => prev.map(entry =>
+                entry.date === date ? resetEntry : entry
+            ));
+
+            // Xóa khỏi localStorage
+            const planId = userPlan && (userPlan.id || userPlan.plan_id) ? (userPlan.id || userPlan.plan_id).toString() : 'default';
+            const localStorageKey = `checkin_${planId}_${date}`;
+            localStorage.removeItem(localStorageKey);
+            console.log(`🗑️ Removed localStorage key: ${localStorageKey}`);
+
+            // Gọi callback để cập nhật dashboard nếu xóa dữ liệu ngày hôm nay
+            if (onProgressUpdate && date === new Date().toISOString().split('T')[0]) {
+                onProgressUpdate(null); // Truyền null để báo hiệu đã xóa dữ liệu
+                console.log('🔄 Called onProgressUpdate with null (data deleted)');
+            }
+
+            // Hiển thị thông báo thành công
+            setToast({
+                show: true,
+                message: 'Đã xóa dữ liệu check-in!',
+                type: 'success'
+            });
+
+        } catch (err) {
+            console.error('❌ Error deleting entry:', err);
+
+            setToast({
+                show: true,
+                message: `Lỗi khi xóa: ${err.message}`,
+                type: 'error'
+            });
+        }
+
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
     // Format date to display
     const formatDisplayDate = (dateStr) => {
         const date = new Date(dateStr);
@@ -730,8 +1023,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     const refreshTodayData = (userId) => {
         const today = new Date().toISOString().split('T')[0];
 
+        // Thêm plan_id filter nếu có
+        const currentPlan = userPlan;
+        const queryParams = { date: today };
+        if (currentPlan && (currentPlan.id || currentPlan.plan_id)) {
+            queryParams.plan_id = currentPlan.id || currentPlan.plan_id;
+        }
+
         // Sử dụng Promise không await để không chặn UI
-        progressService.getProgressByUserId(userId, { date: today })
+        progressService.getProgressByUserId(userId, queryParams)
             .then(response => {
                 if (response && response.success && response.data && response.data.length > 0) {
                     const todayEntry = response.data.find(item => item.date.split('T')[0] === today);
@@ -754,8 +1054,13 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             entry.date === today ? formattedEntry : entry
                         ));
 
-                        // Cập nhật localStorage
-                        localStorage.setItem(`checkin_${today}`, JSON.stringify(formattedEntry));
+                        // Cập nhật localStorage với plan_id
+                        const currentPlan = userPlan;
+                        const planId = currentPlan && (currentPlan.id || currentPlan.plan_id) ?
+                            (currentPlan.id || currentPlan.plan_id).toString() : 'default';
+                        const localStorageKey = `checkin_${planId}_${today}`;
+                        localStorage.setItem(localStorageKey, JSON.stringify(formattedEntry));
+                        console.log(`✅ Refreshed today data from API and saved to localStorage with key: ${localStorageKey}`);
 
                         console.log('✅ Refreshed today data from API:', todayEntry);
                     }
@@ -1039,13 +1344,25 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button
-                                                    className="edit-btn"
-                                                    onClick={() => handleEdit(entry)}
-                                                    title="Chỉnh sửa"
-                                                >
-                                                    <FaEdit />
-                                                </button>
+                                                <div className="action-buttons">
+                                                    <button
+                                                        className="edit-btn"
+                                                        onClick={() => handleEdit(entry)}
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <FaEdit />
+                                                    </button>
+                                                    {/* Chỉ hiển thị nút xóa nếu có dữ liệu thực sự (không phải entry trống) */}
+                                                    {!entry.isEmpty && entry.actualCigarettes !== null && (
+                                                        <button
+                                                            className="delete-btn"
+                                                            onClick={() => handleDeleteEntry(entry.date)}
+                                                            title="Xóa dữ liệu check-in"
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             )}
                                         </td>
                                     </tr>

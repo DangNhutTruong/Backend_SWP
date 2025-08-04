@@ -108,7 +108,8 @@
     gap: 10px;
 }
 
-.refresh-btn, .close-sidebar-btn {
+.refresh-btn,
+.close-sidebar-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -152,7 +153,7 @@
     transition: opacity 0.3s, visibility 0.3s;
 }
 
-.checkin-history-sidebar.open ~ .checkin-history-wrapper::before {
+.checkin-history-sidebar.open~.checkin-history-wrapper::before {
     opacity: 1;
     visibility: visible;
 }
@@ -271,7 +272,8 @@
 
 .edit-btn,
 .save-btn,
-.cancel-btn {
+.cancel-btn,
+.delete-btn {
     border: none;
     background: transparent;
     cursor: pointer;
@@ -293,16 +295,32 @@
     color: #e74c3c;
 }
 
+.delete-btn {
+    color: #e74c3c;
+}
+
 .edit-btn:hover,
 .save-btn:hover,
-.cancel-btn:hover {
+.cancel-btn:hover,
+.delete-btn:hover {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+.delete-btn:hover {
+    background-color: rgba(231, 76, 60, 0.1);
 }
 
 .edit-actions {
     display: flex;
     justify-content: center;
     gap: 5px;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    align-items: center;
 }
 
 .edit-input {
@@ -415,8 +433,8 @@
     .checkin-history-sidebar {
         width: 100%;
     }
-    
-    .history-table th, 
+
+    .history-table th,
     .history-table td {
         padding: 8px;
         font-size: 0.85rem;
@@ -455,10 +473,25 @@
 }
 
 @keyframes fadeInOut {
-    0% { opacity: 0; transform: translateY(20px); }
-    10% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-20px); }
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    10% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
 }
 
 @media (max-width: 768px) {

@@ -886,6 +886,7 @@ export default function Progress() {
       {/* Daily Checkin Section - Luôn hiển thị để người dùng có thể nhập số điếu đã hút */}
       <DailyCheckin
         onProgressUpdate={handleProgressUpdate}
+        selectedPlan={userPlan}
       />
 
       {/* Luôn hiển thị ProgressDashboard */}

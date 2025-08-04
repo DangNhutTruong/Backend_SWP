@@ -15,12 +15,17 @@ export const createCheckin = async (req, res) => {
             notes,
             healthScore = 0,
             moneySaved = 0,
-            cigarettesAvoided = 0
+            cigarettesAvoided = 0,
+            plan_id
         } = req.body;
 
         // Validation
         if (!date) {
             return sendError(res, 'Date is required', 400);
+        }
+
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan this checkin is for', 400);
         }
 
         if (targetCigarettes === undefined || targetCigarettes < 0) {
@@ -40,11 +45,11 @@ export const createCheckin = async (req, res) => {
         if (existing.length > 0) {
             return sendError(res, 'Checkin already exists for this date. Use PUT to update.', 409);
         }
-        
+
         // Calculate cigarettes avoided if not provided
-        const calculatedCigarettesAvoided = 
+        const calculatedCigarettesAvoided =
             cigarettesAvoided || Math.max(0, targetCigarettes - actualCigarettes);
-            
+
         // Calculate streak days
         let streakDays = 0;
         if (actualCigarettes === 0) {
@@ -57,7 +62,7 @@ export const createCheckin = async (req, res) => {
                  LIMIT 1`,
                 [req.user.id, date]
             );
-            
+
             // If there was a previous day with a streak, increment it
             streakDays = prevStreak.length > 0 ? prevStreak[0].streak_days + 1 : 1;
         }
@@ -65,11 +70,12 @@ export const createCheckin = async (req, res) => {
         // Insert new checkin
         const [result] = await pool.execute(
             `INSERT INTO daily_progress 
-             (smoker_id, date, target_cigarettes, actual_cigarettes, notes, 
+             (smoker_id, plan_id, date, target_cigarettes, actual_cigarettes, notes, 
              health_score, money_saved, cigarettes_avoided, streak_days) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 req.user.id,
+                plan_id,
                 date,
                 targetCigarettes,
                 actualCigarettes,
@@ -103,10 +109,15 @@ export const getUserProgress = async (req, res) => {
     }
 
     try {
-        const { startDate, endDate, limit } = req.query;
+        const { startDate, endDate, limit, plan_id } = req.query;
 
-        let query = 'SELECT * FROM daily_progress WHERE smoker_id = ?';
-        let params = [req.user.id];
+        // Require plan_id for data isolation
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to get progress for', 400);
+        }
+
+        let query = 'SELECT * FROM daily_progress WHERE smoker_id = ? AND plan_id = ?';
+        let params = [req.user.id, plan_id];
 
         // Add date filters if provided
         if (startDate) {
@@ -129,7 +140,7 @@ export const getUserProgress = async (req, res) => {
 
         const [progress] = await pool.execute(query, params);
 
-        console.log(`✅ Retrieved ${progress.length} progress entries for user ${req.user.id}`);
+        console.log(`✅ Retrieved ${progress.length} progress entries for user ${req.user.id} with plan_id ${plan_id}`);
         return sendSuccess(res, 'User progress retrieved successfully', progress);
 
     } catch (error) {
@@ -146,21 +157,26 @@ export const getCheckinByDate = async (req, res) => {
 
     try {
         const { date } = req.params;
+        const { plan_id } = req.query;
 
         if (!date) {
             return sendError(res, 'Date parameter is required', 400);
         }
 
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to get checkin for', 400);
+        }
+
         const [checkin] = await pool.execute(
-            'SELECT * FROM daily_progress WHERE smoker_id = ? AND date = ?',
-            [req.user.id, date]
+            'SELECT * FROM daily_progress WHERE smoker_id = ? AND date = ? AND plan_id = ?',
+            [req.user.id, date, plan_id]
         );
 
         if (checkin.length === 0) {
-            return sendError(res, 'No checkin found for this date', 404);
+            return sendError(res, 'No checkin found for this date and plan', 404);
         }
 
-        console.log(`✅ Retrieved checkin for user ${req.user.id} on ${date}`);
+        console.log(`✅ Retrieved checkin for user ${req.user.id} on ${date} with plan_id ${plan_id}`);
         return sendSuccess(res, 'Checkin retrieved successfully', checkin[0]);
 
     } catch (error) {
@@ -183,25 +199,39 @@ export const updateCheckin = async (req, res) => {
             notes,
             healthScore,
             moneySaved,
-            cigarettesAvoided
+            cigarettesAvoided,
+            plan_id
         } = req.body;
 
         if (!date) {
             return sendError(res, 'Date parameter is required', 400);
         }
 
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to update checkin for', 400);
+        }
+
+        // Build where condition based on whether plan_id is provided
+        let whereCondition = 'smoker_id = ? AND date = ?';
+        let whereParams = [req.user.id, date];
+
+        if (plan_id) {
+            whereCondition += ' AND plan_id = ?';
+            whereParams.push(plan_id);
+        }
+
         // Check if checkin exists
         const [existing] = await pool.execute(
-            'SELECT * FROM daily_progress WHERE smoker_id = ? AND date = ?',
-            [req.user.id, date]
+            `SELECT * FROM daily_progress WHERE ${whereCondition}`,
+            whereParams
         );
 
         if (existing.length === 0) {
-            return sendError(res, 'No checkin found for this date', 404);
+            return sendError(res, 'No checkin found for this date and plan', 404);
         }
 
         const existingRecord = existing[0];
-        
+
         // Build update query dynamically
         const updates = [];
         const params = [];
@@ -214,7 +244,7 @@ export const updateCheckin = async (req, res) => {
         if (actualCigarettes !== undefined && actualCigarettes >= 0) {
             updates.push('actual_cigarettes = ?');
             params.push(actualCigarettes);
-            
+
             // Recalculate streak_days
             let streakDays = 0;
             if (actualCigarettes === 0) {
@@ -227,7 +257,7 @@ export const updateCheckin = async (req, res) => {
                      LIMIT 1`,
                     [req.user.id, date]
                 );
-                
+
                 streakDays = prevStreak.length > 0 ? prevStreak[0].streak_days + 1 : 1;
                 updates.push('streak_days = ?');
                 params.push(streakDays);
@@ -235,7 +265,7 @@ export const updateCheckin = async (req, res) => {
                 // Reset streak if user smoked today
                 updates.push('streak_days = 0');
             }
-            
+
             // Recalculate cigarettes avoided if target was provided too
             if (targetCigarettes !== undefined) {
                 const calculatedCigarettesAvoided = Math.max(0, targetCigarettes - actualCigarettes);
@@ -258,7 +288,7 @@ export const updateCheckin = async (req, res) => {
             updates.push('money_saved = ?');
             params.push(moneySaved);
         }
-        
+
         if (cigarettesAvoided !== undefined) {
             updates.push('cigarettes_avoided = ?');
             params.push(cigarettesAvoided);
@@ -268,23 +298,23 @@ export const updateCheckin = async (req, res) => {
             return sendError(res, 'No fields to update', 400);
         }
 
-        params.push(req.user.id, date);
+        params.push(...whereParams);
 
         const updateQuery = `
             UPDATE daily_progress 
             SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP 
-            WHERE smoker_id = ? AND date = ?
+            WHERE ${whereCondition}
         `;
 
         await pool.execute(updateQuery, params);
 
         // Get updated checkin
         const [updated] = await pool.execute(
-            'SELECT * FROM daily_progress WHERE smoker_id = ? AND date = ?',
-            [req.user.id, date]
+            `SELECT * FROM daily_progress WHERE ${whereCondition}`,
+            whereParams
         );
 
-        console.log(`✅ Checkin updated for user ${req.user.id} on ${date}`);
+        console.log(`✅ Checkin updated for user ${req.user.id} on ${date}${plan_id ? ` with plan_id ${plan_id}` : ''}`);
         return sendSuccess(res, 'Checkin updated successfully', updated[0]);
 
     } catch (error) {
@@ -301,28 +331,42 @@ export const deleteCheckin = async (req, res) => {
 
     try {
         const { date } = req.params;
+        const { plan_id } = req.query; // Get plan_id from query params
 
         if (!date) {
             return sendError(res, 'Date parameter is required', 400);
         }
 
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to delete checkin for', 400);
+        }
+
+        // Build where condition based on whether plan_id is provided
+        let whereCondition = 'smoker_id = ? AND date = ?';
+        let whereParams = [req.user.id, date];
+
+        if (plan_id) {
+            whereCondition += ' AND plan_id = ?';
+            whereParams.push(plan_id);
+        }
+
         // Check if checkin exists
         const [existing] = await pool.execute(
-            'SELECT * FROM daily_progress WHERE smoker_id = ? AND date = ?',
-            [req.user.id, date]
+            `SELECT * FROM daily_progress WHERE ${whereCondition}`,
+            whereParams
         );
 
         if (existing.length === 0) {
-            return sendError(res, 'No checkin found for this date', 404);
+            return sendError(res, 'No checkin found for this date and plan', 404);
         }
 
         // Delete checkin
         await pool.execute(
-            'DELETE FROM daily_progress WHERE smoker_id = ? AND date = ?',
-            [req.user.id, date]
+            `DELETE FROM daily_progress WHERE ${whereCondition}`,
+            whereParams
         );
 
-        console.log(`✅ Checkin deleted for user ${req.user.id} on ${date}`);
+        console.log(`✅ Checkin deleted for user ${req.user.id} on ${date}${plan_id ? ` with plan_id ${plan_id}` : ''}`);
         return sendSuccess(res, 'Checkin deleted successfully', existing[0]);
 
     } catch (error) {
@@ -338,10 +382,19 @@ export const getProgressStats = async (req, res) => {
     }
 
     try {
-        const { days = 30 } = req.query;
+        const { days = 30, plan_id } = req.query;
+
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to get stats for', 400);
+        }
+
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - parseInt(days));
         const startDateStr = startDate.toISOString().split('T')[0];
+
+        // Build where condition with required plan_id
+        let whereCondition = 'smoker_id = ? AND date >= ? AND plan_id = ?';
+        let whereParams = [req.user.id, startDateStr, plan_id];
 
         // Get basic stats
         const [stats] = await pool.execute(`
@@ -356,17 +409,21 @@ export const getProgressStats = async (req, res) => {
                 SUM(money_saved) as total_money_saved,
                 AVG(health_score) as avg_health_score
             FROM daily_progress 
-            WHERE smoker_id = ? AND date >= ?
-        `, [req.user.id, startDateStr]);
+            WHERE ${whereCondition}
+        `, whereParams);
+
+        // Build params for recent checkins query
+        let recentParams = [req.user.id, plan_id];
+        let recentWhere = 'smoker_id = ? AND plan_id = ?';
 
         // Get streak information
         const [recentCheckins] = await pool.execute(`
             SELECT date, actual_cigarettes, target_cigarettes
             FROM daily_progress 
-            WHERE smoker_id = ?
+            WHERE ${recentWhere}
             ORDER BY date DESC
             LIMIT 30
-        `, [req.user.id]);
+        `, recentParams);
 
         // Calculate current streak
         let currentStreak = 0;
@@ -441,7 +498,12 @@ export const getChartData = async (req, res) => {
     }
 
     try {
-        const { days = 30, type = 'cigarettes' } = req.query;
+        const { days = 30, type = 'cigarettes', plan_id } = req.query;
+
+        if (!plan_id) {
+            return sendError(res, 'Plan ID is required - you must specify which quit plan to get chart data for', 400);
+        }
+
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - parseInt(days));
         const startDateStr = startDate.toISOString().split('T')[0];
@@ -465,14 +527,18 @@ export const getChartData = async (req, res) => {
                 fields = 'date, actual_cigarettes, target_cigarettes';
         }
 
+        // Build where condition with required plan_id
+        let whereCondition = 'smoker_id = ? AND date >= ? AND plan_id = ?';
+        let queryParams = [req.user.id, startDateStr, plan_id];
+
         query = `
             SELECT ${fields}
             FROM daily_progress 
-            WHERE smoker_id = ? AND date >= ?
+            WHERE ${whereCondition}
             ORDER BY date ASC
         `;
 
-        const [chartData] = await pool.execute(query, [req.user.id, startDateStr]);
+        const [chartData] = await pool.execute(query, queryParams);
 
         // Format data for frontend charts
         const formattedData = chartData.map(row => ({
@@ -553,11 +619,11 @@ export const createCheckinByUserId = async (req, res) => {
             // Update existing checkin
             return updateCheckinByUserId(req, res);
         }
-        
+
         // Calculate cigarettes avoided if not provided
-        const calculatedCigarettesAvoided = 
+        const calculatedCigarettesAvoided =
             cigarettesAvoided || Math.max(0, targetCigarettes - actualCigarettes);
-            
+
         // Calculate streak days
         let streakDays = 0;
         if (actualCigarettes === 0) {
@@ -570,7 +636,7 @@ export const createCheckinByUserId = async (req, res) => {
                  LIMIT 1`,
                 [userId, date]
             );
-            
+
             // If there was a previous day with a streak, increment it
             streakDays = prevStreak.length > 0 ? prevStreak[0].streak_days + 1 : 1;
         }
@@ -582,9 +648,9 @@ export const createCheckinByUserId = async (req, res) => {
              AND date <= ?`,
             [userId, date]
         );
-        
+
         const calculatedDaysClean = totalCheckins[0].total_days + 1; // +1 vì đang tạo checkin mới
-        
+
         console.log('🔍 Days clean calculation:', {
             userId,
             date,
@@ -593,7 +659,7 @@ export const createCheckinByUserId = async (req, res) => {
         });
 
         // Calculate progress percentage if not provided
-        const calculatedProgressPercentage = progressPercentage || 
+        const calculatedProgressPercentage = progressPercentage ||
             (targetCigarettes > 0 ? Math.round(((targetCigarettes - actualCigarettes) / targetCigarettes) * 100) : 0);
 
         // Insert new checkin
@@ -674,7 +740,7 @@ export const updateCheckinByUserId = async (req, res) => {
         }
 
         const existingRecord = existing[0];
-        
+
         // Build update query dynamically
         const updates = [];
         const params = [];
@@ -687,7 +753,7 @@ export const updateCheckinByUserId = async (req, res) => {
         if (actualCigarettes !== undefined && actualCigarettes >= 0) {
             updates.push('actual_cigarettes = ?');
             params.push(actualCigarettes);
-            
+
             // Recalculate streak_days
             let streakDays = 0;
             if (actualCigarettes === 0) {
@@ -700,7 +766,7 @@ export const updateCheckinByUserId = async (req, res) => {
                      LIMIT 1`,
                     [userId, date]
                 );
-                
+
                 streakDays = prevStreak.length > 0 ? prevStreak[0].streak_days + 1 : 1;
                 updates.push('streak_days = ?');
                 params.push(streakDays);
@@ -708,14 +774,14 @@ export const updateCheckinByUserId = async (req, res) => {
                 // Reset streak if user smoked today
                 updates.push('streak_days = 0');
             }
-            
+
             // Recalculate cigarettes avoided and progress percentage
             if (targetCigarettes !== undefined) {
                 const calculatedCigarettesAvoided = Math.max(0, targetCigarettes - actualCigarettes);
                 updates.push('cigarettes_avoided = ?');
                 params.push(calculatedCigarettesAvoided);
-                
-                const calculatedProgressPercentage = targetCigarettes > 0 ? 
+
+                const calculatedProgressPercentage = targetCigarettes > 0 ?
                     Math.round(((targetCigarettes - actualCigarettes) / targetCigarettes) * 100) : 0;
                 updates.push('progress_percentage = ?');
                 params.push(calculatedProgressPercentage);
@@ -736,7 +802,7 @@ export const updateCheckinByUserId = async (req, res) => {
             updates.push('money_saved = ?');
             params.push(moneySaved);
         }
-        
+
         if (cigarettesAvoided !== undefined) {
             updates.push('cigarettes_avoided = ?');
             params.push(cigarettesAvoided);
@@ -750,26 +816,26 @@ export const updateCheckinByUserId = async (req, res) => {
         // Không tự động update days_clean trong update function
         // days_clean chỉ được tính toán khi tạo checkin mới
         // Để tránh phi logic khi user chỉ cập nhật số điếu
-        
+
         // Luôn tính toán lại days_clean để đảm bảo giá trị đúng
         console.log('🔍 Checking days_clean condition:', {
             currentDaysClean: existingRecord.days_clean,
             isZero: existingRecord.days_clean === 0,
             isNull: existingRecord.days_clean === null
         });
-        
+
         // Tính toán lại days_clean cho tất cả trường hợp
         console.log('🔍 Always calculating days_clean...');
-        
+
         const [totalCheckins] = await pool.execute(
             `SELECT COUNT(*) as total_days FROM daily_progress 
              WHERE smoker_id = ? 
              AND date <= ?`,
             [userId, date]
         );
-        
+
         const calculatedDaysClean = totalCheckins[0].total_days;
-        
+
         console.log('🔍 Update days_clean calculation:', {
             userId,
             date,
@@ -777,11 +843,11 @@ export const updateCheckinByUserId = async (req, res) => {
             calculatedDaysClean,
             currentValue: existingRecord.days_clean
         });
-        
+
         if (calculatedDaysClean > 0) {
             updates.push('days_clean = ?');
             params.push(calculatedDaysClean);
-            
+
             console.log('🔄 Updating days_clean for existing record:', {
                 userId,
                 date,
@@ -885,25 +951,36 @@ export const clearUserProgress = async (req, res) => {
 
     try {
         const userId = req.params.userId;
-        
+        const { plan_id } = req.query; // Optional plan_id filter
+
         // Security check: user can only clear their own progress
         if (parseInt(userId) !== req.user.id) {
             return sendError(res, 'You can only clear your own progress data', 403);
         }
 
-        console.log(`🔍 Clearing all progress for user ${userId}`);
+        console.log(`🔍 Clearing progress for user ${userId}${plan_id ? ` with plan_id ${plan_id}` : ' (all plans)'}`);
 
-        // Delete all progress entries for this user
+        // Build where condition
+        let whereCondition = 'smoker_id = ?';
+        let whereParams = [userId];
+
+        if (plan_id) {
+            whereCondition += ' AND plan_id = ?';
+            whereParams.push(plan_id);
+        }
+
+        // Delete progress entries
         const [result] = await pool.execute(
-            'DELETE FROM daily_progress WHERE smoker_id = ?',
-            [userId]
+            `DELETE FROM daily_progress WHERE ${whereCondition}`,
+            whereParams
         );
 
-        console.log(`✅ Deleted ${result.affectedRows} progress entries for user ${userId}`);
-        
-        return sendSuccess(res, 'All progress data cleared successfully', {
+        console.log(`✅ Deleted ${result.affectedRows} progress entries for user ${userId}${plan_id ? ` with plan_id ${plan_id}` : ''}`);
+
+        return sendSuccess(res, 'Progress data cleared successfully', {
             deletedCount: result.affectedRows,
-            userId: parseInt(userId)
+            userId: parseInt(userId),
+            planId: plan_id || null
         });
 
     } catch (error) {
