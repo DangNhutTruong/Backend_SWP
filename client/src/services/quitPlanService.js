@@ -55,7 +55,7 @@ export const getUserPlans = async () => {
     try {
         logDebug('QuitPlan', '🚀 Fetching user quit plans from database...');
 
-        const response = await fetch(`${API_BASE_URL}/api/quit-plans/user`, {
+        const response = await fetch(`${API_BASE_URL}/api/quit-plans/multiple`, {
             method: 'GET',
             headers: getAuthHeaders()
         });
@@ -67,8 +67,8 @@ export const getUserPlans = async () => {
         }
 
         logDebug('QuitPlan', '✅ User quit plans fetched from database', data);
-        // Backend trả về { success: true, message: "...", data: [...] }
-        const plansData = data.data || data;
+        // Backend trả về { success: true, message: "...", data: {...plans: [...]} }
+        const plansData = data.data?.plans || data.plans || data.data || data;
         
         if (plansData.length > 0) {
             logDebug('QuitPlan', `✅ Tìm thấy ${plansData.length} kế hoạch trong database`);
