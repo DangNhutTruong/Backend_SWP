@@ -1,11 +1,6 @@
 import express from 'express';
+import { pool } from '../config/database.js';
 import { 
-    getAllUsers,
-    getUserById,
-    createUser,
-    updateUser,
-    toggleUserStatus,
-    deleteUser,
     getCoachStats, 
     getAppointmentStats, 
     getAllCoachesDetails, 
@@ -17,6 +12,13 @@ import {
     deleteCoachAssignment,
     getPremiumUsers,
     getCoachSessionHistory,
+    // User management functions
+    getAllUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    toggleUserStatus,
+    deleteUser,
     // Analytics and membership functions from admin.js
     getMembershipStats, 
     getRevenueByMonth, 
@@ -33,7 +35,11 @@ import {
     updatePackage,
     deletePackage,
     getPayments,
-    getAnalytics
+    getAnalytics,
+    getMetrics,
+    getProgressData,
+    getRecentActivities,
+    getPaymentStatistics
 } from '../controllers/adminController.js';
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
@@ -43,7 +49,6 @@ const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
 // User management routes (specific routes first, then parameterized routes)
-router.get('/users/existing', getUsersWithMembership); // Add this alias
 router.get('/users/with-membership', getUsersWithMembership);
 router.get('/users/expiring', getExpiringUsers);
 router.get('/users/premium', getPremiumUsers);
@@ -72,6 +77,9 @@ router.get('/appointments/stats', getAppointmentStats);
 
 // ============= ANALYTICS & MEMBERSHIP ROUTES (from admin.js) =============
 
+// Main metrics endpoint for dashboard
+router.get('/metrics', getMetrics);
+
 // Analytics endpoints
 router.get('/analytics', getAnalytics);
 router.get('/analytics/membership-stats', getMembershipStats);
@@ -86,12 +94,13 @@ router.delete('/packages/:packageId', deletePackage);
 
 // Payment management endpoints
 router.get('/payments', getPayments);
-router.get('/payments/stats', getPaymentAnalytics);
+router.get('/payments/stats', getPaymentStatistics);
+router.get('/payments/analytics', getPaymentAnalytics);
 
 // Additional analytics routes for frontend compatibility
 router.get('/membership-distribution', getMembershipStats);
-router.get('/recent-activities', getAnalytics); // Uses same endpoint but different data
-router.get('/progress', getAnalytics); // Uses same endpoint but different data  
+router.get('/recent-activities', getRecentActivities);
+router.get('/progress', getProgressData);  
 router.get('/monthly-growth', getRevenueByMonth);
 
 // Membership management endpoints
@@ -104,5 +113,26 @@ router.post('/notifications/send-expiry-alerts', sendExpiryNotifications);
 
 // Report endpoints
 router.post('/reports/:reportType/generate', generateReport);
+
+// Test route for debugging (remove in production)
+router.get('/test-users', async (req, res) => {
+  try {
+    const [users] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users LIMIT 1'
+    );
+    
+    res.json({
+      success: true,
+      message: 'Users API is working',
+      userCount: users[0].count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Database error',
+      error: error.message
+    });
+  }
+});
 
 export default router;

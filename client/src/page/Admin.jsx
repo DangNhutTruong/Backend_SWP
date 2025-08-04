@@ -108,7 +108,45 @@ export default function Admin() {
       
       if (response.success && response.data) {
         console.log('Received payment statistics:', response.data);
-        setPaymentStats(response.data);
+        
+        // Transform the API response to match the UI expectations
+        const transformedStats = {
+          completed: 0,
+          pending: 0,
+          failed: response.data.failedPayments?.count || 0,
+          refunded: 0,
+          avgTransactionAmount: 0,
+          paymentMethods: {
+            zalopay: 0,
+            momo: 0,
+            banking: 0
+          }
+        };
+
+        // Calculate completed payments from payment methods
+        if (response.data.paymentMethods && Array.isArray(response.data.paymentMethods)) {
+          let totalCompleted = 0;
+          let totalRevenue = 0;
+          
+          response.data.paymentMethods.forEach(method => {
+            totalCompleted += method.count;
+            totalRevenue += method.amount;
+            
+            // Map payment methods
+            if (method.method === 'zalopay') {
+              transformedStats.paymentMethods.zalopay = method.count;
+            } else if (method.method === 'momo') {
+              transformedStats.paymentMethods.momo = method.count;
+            } else if (method.method === 'banking' || method.method === 'bank') {
+              transformedStats.paymentMethods.banking = method.count;
+            }
+          });
+          
+          transformedStats.completed = totalCompleted;
+          transformedStats.avgTransactionAmount = totalCompleted > 0 ? totalRevenue / totalCompleted : 0;
+        }
+
+        setPaymentStats(transformedStats);
       } else {
         console.error('Invalid response format from API:', response);
         throw new Error('Invalid response format');
@@ -144,7 +182,27 @@ export default function Admin() {
       
       if (response.success && response.data) {
         console.log('Received membership distribution data:', response.data);
-        setMembershipDistribution(response.data);
+        
+        // Transform the API response to match the UI expectations
+        const distribution = response.data.userDistribution || {};
+        const totalUsers = response.data.totalUsers || 1; // Avoid division by zero
+        
+        const transformedData = {
+          free: {
+            count: distribution.free || 0,
+            percentage: totalUsers > 0 ? Math.round((distribution.free || 0) / totalUsers * 100) : 0
+          },
+          pro: {
+            count: distribution.pro || 0, // Keep original 'pro' name from database
+            percentage: totalUsers > 0 ? Math.round((distribution.pro || 0) / totalUsers * 100) : 0
+          },
+          premium: {
+            count: distribution.premium || 0,
+            percentage: totalUsers > 0 ? Math.round((distribution.premium || 0) / totalUsers * 100) : 0
+          }
+        };
+        
+        setMembershipDistribution(transformedData);
       } else {
         console.error('Invalid response format from API:', response);
         throw new Error('Invalid response format');
@@ -728,10 +786,10 @@ export default function Admin() {
                   <div className="membership-item">
                     <div className="membership-color" style={{ backgroundColor: '#5CD65C' }} />
                     <div className="membership-detail">
-                      <div className="membership-name">Basic</div>
-                      <div className="membership-count">{membershipDistribution.basic?.count || 0} người dùng</div>
+                      <div className="membership-name">Pro</div>
+                      <div className="membership-count">{membershipDistribution.pro?.count || 0} người dùng</div>
                       <Progress 
-                        percent={membershipDistribution.basic?.percentage || 0}
+                        percent={membershipDistribution.pro?.percentage || 0}
                         strokeColor="#5CD65C"
                         showInfo={false}
                       />
@@ -763,8 +821,8 @@ export default function Admin() {
                   </Col>
                   <Col span={8}>
                     <Statistic
-                      title="Người dùng Basic"
-                      value={membershipDistribution.basic?.count || 0}
+                      title="Người dùng Pro"
+                      value={membershipDistribution.pro?.count || 0}
                       valueStyle={{ color: '#5CD65C' }}
                     />
                   </Col>
@@ -913,7 +971,7 @@ export default function Admin() {
       </Card>
 
       {/* Progress Data */}
-      <Row gutter={[16, 16]} className="progress-stats">
+      {/* <Row gutter={[16, 16]} className="progress-stats">
         <Col xs={24}>
           <Card title={<Space><TrophyOutlined /> Tiến độ cai thuốc</Space>} className="progress-card">
             <Row gutter={[16, 16]}>
@@ -956,10 +1014,10 @@ export default function Admin() {
             </Row>
           </Card>
         </Col>
-      </Row>
+      </Row> */}
 
       {/* Coach Management Section */}
-      <Row gutter={[16, 16]} className="coach-management">
+      {/* <Row gutter={[16, 16]} className="coach-management">
         <Col xs={24}>
           <Card title={<Space><TeamOutlined /> Quản lý huấn luyện viên</Space>} className="coach-card">
             <Tabs defaultActiveKey="coaches">
@@ -1032,7 +1090,7 @@ export default function Admin() {
             </Tabs>
           </Card>
         </Col>
-      </Row>
+      </Row> */}
 
       {/* Coach Modals */}
       <Modal

@@ -214,18 +214,38 @@ export const getAnalytics = async (req, res) => {
 export const getRevenueByMonth = async (req, res) => {
   try {
     
-    // Query revenue data from payments table
-    const [revenueData] = await pool.execute(`
+    // Simplest query to avoid GROUP BY issues - get raw data and process in application
+    const [rawData] = await pool.execute(`
       SELECT 
-        DATE_FORMAT(created_at, '%b') as month,
-        SUM(amount) as revenue,
-        COUNT(*) as transactions
+        amount,
+        YEAR(created_at) as year,
+        MONTH(created_at) as month_num,
+        created_at
       FROM payments 
       WHERE payment_status = 'completed' 
         AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY YEAR(created_at), MONTH(created_at)
       ORDER BY created_at ASC
     `);
+
+    // Process data in JavaScript to avoid MySQL GROUP BY issues
+    const monthlyData = {};
+    rawData.forEach(row => {
+      const key = `${row.year}-${row.month_num.toString().padStart(2, '0')}`;
+      if (!monthlyData[key]) {
+        monthlyData[key] = {
+          period: key,
+          year: row.year,
+          month_num: row.month_num,
+          month: new Date(row.year, row.month_num - 1).toLocaleString('en', { month: 'short' }),
+          revenue: 0,
+          transactions: 0
+        };
+      }
+      monthlyData[key].revenue += parseFloat(row.amount || 0);
+      monthlyData[key].transactions += 1;
+    });
+
+    const revenueData = Object.values(monthlyData).sort((a, b) => a.period.localeCompare(b.period));
 
     res.json({
       success: true,
@@ -559,8 +579,8 @@ export const getPaymentAnalytics = async (req, res) => {
       paymentMethods: paymentMethods.map(row => ({
         method: row.payment_method,
         count: row.count,
-        amount: parseFloat(row.total_amount),
-        percentage: parseFloat(row.percentage)
+        amount: parseFloat(row.revenue || 0),
+        percentage: parseFloat(row.percentage || 0)
       })),
       conversionRates: {
         freeToPro: parseFloat(freeToPro.toFixed(1)),
@@ -1333,403 +1353,824 @@ export const getCoachSessionHistory = async (req, res) => {
 };
 
 /**
- * Get all users with filtering and pagination
+ * Get comprehensive metrics for admin dashboard
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
+export const getMetrics = async (req, res) => {
+  try {
+    // 1. Total users
+    const [totalUsersResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users WHERE is_active = 1'
+    );
+    const totalUsers = totalUsersResult[0].count;
+
+    // 2. Total revenue
+    const [revenueResult] = await pool.execute(
+      'SELECT SUM(amount) as total FROM payments WHERE payment_status = "completed"'
+    );
+    const totalRevenue = parseFloat(revenueResult[0].total || 0);
+
+    // 3. Active coaches
+    const [activeCoachesResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users WHERE role = "coach" AND is_active = 1'
+    );
+    const activeCoaches = activeCoachesResult[0].count;
+
+    // 4. Membership count (premium + pro users)
+    const [membershipResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users WHERE membership IN ("pro", "premium") AND is_active = 1'
+    );
+    const membershipCount = membershipResult[0].count;
+
+    // 5. Blog posts count (check if table exists first)
+    let blogPostsCount = 0;
+    try {
+      const [blogResult] = await pool.execute(
+        'SELECT COUNT(*) as count FROM blog_posts WHERE status = "published"'
+      );
+      blogPostsCount = blogResult[0]?.count || 0;
+    } catch (error) {
+      // Table doesn't exist, use 0
+      blogPostsCount = 0;
+    }
+
+    // 6. Total appointments
+    const [appointmentsResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM appointments'
+    );
+    const totalAppointments = appointmentsResult[0].count;
+
+    // 7. Total payments
+    const [paymentsResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM payments WHERE payment_status = "completed"'
+    );
+    const totalPayments = paymentsResult[0].count;
+
+    // 8. New users this week
+    const [newUsersResult] = await pool.execute(
+      'SELECT COUNT(*) as count FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND is_active = 1'
+    );
+    const newUsersThisWeek = newUsersResult[0].count;
+
+    // 9. Users change (this week vs last week)
+    const [lastWeekUsersResult] = await pool.execute(
+      `SELECT COUNT(*) as count FROM users 
+       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) 
+       AND created_at < DATE_SUB(NOW(), INTERVAL 7 DAY) 
+       AND is_active = 1`
+    );
+    const lastWeekUsers = lastWeekUsersResult[0].count;
+    const usersChange = lastWeekUsers > 0 ? ((newUsersThisWeek - lastWeekUsers) / lastWeekUsers * 100) : 0;
+
+    // 10. Revenue change (this month vs last month)
+    const [thisMonthRevenueResult] = await pool.execute(
+      `SELECT SUM(amount) as total FROM payments 
+       WHERE payment_status = "completed" 
+       AND DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')`
+    );
+    const thisMonthRevenue = parseFloat(thisMonthRevenueResult[0].total || 0);
+
+    const [lastMonthRevenueResult] = await pool.execute(
+      `SELECT SUM(amount) as total FROM payments 
+       WHERE payment_status = "completed" 
+       AND DATE_FORMAT(created_at, '%Y-%m') = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m')`
+    );
+    const lastMonthRevenue = parseFloat(lastMonthRevenueResult[0].total || 0);
+    const revenueChange = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100) : 0;
+
+    // 11. Successful quit attempts (check if table exists first)
+    let successfulQuitAttempts = 0;
+    try {
+      const [quitAttemptsResult] = await pool.execute(
+        'SELECT COUNT(*) as count FROM user_progress WHERE quit_success = 1'
+      );
+      successfulQuitAttempts = quitAttemptsResult[0]?.count || 0;
+    } catch (error) {
+      // Table doesn't exist, use 0
+      successfulQuitAttempts = 0;
+    }
+
+    // 12. Community posts (check if table exists first)
+    let communityPosts = 0;
+    try {
+      const [communityResult] = await pool.execute(
+        'SELECT COUNT(*) as count FROM community_posts WHERE status = "published"'
+      );
+      communityPosts = communityResult[0]?.count || 0;
+    } catch (error) {
+      // Table doesn't exist, use 0
+      communityPosts = 0;
+    }
+
+    // 13. Achievements (check if table exists first)
+    let achievements = 0;
+    try {
+      const [achievementsResult] = await pool.execute(
+        'SELECT COUNT(*) as count FROM user_achievements'
+      );
+      achievements = achievementsResult[0]?.count || 0;
+    } catch (error) {
+      // Table doesn't exist, use 0
+      achievements = 0;
+    }
+
+    const metrics = {
+      totalUsers,
+      totalRevenue,
+      activeCoaches,
+      membershipCount,
+      blogPostsCount,
+      usersChange: Math.round(usersChange * 100) / 100,
+      revenueChange: Math.round(revenueChange * 100) / 100,
+      newUsersThisWeek,
+      successfulQuitAttempts,
+      totalAppointments,
+      totalPayments,
+      communityPosts,
+      achievements
+    };
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy dữ liệu thống kê',
+      error: error.message
+    });
+  }
+};
+
+// Get progress data for dashboard
+export const getProgressData = async (req, res) => {
+  try {
+    // User progress over time
+    const [userProgress] = await pool.execute(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        COUNT(*) as new_users
+      FROM users 
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        AND is_active = 1
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month ASC
+    `);
+
+    // Successful quit attempts by month
+    let quitProgress = [];
+    try {
+      const [quitResult] = await pool.execute(`
+        SELECT 
+          DATE_FORMAT(quit_date, '%Y-%m') as month,
+          COUNT(*) as successful_quits
+        FROM user_progress 
+        WHERE quit_success = 1
+          AND quit_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(quit_date, '%Y-%m')
+        ORDER BY month ASC
+      `);
+      quitProgress = quitResult;
+    } catch (error) {
+      // Table doesn't exist, use empty array
+      quitProgress = [];
+    }
+
+    // Overall progress metrics
+    let progressMetrics = { total_successful_quits: 0, total_failed_attempts: 0, avg_days_smoke_free: 0 };
+    try {
+      const [progressResult] = await pool.execute(`
+        SELECT 
+          COUNT(CASE WHEN quit_success = 1 THEN 1 END) as total_successful_quits,
+          COUNT(CASE WHEN quit_success = 0 THEN 1 END) as total_failed_attempts,
+          AVG(days_smoke_free) as avg_days_smoke_free
+        FROM user_progress
+      `);
+      progressMetrics = progressResult[0] || progressMetrics;
+    } catch (error) {
+      // Table doesn't exist, use defaults
+      progressMetrics = { total_successful_quits: 0, total_failed_attempts: 0, avg_days_smoke_free: 0 };
+    }
+
+    const progressData = {
+      userGrowth: userProgress.map(row => ({
+        month: row.month,
+        newUsers: row.new_users
+      })),
+      quitSuccess: quitProgress.map(row => ({
+        month: row.month,
+        successfulQuits: row.successful_quits
+      })),
+      metrics: {
+        totalSuccessfulQuits: progressMetrics.total_successful_quits || 0,
+        totalFailedAttempts: progressMetrics.total_failed_attempts || 0,
+        avgDaysSmokeFree: Math.round(progressMetrics.avg_days_smoke_free || 0)
+      }
+    };
+
+    res.json({
+      success: true,
+      data: progressData
+    });
+
+  } catch (error) {
+    console.error('Error fetching progress data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy dữ liệu tiến độ',
+      error: error.message
+    });
+  }
+};
+
+// Get recent activities for dashboard
+export const getRecentActivities = async (req, res) => {
+  try {
+    // Recent user registrations
+    const [recentUsers] = await pool.execute(`
+      SELECT 
+        'user' as type,
+        CONCAT('Người dùng mới: ', full_name) as description,
+        created_at as timestamp
+      FROM users 
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        AND is_active = 1
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+
+    // Recent payments
+    const [recentPayments] = await pool.execute(`
+      SELECT 
+        'payment' as type,
+        CONCAT('Thanh toán thành công: ', IFNULL(FORMAT(amount, 0), 'N/A'), ' VNĐ') as description,
+        created_at as timestamp
+      FROM payments 
+      WHERE payment_status = 'completed'
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+
+    // Recent appointments
+    const [recentAppointments] = await pool.execute(`
+      SELECT 
+        'appointment' as type,
+        CONCAT('Cuộc hẹn mới được đặt') as description,
+        created_at as timestamp
+      FROM appointments 
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+
+    // Recent blog posts (if table exists)
+    let recentBlogs = [];
+    try {
+      const [blogResult] = await pool.execute(`
+        SELECT 
+          'blog' as type,
+          CONCAT('Bài viết mới: ', title) as description,
+          created_at as timestamp
+        FROM blog_posts 
+        WHERE status = 'published'
+          AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY created_at DESC
+        LIMIT 3
+      `);
+      recentBlogs = blogResult;
+    } catch (error) {
+      // Table doesn't exist, use empty array
+      recentBlogs = [];
+    }
+
+    // Recent progress achievements
+    let recentProgress = [];
+    try {
+      const [progressResult] = await pool.execute(`
+        SELECT 
+          'progress' as type,
+          CONCAT('Thành tựu mới đạt được') as description,
+          achievement_date as timestamp
+        FROM user_achievements ua
+        JOIN users u ON ua.user_id = u.id
+        WHERE ua.achievement_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY ua.achievement_date DESC
+        LIMIT 3
+      `);
+      recentProgress = progressResult;
+    } catch (error) {
+      // Table doesn't exist, use empty array
+      recentProgress = [];
+    }
+
+    // Combine all activities and sort by timestamp
+    const allActivities = [
+      ...recentUsers,
+      ...recentPayments,
+      ...recentAppointments,
+      ...recentBlogs,
+      ...recentProgress
+    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 10);
+
+    res.json({
+      success: true,
+      data: allActivities
+    });
+
+  } catch (error) {
+    console.error('Error fetching recent activities:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy dữ liệu hoạt động gần đây',
+      error: error.message
+    });
+  }
+};
+
+// Get detailed payment statistics for admin dashboard
+export const getPaymentStatistics = async (req, res) => {
+  try {
+    // Get payment status counts
+    const [paymentStats] = await pool.execute(`
+      SELECT 
+        payment_status,
+        COUNT(*) as count,
+        SUM(amount) as total_amount
+      FROM payments 
+      GROUP BY payment_status
+    `);
+
+    // Get payment method breakdown (only completed payments)
+    const [paymentMethods] = await pool.execute(`
+      SELECT 
+        payment_method,
+        COUNT(*) as count,
+        SUM(amount) as total_amount,
+        AVG(amount) as avg_amount
+      FROM payments 
+      WHERE payment_status = 'completed'
+      GROUP BY payment_method
+    `);
+
+    // Get total counts and averages
+    const [totalStats] = await pool.execute(`
+      SELECT 
+        COUNT(*) as total_payments,
+        COUNT(CASE WHEN payment_status = 'completed' THEN 1 END) as completed_payments,
+        COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_payments,
+        COUNT(CASE WHEN payment_status = 'failed' THEN 1 END) as failed_payments,
+        COUNT(CASE WHEN payment_status = 'refunded' THEN 1 END) as refunded_payments,
+        AVG(CASE WHEN payment_status = 'completed' THEN amount END) as avg_transaction_amount,
+        SUM(CASE WHEN payment_status = 'completed' THEN amount ELSE 0 END) as total_revenue
+      FROM payments
+    `);
+
+    // Transform payment methods data
+    const methodsData = {
+      zalopay: 0,
+      momo: 0,
+      banking: 0
+    };
+
+    paymentMethods.forEach(method => {
+      if (method.payment_method === 'zalopay') {
+        methodsData.zalopay = method.count;
+      } else if (method.payment_method === 'momo') {
+        methodsData.momo = method.count;
+      } else if (method.payment_method === 'banking' || method.payment_method === 'bank') {
+        methodsData.banking = method.count;
+      }
+    });
+
+    const stats = totalStats[0];
+    const result = {
+      completed: stats.completed_payments || 0,
+      pending: stats.pending_payments || 0,
+      failed: stats.failed_payments || 0,
+      refunded: stats.refunded_payments || 0,
+      avgTransactionAmount: parseFloat(stats.avg_transaction_amount || 0),
+      totalRevenue: parseFloat(stats.total_revenue || 0),
+      paymentMethods: methodsData,
+      paymentMethodsDetailed: paymentMethods.map(method => ({
+        method: method.payment_method,
+        count: method.count,
+        totalAmount: parseFloat(method.total_amount || 0),
+        avgAmount: parseFloat(method.avg_amount || 0)
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error fetching payment statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thống kê thanh toán',
+      error: error.message
+    });
+  }
+};
+
+// ============= USER MANAGEMENT FUNCTIONS =============
+
+// Get all users with pagination and filters
 export const getAllUsers = async (req, res) => {
-    try {
-        const { page = 1, limit = 10, search = '', role = '', status = '' } = req.query;
-        const offset = (page - 1) * limit;
-        
-        let whereClause = 'WHERE 1=1';
-        const queryParams = [];
-        
-        // Add search filter
-        if (search) {
-            whereClause += ' AND (full_name LIKE ? OR email LIKE ?)';
-            queryParams.push(`%${search}%`, `%${search}%`);
-        }
-        
-        // Add role filter
-        if (role) {
-            whereClause += ' AND role = ?';
-            queryParams.push(role);
-        }
-        
-        // Add status filter
-        if (status !== '') {
-            whereClause += ' AND is_active = ?';
-            queryParams.push(status === 'true' ? 1 : 0);
-        }
-        
-        // Get total count for all users (not filtered)
-        const [totalCountAll] = await pool.query('SELECT COUNT(*) as total FROM users');
-        const [activeCount] = await pool.query('SELECT COUNT(*) as active FROM users WHERE is_active = 1');
-        const [inactiveCount] = await pool.query('SELECT COUNT(*) as inactive FROM users WHERE is_active = 0');
-        const [coachCount] = await pool.query('SELECT COUNT(*) as coaches FROM users WHERE role = "coach"');
-        
-        // Get filtered count for pagination
-        const [filteredCount] = await pool.query(
-            `SELECT COUNT(*) as total FROM users ${whereClause}`,
-            queryParams
-        );
-        
-        // Get users with pagination
-        const [users] = await pool.query(
-            `SELECT id, username, email, full_name, role, is_active, created_at, updated_at,
-                    phone, gender, avatar_url, date_of_birth 
-             FROM users ${whereClause} 
-             ORDER BY created_at DESC 
-             LIMIT ? OFFSET ?`,
-            [...queryParams, parseInt(limit), offset]
-        );
-        
-        return sendResponse(res, 200, true, 'Users fetched successfully', {
-            users,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(filteredCount[0].total / limit),
-                totalUsers: filteredCount[0].total,
-                limit: parseInt(limit)
-            },
-            statistics: {
-                totalAll: totalCountAll[0].total,
-                activeUsers: activeCount[0].active,
-                inactiveUsers: inactiveCount[0].inactive,
-                coaches: coachCount[0].coaches
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      role = '',
+      status = ''
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+    
+    let whereConditions = [];
+    let queryParams = [];
+
+    // Search filter
+    if (search) {
+      whereConditions.push('(full_name LIKE ? OR email LIKE ? OR username LIKE ?)');
+      queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
+
+    // Role filter
+    if (role) {
+      whereConditions.push('role = ?');
+      queryParams.push(role);
+    }
+
+    // Status filter
+    if (status !== '') {
+      whereConditions.push('is_active = ?');
+      queryParams.push(status === 'true' ? 1 : 0);
+    }
+
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : '';
+
+    // Get total count for pagination
+    const [countResult] = await pool.execute(
+      `SELECT COUNT(*) as total FROM users ${whereClause}`,
+      queryParams
+    );
+
+    // Get users data using string interpolation for LIMIT/OFFSET to avoid MySQL issues
+    const usersQuery = `
+      SELECT id, username, email, full_name, phone, role, gender, 
+             date_of_birth, avatar_url, is_active, created_at, updated_at
+      FROM users ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ${limitNum} OFFSET ${offset}
+    `;
+    
+    const [users] = await pool.execute(usersQuery, queryParams);
+
+    // Get statistics
+    const [stats] = await pool.execute(`
+      SELECT 
+        COUNT(*) as totalAll,
+        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as activeUsers,
+        SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactiveUsers,
+        SUM(CASE WHEN role = 'coach' THEN 1 ELSE 0 END) as coaches
+      FROM users
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          current: pageNum,
+          pageSize: limitNum,
+          total: countResult[0].total
+        },
+        statistics: stats[0]
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách người dùng',
+      error: error.message
+    });
+  }
 };
 
-/**
- * Get user by ID with detailed information
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
+// Get user by ID with detailed information
 export const getUserById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        // Get user basic info
-        const [users] = await pool.query(
-            `SELECT * FROM users WHERE id = ?`,
-            [id]
-        );
-        
-        if (users.length === 0) {
-            return sendResponse(res, 404, false, 'User not found', null);
-        }
-        
-        const user = users[0];
-        
-        // Get user's smoking progress if exists
-        let smokingProgress = null;
-        try {
-            const [progress] = await pool.query(
-                `SELECT * FROM smoking_progress WHERE user_id = ? ORDER BY date DESC LIMIT 10`,
-                [id]
-            );
-            smokingProgress = progress;
-        } catch (err) {
-            console.log('No smoking progress table found or no data');
-        }
-        
-        // Get user's appointments
-        let appointments = [];
-        try {
-            const [userAppointments] = await pool.query(
-                `SELECT a.*, u.full_name as coach_name 
-                 FROM appointments a 
-                 LEFT JOIN users u ON a.coach_id = u.id 
-                 WHERE a.user_id = ? 
-                 ORDER BY a.date DESC LIMIT 5`,
-                [id]
-            );
-            appointments = userAppointments;
-        } catch (err) {
-            console.log('No appointments table found or no data');
-        }
-        
-        return sendResponse(res, 200, true, 'User details fetched successfully', {
-            user,
-            smokingProgress,
-            appointments
-        });
-    } catch (error) {
-        console.error('Error fetching user details:', error);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const { id } = req.params;
+
+    // Get user basic info
+    const [users] = await pool.execute(
+      `SELECT id, username, email, full_name, phone, role, gender, 
+              date_of_birth, avatar_url, is_active, created_at, updated_at
+       FROM users WHERE id = ?`,
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
     }
+
+    const user = users[0];
+
+    // Get smoking progress if user is smoker
+    let smokingProgress = [];
+    try {
+      const [progressResult] = await pool.execute(
+        `SELECT date, cigarettes_smoked, money_saved, notes
+         FROM daily_progress WHERE smoker_id = ?
+         ORDER BY date DESC LIMIT 50`,
+        [id]
+      );
+      smokingProgress = progressResult;
+    } catch (error) {
+      // Table might not exist or have different structure
+      console.log('Could not fetch smoking progress:', error.message);
+      smokingProgress = [];
+    }
+
+    // Get appointments
+    let appointments = [];
+    try {
+      const [appointmentResult] = await pool.execute(
+        `SELECT a.*, c.full_name as coach_name
+         FROM appointments a
+         LEFT JOIN users c ON a.coach_id = c.id
+         WHERE a.user_id = ?
+         ORDER BY a.appointment_date DESC LIMIT 20`,
+        [id]
+      );
+      appointments = appointmentResult;
+    } catch (error) {
+      // Table might not exist or have different structure
+      console.log('Could not fetch appointments:', error.message);
+      try {
+        // Try alternative column name
+        const [appointmentResult2] = await pool.execute(
+          `SELECT a.*, c.full_name as coach_name
+           FROM appointments a
+           LEFT JOIN users c ON a.coach_id = c.id
+           WHERE a.user_id = ?
+           ORDER BY a.date DESC LIMIT 20`,
+          [id]
+        );
+        appointments = appointmentResult2;
+      } catch (error2) {
+        console.log('Could not fetch appointments with alternative query:', error2.message);
+        appointments = [];
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        smokingProgress,
+        appointments
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy chi tiết người dùng',
+      error: error.message
+    });
+  }
 };
 
-/**
- * Create new user
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
+// Create new user
 export const createUser = async (req, res) => {
-    try {
-        console.log('📝 Creating new user with data:', req.body);
-        const { username, email, password, full_name, role = 'user', phone, gender, date_of_birth, is_active = true } = req.body;
-        
-        // Validate required fields
-        if (!username || !email || !password || !full_name) {
-            console.log('❌ Validation failed: Missing required fields');
-            return sendResponse(res, 400, false, 'Username, email, password and full_name are required', null);
-        }
-        
-        console.log('✅ Validation passed, checking for existing users...');
-        
-        // Check if username or email already exists
-        const [existingUsers] = await pool.query(
-            'SELECT id FROM users WHERE username = ? OR email = ?',
-            [username, email]
-        );
-        
-        if (existingUsers.length > 0) {
-            console.log('❌ User already exists');
-            return sendResponse(res, 400, false, 'Username or email already exists', null);
-        }
-        
-        console.log('✅ No existing user found, hashing password...');
-        
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        console.log('✅ Password hashed, inserting user...');
-        
-        // Insert new user
-        const [result] = await pool.query(
-            `INSERT INTO users (username, email, password_hash, full_name, role, phone, gender, date_of_birth, is_active, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [username, email, hashedPassword, full_name, role, phone, gender, date_of_birth, is_active ? 1 : 0]
-        );
-        
-        console.log('✅ User created successfully with ID:', result.insertId);
-        
-        return sendResponse(res, 201, true, 'User created successfully', {
-            userId: result.insertId
-        });
-    } catch (error) {
-        console.error('❌ Error creating user:', error);
-        console.error('Stack trace:', error.stack);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const {
+      username,
+      email,
+      password,
+      full_name,
+      phone,
+      role = 'user',
+      gender,
+      date_of_birth,
+      is_active = 1
+    } = req.body;
+
+    // Check if email or username already exists
+    const [existingUsers] = await pool.execute(
+      'SELECT id FROM users WHERE email = ? OR username = ?',
+      [email, username]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email hoặc username đã tồn tại'
+      });
     }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert new user
+    const [result] = await pool.execute(
+      `INSERT INTO users (username, email, password, full_name, phone, role, 
+                         gender, date_of_birth, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [username, email, hashedPassword, full_name, phone, role, gender, date_of_birth, is_active]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Tạo người dùng thành công',
+      data: {
+        id: result.insertId,
+        username,
+        email,
+        full_name,
+        role
+      }
+    });
+
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tạo người dùng',
+      error: error.message
+    });
+  }
 };
 
-/**
- * Update user information
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
+// Update user
 export const updateUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { username, email, full_name, role, phone, gender, date_of_birth, is_active } = req.body;
-        
-        // Check if user exists
-        const [users] = await pool.query(
-            'SELECT id FROM users WHERE id = ?',
-            [id]
-        );
-        
-        if (users.length === 0) {
-            return sendResponse(res, 404, false, 'User not found', null);
-        }
-        
-        // Check if username or email already exists for other users
-        if (username || email) {
-            const [existingUsers] = await pool.query(
-                'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?',
-                [username || '', email || '', id]
-            );
-            
-            if (existingUsers.length > 0) {
-                return sendResponse(res, 400, false, 'Username or email already exists', null);
-            }
-        }
-        
-        // Update user
-        await pool.query(
-            `UPDATE users SET 
-                username = ?, email = ?, full_name = ?, role = ?, 
-                phone = ?, gender = ?, date_of_birth = ?, 
-                is_active = ?, updated_at = NOW()
-             WHERE id = ?`,
-            [username, email, full_name, role, phone, gender, date_of_birth, is_active ? 1 : 0, id]
-        );
-        
-        return sendResponse(res, 200, true, 'User updated successfully', null);
-    } catch (error) {
-        console.error('Error updating user:', error);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const { id } = req.params;
+    const {
+      username,
+      email,
+      full_name,
+      phone,
+      role,
+      gender,
+      date_of_birth,
+      is_active
+    } = req.body;
+
+    // Check if user exists
+    const [existingUsers] = await pool.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [id]
+    );
+
+    if (existingUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
     }
+
+    // Check for duplicate email/username (excluding current user)
+    const [duplicateUsers] = await pool.execute(
+      'SELECT id FROM users WHERE (email = ? OR username = ?) AND id != ?',
+      [email, username, id]
+    );
+
+    if (duplicateUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email hoặc username đã tồn tại'
+      });
+    }
+
+    // Update user
+    await pool.execute(
+      `UPDATE users SET 
+        username = ?, email = ?, full_name = ?, phone = ?, 
+        role = ?, gender = ?, date_of_birth = ?, is_active = ?, 
+        updated_at = NOW()
+       WHERE id = ?`,
+      [username, email, full_name, phone, role, gender, date_of_birth, is_active, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Cập nhật người dùng thành công'
+    });
+
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật người dùng',
+      error: error.message
+    });
+  }
 };
 
-/**
- * Toggle user status (activate/deactivate)
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
+// Toggle user status (active/inactive)
 export const toggleUserStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        // Get current status
-        const [users] = await pool.query(
-            'SELECT is_active FROM users WHERE id = ?',
-            [id]
-        );
-        
-        if (users.length === 0) {
-            return sendResponse(res, 404, false, 'User not found', null);
-        }
-        
-        const newStatus = users[0].is_active ? 0 : 1;
-        
-        // Update status
-        await pool.query(
-            'UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?',
-            [newStatus, id]
-        );
-        
-        return sendResponse(res, 200, true, `User ${newStatus ? 'activated' : 'deactivated'} successfully`, {
-            isActive: Boolean(newStatus)
-        });
-    } catch (error) {
-        console.error('Error toggling user status:', error);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const { id } = req.params;
+
+    // Get current status
+    const [users] = await pool.execute(
+      'SELECT is_active FROM users WHERE id = ?',
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
     }
+
+    const newStatus = users[0].is_active ? 0 : 1;
+
+    // Update status
+    await pool.execute(
+      'UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?',
+      [newStatus, id]
+    );
+
+    res.json({
+      success: true,
+      message: `${newStatus ? 'Kích hoạt' : 'Vô hiệu hóa'} người dùng thành công`,
+      data: {
+        isActive: Boolean(newStatus)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error toggling user status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi thay đổi trạng thái người dùng',
+      error: error.message
+    });
+  }
 };
 
-/**
- * Delete user (hard delete) - Completely removes user from database
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
+// Delete user
 export const deleteUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log(`🗑️ Attempting to hard delete user with ID: ${id}`);
-        
-        // Check if user exists
-        const [users] = await pool.query(
-            'SELECT id, username, email, role FROM users WHERE id = ?',
-            [id]
-        );
-        
-        if (users.length === 0) {
-            console.log(`❌ User with ID ${id} not found`);
-            return sendResponse(res, 404, false, 'User not found', null);
-        }
-        
-        console.log(`✅ Found user: ${users[0].username} (${users[0].email}) - Role: ${users[0].role}`);
-        
-        // Helper function to safely delete from table if it exists
-        const safeDelete = async (tableName, whereClause, params) => {
-            try {
-                // Check if table exists
-                const [tables] = await pool.query(
-                    'SHOW TABLES LIKE ?',
-                    [tableName]
-                );
-                
-                if (tables.length > 0) {
-                    await pool.query(`DELETE FROM ${tableName} WHERE ${whereClause}`, params);
-                    console.log(`✅ Deleted from ${tableName} for user ${id}`);
-                } else {
-                    console.log(`⚠️ Table ${tableName} does not exist, skipping...`);
-                }
-            } catch (error) {
-                console.log(`⚠️ Error deleting from ${tableName}: ${error.message}, skipping...`);
-            }
-        };
-        
-        // Start transaction for safe deletion
-        await pool.query('START TRANSACTION');
-        
-        try {
-            // Delete related data first to avoid foreign key constraints
-            console.log(`🧹 Cleaning up related data for user ${id}...`);
-            
-            // Delete user's appointments
-            await safeDelete('appointments', 'user_id = ? OR coach_id = ?', [id, id]);
-            
-            // Delete user's feedback (both given and received)
-            await safeDelete('feedback', 'smoker_id = ? OR coach_id = ?', [id, id]);
-            
-            // Delete user's smoking progress
-            await safeDelete('smoking_progress', 'user_id = ?', [id]);
-            
-            // Delete user's daily progress
-            await safeDelete('daily_progress', 'smoker_id = ?', [id]);
-            
-            // Delete user's memberships
-            await safeDelete('memberships', 'user_id = ?', [id]);
-            
-            // Delete user's payments
-            await safeDelete('payments', 'user_id = ?', [id]);
-            
-            // Delete coach availability if user is a coach
-            if (users[0].role === 'coach') {
-                await safeDelete('coach_availability', 'coach_id = ?', [id]);
-                await safeDelete('coach_assignments', 'coach_id = ?', [id]);
-                console.log(`✅ Deleted coach-specific data for user ${id}`);
-            }
-            
-            // Delete coach assignments if user is assigned to a coach
-            await safeDelete('coach_assignments', 'user_id = ?', [id]);
-            
-            // Delete user's messages
-            await safeDelete('messages', 'sender_id = ? OR receiver_id = ?', [id, id]);
-            
-            // Delete user's community posts
-            await safeDelete('community_posts', 'user_id = ?', [id]);
-            
-            // Delete user's community post likes
-            await safeDelete('community_post_likes', 'user_id = ?', [id]);
-            
-            // Delete user's community post comments
-            await safeDelete('community_post_comments', 'user_id = ?', [id]);
-            
-            // Delete user's progress entries
-            await safeDelete('progress_entries', 'user_id = ?', [id]);
-            
-            // Delete user's checkin data
-            await safeDelete('daily_checkin', 'user_id = ?', [id]);
-            
-            // Finally, delete the user
-            const [result] = await pool.query('DELETE FROM users WHERE id = ?', [id]);
-            
-            if (result.affectedRows === 0) {
-                throw new Error('Failed to delete user');
-            }
-            
-            // Commit transaction
-            await pool.query('COMMIT');
-            console.log(`✅ User ${id} (${users[0].username}) completely deleted from database`);
-            
-            return sendResponse(res, 200, true, 'User deleted permanently', {
-                deletedUser: {
-                    id: parseInt(id),
-                    username: users[0].username,
-                    email: users[0].email
-                }
-            });
-            
-        } catch (deleteError) {
-            // Rollback on error
-            await pool.query('ROLLBACK');
-            throw deleteError;
-        }
-        
-    } catch (error) {
-        console.error('❌ Error deleting user:', error);
-        console.error('Stack trace:', error.stack);
-        return sendResponse(res, 500, false, 'Internal server error', null);
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const [users] = await pool.execute(
+      'SELECT id, role FROM users WHERE id = ?',
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
     }
+
+    // Prevent deleting admin users (optional safety check)
+    if (users[0].role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Không thể xóa tài khoản admin'
+      });
+    }
+
+    // Delete user (this will cascade to related records if FK constraints are set up)
+    await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: 'Xóa người dùng thành công'
+    });
+
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xóa người dùng',
+      error: error.message
+    });
+  }
 };
