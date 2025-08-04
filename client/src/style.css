@@ -23,7 +23,8 @@ header .container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  overflow: visible; /* Đảm bảo dropdown không bị cắt */
+  overflow: visible;
+  /* Đảm bảo dropdown không bị cắt */
   position: relative;
 }
 
@@ -49,7 +50,7 @@ header .container {
   border-radius: 25px;
   transition: all 0.3s ease;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   position: relative;
   overflow: hidden;
   margin-right: 10px;
@@ -89,9 +90,11 @@ header .container {
   0% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
+
   100% {
     transform: scale(1);
   }
@@ -101,7 +104,8 @@ header .container {
   color: white;
 }
 
-.search-btn, .info-btn {
+.search-btn,
+.info-btn {
   background: none;
   border: none;
   font-size: 1.2rem;
@@ -182,6 +186,7 @@ nav {
   0% {
     background-position: 0 0;
   }
+
   100% {
     background-position: 100px 100px;
   }
@@ -372,7 +377,7 @@ nav {
   background-color: #fff;
   color: #333;
   font-weight: 600;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .arrow {
@@ -396,7 +401,7 @@ footer {
   border-radius: 50%;
   background-color: white;
   border: none;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   font-size: 1.2rem;
   color: #1e2c55;
@@ -496,7 +501,7 @@ footer {
   background-color: #fff;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s;
 }
 
@@ -531,9 +536,10 @@ footer {
 .nosmoke-header {
   padding: 15px 0;
   background-color: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
-  z-index: 100000; /* Đảm bảo header luôn nổi trên nội dung trang */
+  z-index: 100000;
+  /* Đảm bảo header luôn nổi trên nội dung trang */
 }
 
 .logo-text {
@@ -623,13 +629,13 @@ footer {
   background-color: #fff;
   border-radius: 10px;
   padding: 30px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .feature-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
 .feature-icon {
@@ -708,14 +714,14 @@ footer {
 .blog-card {
   background-color: #fff;
   border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .blog-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
 .blog-image {
@@ -733,7 +739,7 @@ footer {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
   padding: 10px 15px;
   display: flex;
   justify-content: space-between;
@@ -807,7 +813,7 @@ footer {
 .pricing-card {
   background-color: #fff;
   border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   padding: 40px 30px;
   text-align: center;
   position: relative;
@@ -816,7 +822,7 @@ footer {
 
 .pricing-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
 .best-value {
@@ -962,7 +968,7 @@ footer {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255, 255, 255, 0.1);
   color: #fff;
   border-radius: 50%;
   transition: all 0.3s ease;
@@ -1001,7 +1007,7 @@ footer {
 }
 
 .footer-bottom {
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 30px;
   display: flex;
   justify-content: space-between;
@@ -1050,12 +1056,13 @@ footer {
 
 /* Responsive Styles */
 @media (max-width: 992px) {
-  .features-grid, 
-  .blog-grid, 
+
+  .features-grid,
+  .blog-grid,
   .pricing-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .footer-top {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1065,30 +1072,30 @@ footer {
   .hero .container {
     flex-direction: column;
   }
-  
+
   .hero-content {
     text-align: center;
     padding-right: 0;
   }
-  
+
   .hero-buttons {
     justify-content: center;
   }
-  
+
   .hero-image {
     margin-top: 30px;
   }
-  
-  .features-grid, 
-  .blog-grid, 
+
+  .features-grid,
+  .blog-grid,
   .pricing-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .pricing-card.highlight {
     transform: scale(1);
   }
-  
+
   .pricing-card.highlight:hover {
     transform: translateY(-5px);
   }
@@ -1098,15 +1105,106 @@ footer {
   .footer-top {
     grid-template-columns: 1fr;
   }
-  
+
   .footer-bottom {
     flex-direction: column;
     gap: 15px;
     text-align: center;
   }
-  
+
   .footer-links {
     flex-direction: column;
     gap: 10px;
+  }
+}
+
+/* Journey Stepper - Completion Actions */
+.completion-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.completion-actions .btn-back-to-summary,
+.completion-actions .btn-go-to-plans {
+  flex: 1;
+  min-width: 150px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.completion-actions .btn-back-to-summary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.completion-actions .btn-back-to-summary:hover {
+  background-color: #5a6268;
+  transform: translateY(-2px);
+}
+
+.completion-actions .btn-go-to-plans {
+  background-color: #28a745;
+  color: white;
+}
+
+.completion-actions .btn-go-to-plans:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+}
+
+/* Form Actions - Nút Danh sách kế hoạch */
+.nav-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.btn-back-to-list {
+  padding: 10px 20px;
+  border: 2px solid #28a745;
+  background-color: transparent;
+  color: #28a745;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-back-to-list:hover {
+  background-color: #28a745;
+  color: white;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .nav-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .completion-actions {
+    flex-direction: column;
+  }
+
+  .completion-actions .btn-back-to-summary,
+  .completion-actions .btn-go-to-plans {
+    width: 100%;
   }
 }

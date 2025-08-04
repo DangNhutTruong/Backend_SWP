@@ -22,18 +22,31 @@ const CheckinHistory = ({ onProgressUpdate }) => {
 
     // Tải kế hoạch từ database để lấy initialCigarettes
     const [userPlan, setUserPlan] = useState(null);
-    
-    // Hàm lấy kế hoạch của người dùng từ API
+
+    // Hàm lấy kế hoạch của người dùng từ localStorage hoặc API
     const loadUserPlan = async () => {
         try {
             console.log('🔍 CheckinHistory loadUserPlan - Starting...');
+
+            // Ưu tiên lấy từ localStorage (kế hoạch được chọn từ ActivePlanSelector)
+            const localPlan = localStorage.getItem('activePlan');
+            console.log('🔍 CheckinHistory loadUserPlan - localPlan:', localPlan);
+
+            if (localPlan) {
+                const parsedPlan = JSON.parse(localPlan);
+                setUserPlan(parsedPlan);
+                console.log('🔍 CheckinHistory - Set plan from localStorage:', parsedPlan);
+                return parsedPlan;
+            }
+
+            // Fallback: Load từ API nếu không có trong localStorage
             const quitPlanService = await import('../services/quitPlanService');
             const response = await quitPlanService.getUserActivePlan();
-            
+
             if (response && response.success && response.plan) {
                 let plan = response.plan;
                 console.log('🔍 CheckinHistory loadUserPlan - plan from API:', plan);
-                
+
                 // Parse plan_details nếu nó là string
                 if (plan.plan_details && typeof plan.plan_details === 'string') {
                     try {
@@ -43,7 +56,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         console.error('Error parsing plan_details:', e);
                     }
                 }
-                
+
                 setUserPlan(plan);
                 return plan;
             }
@@ -53,11 +66,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             return null;
         }
     };
-    
+
     // Lấy initialCigarettes từ plan
     const getInitialCigarettesFromPlan = (plan) => {
         if (!plan) return 0;
-        
+
         // Ưu tiên lấy từ initialCigarettes trực tiếp
         if (plan.initialCigarettes) {
             return plan.initialCigarettes;
@@ -70,38 +83,38 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         } else if (plan.weeks && plan.weeks.length > 0) {
             // Lấy từ tuần đầu tiên
             const firstWeek = plan.weeks[0];
-            return firstWeek.amount || firstWeek.cigarettes || 
-                   firstWeek.dailyCigarettes || firstWeek.daily_cigarettes || 
-                   firstWeek.target || 0;
+            return firstWeek.amount || firstWeek.cigarettes ||
+                firstWeek.dailyCigarettes || firstWeek.daily_cigarettes ||
+                firstWeek.target || 0;
         }
-        
+
         return 0;
     };
-    
+
     // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến hiện tại
     const generateDaysArray = (startDate) => {
         const today = new Date();
         const start = new Date(startDate);
         const days = [];
-        
+
         // Nếu ngày bắt đầu không hợp lệ, sử dụng 30 ngày trước
         const validStartDate = !isNaN(start) ? start : new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-        
+
         // Tạo mảng các ngày từ ngày bắt đầu đến hôm nay
         for (let day = new Date(validStartDate); day <= today; day.setDate(day.getDate() + 1)) {
             const dateStr = day.toISOString().split('T')[0];
             days.push(dateStr);
         }
-        
+
         return days;
     };
-    
+
     // Hàm tạo check-in trống cho một ngày
     const createEmptyCheckin = (date, initialCigarettes, targetCigarettes = null) => {
         // Mục tiêu phải lấy từ kế hoạch, không phải số điếu ban đầu
         // Nếu không có mục tiêu cụ thể, gán giá trị 0 để người dùng sẽ điền sau
         const target = targetCigarettes !== null ? targetCigarettes : 0;
-        
+
         return {
             date,
             targetCigarettes: target, // Sử dụng giá trị mục tiêu từ kế hoạch
@@ -121,24 +134,24 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 const userId = getCurrentUserId();
                 if (!userId) {
                     throw new Error('User not logged in');
                 }
-                
+
                 // Lấy kế hoạch của người dùng trước để đảm bảo có initialCigarettes đúng
                 const plan = await loadUserPlan();
                 let initialCigarettesFromPlan = 30; // Giá trị mặc định nếu không tìm thấy kế hoạch
                 let planStartDate = null;
-                
+
                 if (plan) {
                     initialCigarettesFromPlan = getInitialCigarettesFromPlan(plan) || 30;
                     console.log('🔍 CheckinHistory - initialCigarettes from plan:', initialCigarettesFromPlan);
-                    
+
                     // Lấy ngày bắt đầu kế hoạch nếu có
                     planStartDate = plan.startDate || plan.start_date;
-                    
+
                     // Lưu initialCigarettes vào localStorage để sử dụng khi cần
                     if (initialCigarettesFromPlan > 0) {
                         localStorage.setItem('initialCigarettes', initialCigarettesFromPlan.toString());
@@ -147,12 +160,12 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 } else {
                     console.warn('🔍 CheckinHistory - No plan found for user:', userId);
                 }
-                
+
                 console.log('🔍 CheckinHistory - Loading history for user:', userId);
-                
+
                 // Gọi API để lấy lịch sử
                 const response = await progressService.getProgressByUserId(userId);
-                
+
                 if (response && response.success && response.data) {
                     // Format dữ liệu từ API
                     const apiHistory = response.data.map(entry => ({
@@ -166,105 +179,105 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         notes: entry.notes || '',
                         isFromApi: true // Đánh dấu là dữ liệu từ API
                     }));
-                    
+
                     // Tạo Map từ dữ liệu API để tra cứu nhanh
                     const historyMap = new Map();
                     apiHistory.forEach(entry => {
                         historyMap.set(entry.date, entry);
                     });
-                    
+
                     // Hàm tính mục tiêu hút thuốc cho một ngày cụ thể dựa trên kế hoạch
                     const getTargetCigarettesForDate = (date, plan) => {
                         if (!plan || !plan.weeks || (!plan.startDate && !plan.start_date)) {
                             console.log('🔍 CheckinHistory - Không tìm thấy thông tin kế hoạch đầy đủ để tính mục tiêu');
                             return 0; // Nếu không có kế hoạch, mục tiêu là 0
                         }
-                        
+
                         const planStartDate = new Date(plan.startDate || plan.start_date);
                         const targetDate = new Date(date);
-                        
+
                         // Tính số ngày kể từ ngày bắt đầu kế hoạch
                         const daysSincePlanStart = Math.floor(
                             (targetDate - planStartDate) / (1000 * 60 * 60 * 24)
                         );
-                        
+
                         // Nếu ngày trước khi bắt đầu kế hoạch, trả về mục tiêu = initialCigarettes
                         // (người dùng chưa bắt đầu bỏ thuốc)
                         if (daysSincePlanStart < 0) {
                             console.log('🔍 CheckinHistory - Ngày trước khi bắt đầu kế hoạch, sử dụng số điếu ban đầu làm mục tiêu');
                             return initialCigarettesFromPlan;
                         }
-                        
+
                         // Tìm tuần phù hợp với ngày đó
                         let currentWeekIndex = 0;
                         let daysPassed = 0;
-                        
+
                         for (let i = 0; i < plan.weeks.length; i++) {
                             const week = plan.weeks[i];
                             const weekDuration = 7; // Mỗi tuần có 7 ngày
-                            
-                            if (daysSincePlanStart >= daysPassed && 
+
+                            if (daysSincePlanStart >= daysPassed &&
                                 daysSincePlanStart < daysPassed + weekDuration) {
                                 currentWeekIndex = i;
                                 break;
                             }
-                            
+
                             daysPassed += weekDuration;
                         }
-                        
+
                         // Nếu ngày sau khi kết thúc kế hoạch, sử dụng mục tiêu của tuần cuối cùng
                         if (currentWeekIndex >= plan.weeks.length) {
                             currentWeekIndex = plan.weeks.length - 1;
                         }
-                        
+
                         const currentWeek = plan.weeks[currentWeekIndex];
-                        
+
                         // Lấy mục tiêu từ tuần hiện tại
                         let target = 0; // Mặc định là 0 nếu không tìm thấy
-                        
+
                         if (currentWeek) {
-                            target = currentWeek.target ?? 
-                                    currentWeek.amount ?? 
-                                    currentWeek.cigarettes ?? 
-                                    currentWeek.dailyCigarettes ?? 
-                                    currentWeek.daily_cigarettes ?? 
-                                    0;
-                            
+                            target = currentWeek.target ??
+                                currentWeek.amount ??
+                                currentWeek.cigarettes ??
+                                currentWeek.dailyCigarettes ??
+                                currentWeek.daily_cigarettes ??
+                                0;
+
                             console.log(`🔍 CheckinHistory - Tuần ${currentWeekIndex + 1}, mục tiêu: ${target} điếu`);
                         }
-                        
+
                         return target;
                     };
-                    
+
                     // Chuẩn bị kế hoạch để tính toán mục tiêu theo từng ngày
                     console.log('🔍 CheckinHistory - Preparing plan for target calculation');
-                    
+
                     // Lấy các ngày từ ngày bắt đầu kế hoạch đến hiện tại
                     const allDays = generateDaysArray(planStartDate);
                     console.log(`🔍 Generated ${allDays.length} days from plan start to today`);
-                    
+
                     // Tạo lịch sử đầy đủ với tất cả các ngày
                     const fullHistory = allDays.map(date => {
                         // Nếu đã có dữ liệu cho ngày này, sử dụng nó
                         if (historyMap.has(date)) {
                             return historyMap.get(date);
-                        } 
+                        }
                         // Tính mục tiêu cho ngày này dựa trên kế hoạch
                         const targetForThisDay = getTargetCigarettesForDate(date, plan);
-                        
+
                         // Nếu không có, tạo một bản ghi trống với mục tiêu đã tính
                         return createEmptyCheckin(
-                            date, 
-                            initialCigarettesFromPlan, 
+                            date,
+                            initialCigarettesFromPlan,
                             targetForThisDay
                         );
                     });
-                    
+
                     // Sắp xếp theo ngày giảm dần (mới nhất lên đầu)
-                    const sortedHistory = fullHistory.sort((a, b) => 
+                    const sortedHistory = fullHistory.sort((a, b) =>
                         new Date(b.date) - new Date(a.date)
                     );
-                    
+
                     setCheckinHistory(sortedHistory);
                     console.log('✅ CheckinHistory - Loaded', sortedHistory.length, 'entries (including empty days)');
                 } else {
@@ -285,31 +298,31 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             }
                         }
                     });
-                    
+
                     // Tạo Map từ dữ liệu localStorage để tra cứu nhanh
                     const historyMap = new Map();
                     localHistory.forEach(entry => {
                         historyMap.set(entry.date, entry);
                     });
-                    
+
                     // Lấy các ngày từ ngày bắt đầu kế hoạch đến hiện tại
                     const allDays = generateDaysArray(planStartDate);
                     console.log(`🔍 Generated ${allDays.length} days from plan start to today (localStorage fallback)`);
-                    
+
                     // Tạo lịch sử đầy đủ với tất cả các ngày
                     const fullHistory = allDays.map(date => {
                         // Nếu đã có dữ liệu cho ngày này từ API, sử dụng nó
                         if (historyMap.has(date)) {
                             return historyMap.get(date);
                         }
-                        
+
                         // Tính mục tiêu cho ngày này dựa trên kế hoạch
                         const targetForThisDay = getTargetCigarettesForDate(date, plan);
-                        
+
                         // Nếu không có, tạo một bản ghi trống với mục tiêu đúng
                         return createEmptyCheckin(date, initialCigarettesFromPlan, targetForThisDay);
                     });
-                    
+
                     // Sắp xếp theo ngày giảm dần
                     fullHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
                     setCheckinHistory(fullHistory);
@@ -318,7 +331,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             } catch (err) {
                 console.error('❌ Error loading checkin history:', err);
                 setError('Không thể tải lịch sử check-in. Vui lòng thử lại sau.');
-                
+
                 // Fallback: Tìm trong localStorage
                 const localHistory = [];
                 Object.keys(localStorage).forEach(key => {
@@ -335,7 +348,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         }
                     }
                 });
-                
+
                 // Sắp xếp theo ngày giảm dần
                 localHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
                 if (localHistory.length > 0) {
@@ -346,20 +359,84 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 setLoading(false);
             }
         };
-        
+
         loadCheckinHistory();
     }, []);
-    
+
+    // Lắng nghe sự kiện thay đổi kế hoạch từ ActivePlanSelector
+    useEffect(() => {
+        const handlePlanChange = () => {
+            console.log('🔄 CheckinHistory - Plan changed, reloading history...');
+            // Reset và tải lại lịch sử
+            setCheckinHistory([]);
+            setLoading(true);
+
+            // Reload data with a small delay to ensure localStorage is updated
+            setTimeout(() => {
+                const loadCheckinHistory = async () => {
+                    try {
+                        setLoading(true);
+                        setError(null);
+
+                        const userId = getCurrentUserId();
+                        if (!userId) {
+                            throw new Error('User not logged in');
+                        }
+
+                        // Lấy kế hoạch mới từ localStorage
+                        const plan = await loadUserPlan();
+
+                        if (plan) {
+                            // Load lại history với kế hoạch mới
+                            const response = await progressService.getProgressByUserId(userId);
+
+                            if (response && response.success && response.data) {
+                                const apiHistory = response.data.map(entry => ({
+                                    date: entry.date.split('T')[0],
+                                    targetCigarettes: entry.target_cigarettes || 0,
+                                    actualCigarettes: entry.actual_cigarettes || 0,
+                                    initialCigarettes: entry.initial_cigarettes || getInitialCigarettesFromPlan(plan),
+                                    cigarettesAvoided: entry.cigarettes_avoided || 0,
+                                    moneySaved: entry.money_saved || 0,
+                                    healthScore: entry.health_score || 0,
+                                    notes: entry.notes || '',
+                                    isFromApi: true
+                                }));
+
+                                // Sắp xếp theo ngày giảm dần
+                                apiHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+                                setCheckinHistory(apiHistory);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ Error reloading checkin history:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                loadCheckinHistory();
+            }, 500);
+        };
+
+        // Lắng nghe sự kiện thay đổi kế hoạch
+        window.addEventListener('localStorageChanged', handlePlanChange);
+
+        return () => {
+            window.removeEventListener('localStorageChanged', handlePlanChange);
+        };
+    }, []);
+
     // Lắng nghe sự kiện từ nút trong ProgressDashboard
     useEffect(() => {
         const handleToggleEvent = () => {
             console.log('Toggling sidebar from external button');
             setIsSidebarOpen(prevState => !prevState);
         };
-        
+
         // Đăng ký lắng nghe sự kiện
         document.addEventListener('toggle-checkin-history', handleToggleEvent);
-        
+
         // Cleanup function
         return () => {
             document.removeEventListener('toggle-checkin-history', handleToggleEvent);
@@ -398,7 +475,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         try {
             // Lấy giá trị initialCigarettes từ userPlan đã tải (được tải trong useEffect)
             let initialCigarettes = 0;
-            
+
             // Sử dụng userPlan đã được lấy trong useEffect
             if (userPlan) {
                 // Ưu tiên lấy từ các trường có thể chứa initialCigarettes trong userPlan
@@ -417,23 +494,23 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 } else if (userPlan.weeks && userPlan.weeks.length > 0) {
                     // Lấy từ tuần đầu tiên
                     const firstWeek = userPlan.weeks[0];
-                    initialCigarettes = firstWeek.amount || firstWeek.cigarettes || 
-                                        firstWeek.dailyCigarettes || firstWeek.daily_cigarettes || 
-                                        firstWeek.target || 0;
+                    initialCigarettes = firstWeek.amount || firstWeek.cigarettes ||
+                        firstWeek.dailyCigarettes || firstWeek.daily_cigarettes ||
+                        firstWeek.target || 0;
                     console.log('🔍 CheckinHistory - Using initialCigarettes from first week:', initialCigarettes);
                 }
             }
-            
+
             // Fallback: Nếu không thể lấy từ userPlan, thử từ entry hiện tại
             if (initialCigarettes === 0) {
                 const currentEntry = checkinHistory.find(entry => entry.date === date);
                 initialCigarettes = currentEntry?.initialCigarettes || 0;
-                
+
                 if (initialCigarettes > 0) {
                     console.log('🔍 CheckinHistory - Using initialCigarettes from current entry:', initialCigarettes);
                 }
             }
-            
+
             // Fallback: Thử lấy giá trị trực tiếp đã lưu trong localStorage
             if (initialCigarettes === 0) {
                 const savedInitialCigs = localStorage.getItem('initialCigarettes');
@@ -442,19 +519,19 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     console.log('🔍 CheckinHistory - Using initialCigarettes from localStorage directly:', initialCigarettes);
                 }
             }
-            
+
             // Fallback cuối cùng: Thử lấy từ activePlan trong localStorage
             if (initialCigarettes === 0) {
                 try {
                     const localPlan = localStorage.getItem('activePlan');
                     if (localPlan) {
                         const parsedPlan = JSON.parse(localPlan);
-                        
-                        initialCigarettes = parsedPlan.initialCigarettes || 
-                                           parsedPlan.initial_cigarettes || 
-                                           parsedPlan.dailyCigarettes ||
-                                           parsedPlan.daily_cigarettes || 30;
-                        
+
+                        initialCigarettes = parsedPlan.initialCigarettes ||
+                            parsedPlan.initial_cigarettes ||
+                            parsedPlan.dailyCigarettes ||
+                            parsedPlan.daily_cigarettes || 30;
+
                         console.log('🔍 CheckinHistory - Using initialCigarettes from activePlan:', initialCigarettes);
                     } else {
                         // Nếu không có plan, đặt giá trị mặc định (giống với DailyCheckin)
@@ -466,26 +543,26 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     initialCigarettes = 30; // Giá trị mặc định
                 }
             }
-            
+
             const updatedData = {
                 ...tempEditData,
                 initialCigarettes: initialCigarettes
             };
-            
+
             console.log('🔍 CheckinHistory - Saving edit for date', date, 'with data:', updatedData);
             console.log('🔍 CheckinHistory - Using initialCigarettes:', initialCigarettes);
-            
+
             const userId = getCurrentUserId();
             if (!userId) {
                 throw new Error('User not logged in');
             }
-            
+
             // Kiểm tra xem entry này là trống hay đã có dữ liệu
             const currentEntry = checkinHistory.find(entry => entry.date === date);
             const isEmptyEntry = currentEntry?.isEmpty === true;
-            
+
             let response;
-            
+
             // Nếu là entry trống (chưa có trong DB), sử dụng createCheckin thay vì updateCheckin
             try {
                 if (isEmptyEntry) {
@@ -497,7 +574,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 }
             } catch (error) {
                 console.error('❌ Error in save operation:', error);
-                
+
                 // Nếu cập nhật không thành công (404), thử tạo mới
                 if (error.message && error.message.includes("404")) {
                     console.log('🔄 Falling back to creating new checkin due to 404 error');
@@ -507,27 +584,27 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     throw error;
                 }
             }
-            
+
             if (response && response.success) {
                 // Lấy dữ liệu mới từ API response
                 console.log('🔍 CheckinHistory - Calculating with initialCigarettes:', updatedData.initialCigarettes);
-                
+
                 // Tính toán lại các giá trị nếu API không trả về
-                const initialCigs = updatedData.initialCigarettes ; // Sử dụng giá trị mặc định nếu không có
+                const initialCigs = updatedData.initialCigarettes; // Sử dụng giá trị mặc định nếu không có
                 const actualCigs = updatedData.actualCigarettes || 0;
-                
-                const cigarettesAvoided = response.data?.cigarettes_avoided !== undefined 
-                    ? response.data.cigarettes_avoided 
+
+                const cigarettesAvoided = response.data?.cigarettes_avoided !== undefined
+                    ? response.data.cigarettes_avoided
                     : Math.max(0, initialCigs - actualCigs);
-                    
-                const moneySaved = response.data?.money_saved !== undefined 
-                    ? response.data.money_saved 
+
+                const moneySaved = response.data?.money_saved !== undefined
+                    ? response.data.money_saved
                     : cigarettesAvoided * 1250; // Giả sử 1250 VND mỗi điếu
-                    
-                const healthScore = response.data?.health_score !== undefined 
-                    ? response.data.health_score 
+
+                const healthScore = response.data?.health_score !== undefined
+                    ? response.data.health_score
                     : initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-                    
+
                 console.log('🔍 CheckinHistory - Calculated values:', {
                     initialCigs,
                     actualCigs,
@@ -535,7 +612,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     moneySaved,
                     healthScore
                 });
-                
+
                 // Tạo đối tượng mới với dữ liệu đã cập nhật
                 const newCheckinData = {
                     date: date,
@@ -547,17 +624,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     moneySaved: moneySaved,
                     healthScore: healthScore
                 };
-                
+
                 // Cập nhật state bằng cách tạo một mảng hoàn toàn mới
                 // để đảm bảo React nhận ra sự thay đổi và render lại
                 setCheckinHistory(prev => {
-                    const newHistory = prev.map(entry => 
+                    const newHistory = prev.map(entry =>
                         entry.date === date ? newCheckinData : entry
                     );
                     console.log('🔍 State updated with new data:', newHistory.find(e => e.date === date));
                     return newHistory;
                 });
-                
+
                 // Tạo đối tượng dữ liệu đầy đủ để lưu vào localStorage
                 const updatedLocalData = {
                     date,
@@ -569,10 +646,10 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     healthScore: healthScore,
                     notes: updatedData.notes
                 };
-                
+
                 // Lưu vào localStorage
                 localStorage.setItem(`checkin_${date}`, JSON.stringify(updatedLocalData));
-                
+
                 // Gọi callback cập nhật dashboard nếu có - với dữ liệu đã tính toán mới
                 if (onProgressUpdate && date === new Date().toISOString().split('T')[0]) {
                     onProgressUpdate({
@@ -581,17 +658,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     });
                     console.log('🔄 Đã gọi onProgressUpdate với dữ liệu mới:', newCheckinData);
                 }
-                
+
                 // Reset editing
                 setEditingEntry(null);
                 setTempEditData({});
-                
+
                 // Force update component để đảm bảo UI được render lại với dữ liệu mới
                 setTimeout(() => {
                     forceUpdate();
                     console.log('🔄 Force update component sau khi cập nhật dữ liệu');
                 }, 0);
-                
+
                 // Hiển thị thông báo thành công
                 setToast({
                     show: true,
@@ -603,7 +680,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             }
         } catch (err) {
             console.error('❌ Error saving edit:', err);
-            
+
             // Hiển thị thông báo lỗi
             setToast({
                 show: true,
@@ -611,7 +688,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 type: 'error'
             });
         }
-        
+
         setTimeout(() => {
             setToast(prev => ({ ...prev, show: false }));
         }, 3000);
@@ -626,10 +703,10 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = date.getFullYear();
-        
+
         return `${dayName}, ${day}/${month}/${year}`;
     };
-    
+
     // Kiểm tra xem ngày đó có phải là hôm nay không
     const isToday = (dateStr) => {
         const today = new Date().toISOString().split('T')[0];
@@ -648,17 +725,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             setCurrentPage(pageNumber);
         }
     };
-    
+
     // Tải lại dữ liệu của ngày hiện tại từ API (không sử dụng await để không chặn UI)
     const refreshTodayData = (userId) => {
         const today = new Date().toISOString().split('T')[0];
-        
+
         // Sử dụng Promise không await để không chặn UI
         progressService.getProgressByUserId(userId, { date: today })
             .then(response => {
                 if (response && response.success && response.data && response.data.length > 0) {
                     const todayEntry = response.data.find(item => item.date.split('T')[0] === today);
-                    
+
                     if (todayEntry) {
                         // Chuyển đổi dữ liệu từ API thành định dạng cho UI
                         const formattedEntry = {
@@ -671,15 +748,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             healthScore: todayEntry.health_score || 0,
                             notes: todayEntry.notes || ''
                         };
-                        
+
                         // Cập nhật dữ liệu ngày hôm nay trong danh sách
-                        setCheckinHistory(prev => prev.map(entry => 
+                        setCheckinHistory(prev => prev.map(entry =>
                             entry.date === today ? formattedEntry : entry
                         ));
-                        
+
                         // Cập nhật localStorage
                         localStorage.setItem(`checkin_${today}`, JSON.stringify(formattedEntry));
-                        
+
                         console.log('✅ Refreshed today data from API:', todayEntry);
                     }
                 }
@@ -705,7 +782,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     if (error && checkinHistory.length === 0) {
         return (
             <div className="checkin-history-wrapper">
-                <button 
+                <button
                     className="toggle-history-sidebar"
                     onClick={toggleSidebar}
                 >
@@ -719,7 +796,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                 <FaCalendarAlt className="title-icon" />
                                 Lịch sử cai thuốc
                             </h2>
-                            <button 
+                            <button
                                 className="close-sidebar-btn"
                                 onClick={toggleSidebar}
                                 title="Đóng sidebar"
@@ -728,7 +805,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             </button>
                         </div>
                         <div className="error-message">{error}</div>
-                        <button 
+                        <button
                             className="retry-button"
                             onClick={() => window.location.reload()}
                         >
@@ -743,7 +820,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     if (checkinHistory.length === 0) {
         return (
             <div className="checkin-history-wrapper">
-                <button 
+                <button
                     className="toggle-history-sidebar"
                     onClick={toggleSidebar}
                 >
@@ -757,7 +834,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                 <FaCalendarAlt className="title-icon" />
                                 Lịch sử cai thuốc
                             </h2>
-                            <button 
+                            <button
                                 className="close-sidebar-btn"
                                 onClick={toggleSidebar}
                                 title="Đóng sidebar"
@@ -784,23 +861,23 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             message: 'Đang tải lại trang...',
             type: 'info'
         });
-        
+
         // Đợi một chút để hiện thông báo trước khi tải lại trang
         setTimeout(() => {
             // Tải lại trang (tương đương với nhấn F5)
             window.location.reload();
         }, 500);
     };
-    
+
     // Hàm chuyển đổi trạng thái của sidebar (mở/đóng)
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
-    
+
     return (
         <div className="checkin-history-wrapper">
             {/* Nút toggle sidebar - chỉ hiển thị ở mobile hoặc khi cần thiết */}
-            <button 
+            <button
                 className="toggle-history-sidebar compact-button"
                 onClick={toggleSidebar}
                 title={isSidebarOpen ? "Ẩn lịch sử cai thuốc" : "Hiện lịch sử cai thuốc"}
@@ -809,7 +886,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 <FaCalendarAlt className="sidebar-toggle-icon" />
                 <span>Lịch sử</span>
             </button>
-            
+
             {/* Sidebar chứa lịch sử check-in */}
             <div className={`checkin-history-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
                 <div className="checkin-history">
@@ -818,17 +895,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             <FaCalendarAlt className="title-icon" />
                             Lịch sử cai thuốc
                         </h2>
-                        
+
                         <div className="history-header-buttons">
-                            <button 
+                            <button
                                 className="refresh-btn"
                                 onClick={handleRefresh}
                                 title="Tải lại trang (F5)"
                                 disabled={loading}
                             >
-                                <FaSync className="refresh-icon" />  
+                                <FaSync className="refresh-icon" />
                             </button>
-                            <button 
+                            <button
                                 className="close-sidebar-btn"
                                 onClick={toggleSidebar}
                                 title="Đóng sidebar"
@@ -837,7 +914,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             </button>
                         </div>
                     </div>
-                    
+
                     {error && (
                         <div className="warning-message">
                             {error}
@@ -860,7 +937,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             </thead>
                             <tbody>
                                 {currentEntries.map((entry) => (
-                                    <tr 
+                                    <tr
                                         key={`${entry.date}_${entry.actualCigarettes}_${entry.cigarettesAvoided}`}
                                         className={`${isToday(entry.date) ? 'today-row' : ''} ${entry.isEmpty ? 'empty-checkin-row' : ''}`}
                                     >
@@ -868,7 +945,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                             {formatDisplayDate(entry.date)}
                                             {isToday(entry.date) && <span className="today-badge">Hôm nay</span>}
                                         </td>
-                                        
+
                                         <td className="target-cell">
                                             {editingEntry === entry.date ? (
                                                 <input
@@ -883,7 +960,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                 <span>{entry.targetCigarettes} điếu</span>
                                             )}
                                         </td>
-                                        
+
                                         <td className="actual-cell">
                                             {editingEntry === entry.date ? (
                                                 <input
@@ -895,17 +972,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                     className="edit-input"
                                                 />
                                             ) : (
-                                                <span 
+                                                <span
                                                     className={
                                                         entry.actualCigarettes === null ? 'empty-value' :
-                                                        entry.actualCigarettes <= entry.targetCigarettes ? 'success' : 'warning'
+                                                            entry.actualCigarettes <= entry.targetCigarettes ? 'success' : 'warning'
                                                     }
                                                 >
                                                     {entry.actualCigarettes === null ? 'N/A' : `${entry.actualCigarettes} điếu`}
                                                 </span>
                                             )}
                                         </td>
-                                        
+
                                         <td className="avoided-cell">
                                             <span>
                                                 {entry.cigarettesAvoided === null ? 'N/A' : `${entry.cigarettesAvoided} điếu`}
@@ -916,7 +993,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                 <span className="empty-value">N/A</span>
                                             ) : (
                                                 <div className="health-score">
-                                                    <div 
+                                                    <div
                                                         className="health-bar"
                                                         style={{ width: `${entry.healthScore}%` }}
                                                     ></div>
@@ -924,11 +1001,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                 </div>
                                             )}
                                         </td>
-                                        
+
                                         <td className="money-cell">
                                             {entry.moneySaved === null ? 'N/A' : `${(entry.moneySaved / 1000).toFixed(1)}k`}
                                         </td>
-                                        
+
                                         <td className="notes-cell">
                                             {editingEntry === entry.date ? (
                                                 <textarea
@@ -942,18 +1019,18 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                 <span>{entry.notes || '-'}</span>
                                             )}
                                         </td>
-                                        
+
                                         <td className="actions-cell">
                                             {editingEntry === entry.date ? (
                                                 <div className="edit-actions">
-                                                    <button 
+                                                    <button
                                                         className="save-btn"
                                                         onClick={() => handleSaveEdit(entry.date)}
                                                         title="Lưu thay đổi"
                                                     >
                                                         <FaSave />
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         className="cancel-btn"
                                                         onClick={handleCancelEdit}
                                                         title="Hủy"
@@ -962,7 +1039,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button 
+                                                <button
                                                     className="edit-btn"
                                                     onClick={() => handleEdit(entry)}
                                                     title="Chỉnh sửa"
@@ -980,20 +1057,20 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="pagination">
-                            <button 
-                                onClick={() => paginate(currentPage - 1)} 
+                            <button
+                                onClick={() => paginate(currentPage - 1)}
                                 disabled={currentPage === 1}
                                 className="pagination-btn"
                             >
                                 <FaChevronLeft />
                             </button>
-                            
+
                             <div className="pagination-info">
                                 Trang {currentPage} / {totalPages}
                             </div>
-                            
-                            <button 
-                                onClick={() => paginate(currentPage + 1)} 
+
+                            <button
+                                onClick={() => paginate(currentPage + 1)}
                                 disabled={currentPage === totalPages}
                                 className="pagination-btn"
                             >

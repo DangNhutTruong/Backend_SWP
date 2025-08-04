@@ -40,6 +40,8 @@ import { AuthProvider } from "./context/AuthContext.jsx"; // Import AuthProvider
 import { MembershipProvider } from "./context/MembershipContext.jsx"; // Import MembershipProvider
 import "./style.css";
 import JourneyStepper from "./components/JourneyStepper.jsx";
+import QuitPlanList from "./components/QuitPlanList.jsx"; // Import QuitPlanList component
+import JourneyRouter from "./components/JourneyRouter.jsx"; // Import JourneyRouter component
 import Notification from "./page/Notification.jsx"; // Import component Notification
 import SettingsPage from "./page/Settings.jsx"; // Import component Settings
 import Pay from "./page/Pay.jsx";
@@ -154,17 +156,47 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <ProtectedRoute>
+          <JourneyRouter />
+        </ProtectedRoute>
+      </Layout>
+    ), // Sử dụng JourneyRouter để tự động chọn giữa QuitPlanList và JourneyStepper
+  },
+  {
+    path: "/journey/create",
+    element: (
+      <Layout>
+        <ProtectedRoute>
           <JourneyStepper />
         </ProtectedRoute>
       </Layout>
-    ), // Sử dụng JourneyStepper cho trang Công Cụ
+    ), // Route riêng để tạo kế hoạch mới
+  },
+  {
+    path: "/journey/plans",
+    element: (
+      <Layout>
+        <ProtectedRoute>
+          <JourneyRouter />
+        </ProtectedRoute>
+      </Layout>
+    ), // Route để xem danh sách kế hoạch - sử dụng JourneyRouter để tự động chọn component phù hợp
+  },
+  {
+    path: "/journey/plan/:planId",
+    element: (
+      <Layout>
+        <ProtectedRoute>
+          <JourneyStepper />
+        </ProtectedRoute>
+      </Layout>
+    ), // Route để xem chi tiết kế hoạch cụ thể
   },
   {
     path: "/plan",
     element: (
       <Layout>
         <ProtectedRoute>
-          <JourneyStepper />
+          <JourneyRouter />
         </ProtectedRoute>
       </Layout>
     ), // Route alias cho /journey
