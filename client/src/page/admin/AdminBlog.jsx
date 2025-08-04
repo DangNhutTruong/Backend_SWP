@@ -1,560 +1,336 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Modal, 
-  Form, 
-  Input, 
-  Typography, 
-  Tag, 
-  Tooltip, 
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Modal,
+  Form,
+  Input,
+  Typography,
+  Tooltip,
   Popconfirm,
-  Select,
-  Upload,
-  message,
-  Tabs
+  notification,
+  Row,
+  Col,
+  Statistic,
+  Image,
+  message
 } from 'antd';
-import { 
-  EditOutlined, 
-  DeleteOutlined, 
-  PlusOutlined, 
-  EyeOutlined,
-  UploadOutlined,
-  SearchOutlined
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
-import './AdminBlog.css';
+import axios from 'axios';
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
-const { Option } = Select;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-export default function AdminBlog() {
-  const [articles, setArticles] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+const AdminBlog = () => {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
-  const [searchText, setSearchText] = useState('');
+  const [editingPost, setEditingPost] = useState(null);
   const [form] = Form.useForm();
-  const [categoryForm] = Form.useForm();
-  const [editingArticle, setEditingArticle] = useState(null);
-  
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10,
+    search: ''
+  });
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
+
   useEffect(() => {
-    // Mô phỏng API call để lấy dữ liệu bài viết và danh mục
-    fetchArticles();
-    fetchCategories();
-  }, []);
+    fetchPosts();
+  }, []); // Chỉ load 1 lần khi component mount
 
-  const fetchArticles = () => {
-    setTimeout(() => {
-      const mockArticles = [
-        {
-          id: 1,
-          title: 'Tác hại của thuốc lá với sức khỏe',
-          category: 'health',
-          author: 'Dr. Nguyễn Văn A',
-          publishDate: '2023-06-15',
-          status: 'published',
-          views: 1256,
-          featured: true,
-        },
-        {
-          id: 2,
-          title: '5 bước đầu tiên để cai thuốc lá thành công',
-          category: 'tips',
-          author: 'Lê Thị B',
-          publishDate: '2023-07-02',
-          status: 'published',
-          views: 893,
-          featured: false,
-        },
-        {
-          id: 3,
-          title: 'Lợi ích của việc cai thuốc lá sau 1 tháng',
-          category: 'motivation',
-          author: 'Dr. Trần Văn C',
-          publishDate: '2023-07-20',
-          status: 'draft',
-          views: 0,
-          featured: false,
-        },
-      ];
-      setArticles(mockArticles);
-      setLoading(false);
-    }, 1000);
-  };
-
-  const fetchCategories = () => {
-    setTimeout(() => {
-      const mockCategories = [
-        {
-          id: 1,
-          name: 'Sức khỏe',
-          slug: 'health',
-          count: 12
-        },
-        {
-          id: 2,
-          name: 'Mẹo cai thuốc',
-          slug: 'tips',
-          count: 8
-        },
-        {
-          id: 3,
-          name: 'Động lực',
-          slug: 'motivation',
-          count: 5
-        },
-      ];
-      setCategories(mockCategories);
-    }, 800);
-  };
-
-  const showModal = (article = null) => {
-    setEditingArticle(article);
-    if (article) {
-      form.setFieldsValue({
-        title: article.title,
-        category: article.category,
-        content: 'Nội dung bài viết sẽ hiển thị ở đây...',
-        featured: article.featured,
-        status: article.status
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      console.log('🔍 Fetching blog posts...');
+      
+      const response = await axios.get('/api/admin/blog/posts', {
+        headers: { Authorization: `Bearer ${token}` }
       });
-    } else {
-      form.resetFields();
+
+      console.log('✅ Response received:', response.data);
+
+      if (response.data.success) {
+        const posts = response.data.data.posts || [];
+        setPosts(posts);
+        setPagination({
+          current: 1,
+          pageSize: 10,
+          total: posts.length
+        });
+        console.log(`📊 Loaded ${posts.length} blog posts`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching posts:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: `Không thể tải danh sách bài viết: ${error.response?.status || 'Network error'}`
+      });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleCreatePost = () => {
+    setEditingPost(null);
+    form.resetFields();
     setIsModalVisible(true);
   };
 
-  const showCategoryModal = () => {
-    categoryForm.resetFields();
-    setIsCategoryModalVisible(true);
+  const handleEditPost = (post) => {
+    setEditingPost(post);
+    form.setFieldsValue({
+      title: post.title,
+      content: post.content,
+      thumbnail_url: post.thumbnail_url
+    });
+    setIsModalVisible(true);
   };
 
-  const handleCancel = () => {
-    setIsModalVisible(false);
-  };
+  const handleDeletePost = async (postId) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      await axios.delete(`/api/admin/blog/posts/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-  const handleCategoryCancel = () => {
-    setIsCategoryModalVisible(false);
-  };
-
-  const handleSubmit = (values) => {
-    if (editingArticle) {
-      // Cập nhật bài viết hiện có
-      setArticles(articles.map(a => 
-        a.id === editingArticle.id 
-          ? { 
-              ...a, 
-              ...values, 
-              publishDate: values.status === 'published' 
-                ? new Date().toISOString().split('T')[0]
-                : a.publishDate
-            }
-          : a
-      ));
-    } else {
-      // Tạo bài viết mới
-      const newArticle = {
-        id: Date.now(),
-        ...values,
-        author: 'Admin',
-        publishDate: values.status === 'published' 
-          ? new Date().toISOString().split('T')[0] 
-          : null,
-        views: 0
-      };
-      setArticles([...articles, newArticle]);
+      notification.success({
+        message: 'Thành công',
+        description: 'Đã xóa bài viết'
+      });
+      
+      fetchPosts();
+    } catch (error) {
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể xóa bài viết'
+      });
     }
-    
-    setIsModalVisible(false);
-    message.success(`Bài viết đã được ${editingArticle ? 'cập nhật' : 'tạo'} thành công!`);
   };
 
-  const handleCategorySubmit = (values) => {
-    const newCategory = {
-      id: Date.now(),
-      name: values.name,
-      slug: values.slug || values.name.toLowerCase().replace(/\s+/g, '-'),
-      count: 0
-    };
-    
-    setCategories([...categories, newCategory]);
-    setIsCategoryModalVisible(false);
-    message.success('Danh mục đã được tạo thành công!');
+  const handleSubmit = async (values) => {
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      
+      if (editingPost) {
+        await axios.put(`/api/admin/blog/posts/${editingPost.id}`, values, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        notification.success({
+          message: 'Thành công',
+          description: 'Đã cập nhật bài viết'
+        });
+      } else {
+        await axios.post('/api/admin/blog/posts', values, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        notification.success({
+          message: 'Thành công',
+          description: 'Đã tạo bài viết mới'
+        });
+      }
+
+      setIsModalVisible(false);
+      form.resetFields();
+      fetchPosts();
+    } catch (error) {
+      notification.error({
+        message: 'Lỗi',
+        description: editingPost ? 'Không thể cập nhật bài viết' : 'Không thể tạo bài viết'
+      });
+    }
   };
 
-  const handleDelete = (id) => {
-    setArticles(articles.filter(a => a.id !== id));
-    message.success('Bài viết đã được xóa thành công!');
+  const handleBulkDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('Vui lòng chọn ít nhất một bài viết');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+      
+      for (const postId of selectedRowKeys) {
+        await axios.delete(`/api/admin/blog/posts/${postId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+
+      notification.success({
+        message: 'Thành công',
+        description: `Đã xóa ${selectedRowKeys.length} bài viết`
+      });
+
+      setSelectedRowKeys([]);
+      fetchPosts();
+    } catch (error) {
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể xóa bài viết'
+      });
+    }
   };
 
-  const handleCategoryDelete = (id) => {
-    setCategories(categories.filter(c => c.id !== id));
-    message.success('Danh mục đã được xóa thành công!');
+  const handleTableChange = (newPagination) => {
+    setFilters({
+      ...filters,
+      page: newPagination.current,
+      limit: newPagination.pageSize
+    });
   };
 
-  const handleSearch = (value) => {
-    setSearchText(value);
-  };
-
-  const filteredArticles = articles.filter(
-    (article) =>
-      article.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      article.author.toLowerCase().includes(searchText.toLowerCase())
-  );
-
-  const articleColumns = [
+  const columns = [
     {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
       width: 60
+    },
+    {
+      title: 'Ảnh đại diện',
+      dataIndex: 'thumbnail_url',
+      key: 'thumbnail_url',
+      width: 100,
+      render: (url) => (
+        <Image
+          width={60}
+          height={40}
+          src={url || 'https://via.placeholder.com/60x40'}
+          fallback="https://via.placeholder.com/60x40"
+          style={{ objectFit: 'cover', borderRadius: 4 }}
+        />
+      )
     },
     {
       title: 'Tiêu đề',
       dataIndex: 'title',
       key: 'title',
-      render: (text, record) => (
-        <Space>
-          {text}
-          {record.featured && <Tag color="gold">Nổi bật</Tag>}
-        </Space>
+      ellipsis: true,
+      render: (text) => (
+        <Tooltip title={text}>
+          <Text strong>{text}</Text>
+        </Tooltip>
       )
     },
     {
-      title: 'Danh mục',
-      dataIndex: 'category',
-      key: 'category',
-      render: category => {
-        const foundCategory = categories.find(c => c.slug === category);
-        return foundCategory ? foundCategory.name : category;
-      },
-      filters: categories.map(c => ({ text: c.name, value: c.slug })),
-      onFilter: (value, record) => record.category === value,
-    },
-    {
-      title: 'Tác giả',
-      dataIndex: 'author',
-      key: 'author'
-    },
-    {
-      title: 'Ngày xuất bản',
-      dataIndex: 'publishDate',
-      key: 'publishDate',
-      render: date => date ? new Date(date).toLocaleDateString('vi-VN') : 'Chưa xuất bản',
-      sorter: (a, b) => {
-        if (!a.publishDate) return 1;
-        if (!b.publishDate) return -1;
-        return new Date(a.publishDate) - new Date(b.publishDate);
-      }
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: status => {
-        let color = 'default';
-        let text = 'Không xác định';
-        
-        if (status === 'published') {
-          color = 'green';
-          text = 'Đã xuất bản';
-        } else if (status === 'draft') {
-          color = 'gold';
-          text = 'Bản nháp';
-        }
-        
-        return <Tag color={color}>{text}</Tag>;
-      },
-      filters: [
-        { text: 'Đã xuất bản', value: 'published' },
-        { text: 'Bản nháp', value: 'draft' }
-      ],
-      onFilter: (value, record) => record.status === value,
-    },
-    {
-      title: 'Lượt xem',
-      dataIndex: 'views',
-      key: 'views',
-      sorter: (a, b) => a.views - b.views,
-    },
-    {
-      title: 'Hành động',
-      key: 'action',
-      render: (_, record) => (
-        <Space size="middle">
-          <Tooltip title="Xem">
-            <Button 
-              icon={<EyeOutlined />}
-              onClick={() => message.info('Chức năng xem chi tiết đang phát triển')}
-            />
-          </Tooltip>
-          <Tooltip title="Sửa">
-            <Button 
-              type="primary" 
-              icon={<EditOutlined />} 
-              onClick={() => showModal(record)} 
-            />
-          </Tooltip>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa bài viết này?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Đồng ý"
-            cancelText="Hủy"
-          >
-            <Tooltip title="Xóa">
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
-              />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
+      title: 'Tác giả (Smoker ID)',
+      dataIndex: 'smoker_id',
+      key: 'smoker_id',
+      width: 120,
+      render: (smokerId) => (
+        <Text type="secondary">#{smokerId}</Text>
       )
+    },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 150,
+      render: (date) => new Date(date).toLocaleString('vi-VN')
+    },
+    {
+      title: 'Ngày cập nhật',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 150,
+      render: (date) => new Date(date).toLocaleString('vi-VN')
     }
   ];
 
-  const categoryColumns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 60
-    },
-    {
-      title: 'Tên danh mục',
-      dataIndex: 'name',
-      key: 'name'
-    },
-    {
-      title: 'Đường dẫn',
-      dataIndex: 'slug',
-      key: 'slug'
-    },
-    {
-      title: 'Số bài viết',
-      dataIndex: 'count',
-      key: 'count'
-    },
-    {
-      title: 'Hành động',
-      key: 'action',
-      render: (_, record) => (
-        <Space size="middle">
-          <Tooltip title="Xem bài viết">
-            <Button 
-              icon={<EyeOutlined />}
-              onClick={() => handleSearch(record.slug)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa danh mục này?"
-            onConfirm={() => handleCategoryDelete(record.id)}
-            okText="Đồng ý"
-            cancelText="Hủy"
-          >
-            <Tooltip title="Xóa">
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
-              />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      )
-    }
-  ];
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: setSelectedRowKeys,
+  };
 
   return (
-    <div className="admin-blog-container">
-      <Tabs defaultActiveKey="1">
-        <TabPane tab="Bài viết" key="1">
+    <div className="admin-blog">
+      <div className="admin-blog-header" style={{ marginBottom: 24 }}>
+        <Title level={2}>
+          <FileTextOutlined /> Quản lý bài viết
+        </Title>
+        
+      </div>
+
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={8}>
           <Card>
-            <div className="header-with-button">
-              <Title level={3}>Quản lý bài viết</Title>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => showModal()}
-              >
-                Thêm bài viết
-              </Button>
-            </div>
-            <Paragraph>
-              Quản lý tất cả bài viết blog trên hệ thống NoSmoke.
-            </Paragraph>
-
-            <div className="search-container">
-              <Input
-                placeholder="Tìm kiếm bài viết theo tiêu đề hoặc tác giả"
-                prefix={<SearchOutlined />}
-                onChange={(e) => handleSearch(e.target.value)}
-                style={{ width: 400, marginBottom: 16 }}
-              />
-            </div>
-
-            <Table
-              columns={articleColumns}
-              dataSource={filteredArticles}
-              rowKey="id"
-              loading={loading}
-              pagination={{ pageSize: 10 }}
+            <Statistic
+              title="Tổng bài viết"
+              value={posts.length}
+              prefix={<FileTextOutlined />}
             />
           </Card>
-        </TabPane>
-
-        <TabPane tab="Danh mục" key="2">
+        </Col>
+        <Col span={8}>
           <Card>
-            <div className="header-with-button">
-              <Title level={3}>Quản lý danh mục</Title>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={showCategoryModal}
-              >
-                Thêm danh mục
-              </Button>
-            </div>
-            <Paragraph>
-              Quản lý danh mục bài viết trên hệ thống NoSmoke.
-            </Paragraph>
-
-            <Table
-              columns={categoryColumns}
-              dataSource={categories}
-              rowKey="id"
-              loading={loading}
-              pagination={false}
+            <Statistic
+              title="Bài viết đã chọn"
+              value={selectedRowKeys.length}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
-        </TabPane>
-      </Tabs>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Tổng trang"
+              value={Math.ceil(pagination.total / pagination.pageSize)}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Modal thêm/sửa bài viết */}
-      <Modal
-        title={editingArticle ? "Chỉnh sửa bài viết" : "Thêm bài viết mới"}
-        visible={isModalVisible}
-        onCancel={handleCancel}
-        footer={null}
-        width={800}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          initialValues={{ status: 'draft', featured: false }}
-        >
-          <Form.Item
-            name="title"
-            label="Tiêu đề bài viết"
-            rules={[{ required: true, message: 'Vui lòng nhập tiêu đề bài viết!' }]}
-          >
-            <Input placeholder="Nhập tiêu đề bài viết" />
-          </Form.Item>
-
-          <Form.Item
-            name="category"
-            label="Danh mục"
-            rules={[{ required: true, message: 'Vui lòng chọn danh mục!' }]}
-          >
-            <Select placeholder="Chọn danh mục">
-              {categories.map(category => (
-                <Option key={category.slug} value={category.slug}>{category.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="content"
-            label="Nội dung bài viết"
-            rules={[{ required: true, message: 'Vui lòng nhập nội dung bài viết!' }]}
-          >
-            <TextArea rows={12} placeholder="Nhập nội dung bài viết ở đây..." />
-          </Form.Item>
-
-          <Form.Item 
-            name="thumbnail" 
-            label="Ảnh đại diện"
-          >
-            <Upload 
-              listType="picture-card"
-              beforeUpload={() => false}
-              maxCount={1}
-            >
-              <div>
-                <PlusOutlined />
-                <div style={{ marginTop: 8 }}>Tải lên</div>
-              </div>
-            </Upload>
-          </Form.Item>
-
-          <Form.Item name="featured" valuePropName="checked" label="Bài viết nổi bật">
-            <Select>
-              <Option value={false}>Không</Option>
-              <Option value={true}>Có</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="status" label="Trạng thái">
-            <Select>
-              <Option value="draft">Bản nháp</Option>
-              <Option value="published">Xuất bản</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item>
-            <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button onClick={handleCancel}>Hủy</Button>
-              <Button type="primary" htmlType="submit">
-                {editingArticle ? "Cập nhật" : "Tạo mới"}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={16} align="middle">
+          <Col span={8}>
+            <Input.Search
+              placeholder="Tìm kiếm bài viết..."
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
+              onSearch={fetchPosts}
+            />
+          </Col>
+          <Col span={16}>
+            <Space>
+              <Button disabled>
+                Tạo bài viết (Coming soon)
               </Button>
             </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+          </Col>
+        </Row>
+      </Card>
 
-      {/* Modal thêm danh mục */}
-      <Modal
-        title="Thêm danh mục mới"
-        visible={isCategoryModalVisible}
-        onCancel={handleCategoryCancel}
-        footer={null}
-      >
-        <Form
-          form={categoryForm}
-          layout="vertical"
-          onFinish={handleCategorySubmit}
-        >
-          <Form.Item
-            name="name"
-            label="Tên danh mục"
-            rules={[{ required: true, message: 'Vui lòng nhập tên danh mục!' }]}
-          >
-            <Input placeholder="Ví dụ: Sức khỏe, Mẹo cai thuốc" />
-          </Form.Item>
-
-          <Form.Item
-            name="slug"
-            label="Đường dẫn"
-            tooltip="Sử dụng chữ thường, dấu gạch ngang, không dấu. Để trống để tạo tự động từ tên."
-          >
-            <Input placeholder="Ví dụ: suc-khoe, meo-cai-thuoc" />
-          </Form.Item>
-
-          <Form.Item>
-            <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button onClick={handleCategoryCancel}>Hủy</Button>
-              <Button type="primary" htmlType="submit">
-                Tạo danh mục
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={posts}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: false,
+            showQuickJumper: false,
+            showTotal: (total) => `Tổng ${total} bài viết`
+          }}
+          scroll={{ x: 1000 }}
+        />
+      </Card>
     </div>
   );
-}
+};
+
+export default AdminBlog;

@@ -2221,3 +2221,354 @@ export const deleteUser = async (req, res) => {
     });
   }
 };
+
+// ===== BLOG MANAGEMENT =====
+
+// Get all blog posts for admin
+export const getBlogPosts = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, category } = req.query;
+    const offset = (page - 1) * limit;
+
+    let whereClause = '';
+    let queryParams = [];
+
+    if (status && status !== 'all') {
+      whereClause += ' WHERE status = ?';
+      queryParams.push(status);
+    }
+
+    if (category && category !== 'all') {
+      whereClause += whereClause ? ' AND category = ?' : ' WHERE category = ?';
+      queryParams.push(category);
+    }
+
+    // Get total count
+    const [countResult] = await pool.execute(
+      `SELECT COUNT(*) as total FROM blog_post${whereClause}`,
+      queryParams
+    );
+
+    // Get blog posts with pagination
+    const [posts] = await pool.execute(
+      `SELECT 
+        id,
+        title,
+        content,
+        thumbnail_url,
+        category,
+        status,
+        created_at,
+        updated_at,
+        author_id,
+        views,
+        likes
+      FROM blog_post
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, parseInt(limit), offset]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        posts,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(countResult[0].total / limit),
+          totalItems: countResult[0].total,
+          limit: parseInt(limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching blog posts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy danh sách bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Get single blog post for editing
+export const getBlogPost = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [posts] = await pool.execute(
+      'SELECT * FROM blog_post WHERE id = ?',
+      [id]
+    );
+
+    if (posts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: posts[0]
+    });
+  } catch (error) {
+    console.error('Error fetching blog post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thông tin bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Create new blog post
+export const createBlogPost = async (req, res) => {
+  try {
+    const { title, content, thumbnail_url, category, status = 'draft' } = req.body;
+    const author_id = req.user?.id || 1; // Get from authenticated admin
+
+    // Validate required fields
+    if (!title || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tiêu đề và nội dung là bắt buộc'
+      });
+    }
+
+    // Insert new blog post
+    const [result] = await pool.execute(
+      `INSERT INTO blog_post (title, content, thumbnail_url, category, status, author_id, created_at, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [title, content, thumbnail_url, category, status, author_id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Đã tạo bài viết mới',
+      data: {
+        id: result.insertId,
+        title,
+        content,
+        thumbnail_url,
+        category,
+        status,
+        author_id
+      }
+    });
+  } catch (error) {
+    console.error('Error creating blog post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi tạo bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Update blog post
+export const updateBlogPost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, thumbnail_url, category, status } = req.body;
+
+    // Check if post exists
+    const [existingPost] = await pool.execute(
+      'SELECT id FROM blog_post WHERE id = ?',
+      [id]
+    );
+
+    if (existingPost.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    // Update blog post
+    await pool.execute(
+      `UPDATE blog_post 
+       SET title = ?, content = ?, thumbnail_url = ?, category = ?, status = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [title, content, thumbnail_url, category, status, id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Đã cập nhật bài viết',
+      data: {
+        id,
+        title,
+        content,
+        thumbnail_url,
+        category,
+        status
+      }
+    });
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Delete blog post
+export const deleteBlogPost = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if post exists
+    const [existingPost] = await pool.execute(
+      'SELECT id FROM blog_post WHERE id = ?',
+      [id]
+    );
+
+    if (existingPost.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bài viết'
+      });
+    }
+
+    // Delete blog post
+    await pool.execute('DELETE FROM blog_post WHERE id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: 'Đã xóa bài viết'
+    });
+  } catch (error) {
+    console.error('Error deleting blog post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi xóa bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Bulk update blog posts status
+export const bulkUpdatePosts = async (req, res) => {
+  try {
+    const { postIds, action } = req.body;
+
+    if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Danh sách ID bài viết không hợp lệ'
+      });
+    }
+
+    let query;
+    let params = [];
+
+    switch (action) {
+      case 'publish':
+        query = `UPDATE blog_post SET status = 'published', updated_at = NOW() WHERE id IN (${postIds.map(() => '?').join(',')})`;
+        params = postIds;
+        break;
+      case 'draft':
+        query = `UPDATE blog_post SET status = 'draft', updated_at = NOW() WHERE id IN (${postIds.map(() => '?').join(',')})`;
+        params = postIds;
+        break;
+      case 'delete':
+        query = `DELETE FROM blog_post WHERE id IN (${postIds.map(() => '?').join(',')})`;
+        params = postIds;
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Hành động không hợp lệ'
+        });
+    }
+
+    await pool.execute(query, params);
+
+    res.json({
+      success: true,
+      message: `Đã ${action === 'publish' ? 'xuất bản' : action === 'draft' ? 'chuyển về nháp' : 'xóa'} ${postIds.length} bài viết`
+    });
+  } catch (error) {
+    console.error('Error bulk updating posts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật hàng loạt',
+      error: error.message
+    });
+  }
+};
+
+// Get blog analytics
+export const getBlogAnalytics = async (req, res) => {
+  try {
+    // Total posts by status
+    const [postStats] = await pool.execute(`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM blog_post
+      GROUP BY status
+    `);
+
+    // Top viewed posts
+    const [topPosts] = await pool.execute(`
+      SELECT id, title, views, likes, created_at
+      FROM blog_post
+      WHERE status = 'published'
+      ORDER BY views DESC
+      LIMIT 5
+    `);
+
+    // Posts by category
+    const [categoryStats] = await pool.execute(`
+      SELECT 
+        category,
+        COUNT(*) as count
+      FROM blog_post
+      WHERE status = 'published'
+      GROUP BY category
+    `);
+
+    // Recent activity (posts created in last 7 days)
+    const [recentActivity] = await pool.execute(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as posts_created
+      FROM blog_post
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `);
+
+    const analytics = {
+      postStats: postStats.reduce((acc, row) => {
+        acc[row.status] = row.count;
+        return acc;
+      }, {}),
+      topPosts,
+      categoryStats,
+      recentActivity,
+      summary: {
+        totalPosts: postStats.reduce((sum, row) => sum + row.count, 0),
+        publishedPosts: postStats.find(row => row.status === 'published')?.count || 0,
+        draftPosts: postStats.find(row => row.status === 'draft')?.count || 0
+      }
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    console.error('Error fetching blog analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy thống kê blog',
+      error: error.message
+    });
+  }
+};

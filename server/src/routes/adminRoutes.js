@@ -41,6 +41,10 @@ import {
     getRecentActivities,
     getPaymentStatistics
 } from '../controllers/adminController.js';
+
+// Import simple blog management function
+import { getBlogPosts } from '../controllers/simpleBlogController.js';
+
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -113,6 +117,10 @@ router.post('/notifications/send-expiry-alerts', sendExpiryNotifications);
 
 // Report endpoints
 router.post('/reports/:reportType/generate', generateReport);
+
+// ============= BLOG MANAGEMENT ROUTES =============
+// Simple blog posts endpoint - chỉ để hiển thị dữ liệu
+router.get('/blog/posts', getBlogPosts);
 
 // Test route for debugging (remove in production)
 router.get('/test-users', async (req, res) => {
