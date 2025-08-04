@@ -40,18 +40,18 @@ import {
     getProgressData,
     getRecentActivities,
     getPaymentStatistics,
-    getAchievements,
-    // Blog management functions (excluding getBlogPosts)
+    getAchievements
+} from '../controllers/adminController.js';
+
+// Import all blog CRUD functions from blogController
+import { 
+    getBlogPosts,
     getBlogPost,
     createBlogPost,
     updateBlogPost,
     deleteBlogPost,
-    bulkUpdatePosts,
-    getBlogAnalytics
-} from '../controllers/adminController.js';
-
-// Import simple blog display function from separate controller
-import { getBlogPosts } from '../controllers/blogController.js';
+    bulkDeletePosts
+} from '../controllers/blogController.js';
 
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
@@ -128,8 +128,23 @@ router.post('/notifications/send-expiry-alerts', sendExpiryNotifications);
 router.post('/reports/:reportType/generate', generateReport);
 
 // ============= BLOG MANAGEMENT ROUTES =============
-// Simple blog posts endpoint - chỉ để hiển thị dữ liệu
+// Get all blog posts with pagination and search
 router.get('/blog/posts', getBlogPosts);
+
+// Get single blog post by ID
+router.get('/blog/posts/:id', getBlogPost);
+
+// Create new blog post
+router.post('/blog/posts', createBlogPost);
+
+// Update blog post
+router.put('/blog/posts/:id', updateBlogPost);
+
+// Delete single blog post
+router.delete('/blog/posts/:id', deleteBlogPost);
+
+// Bulk delete blog posts
+router.delete('/blog/posts', bulkDeletePosts);
 
 // Test route for debugging (remove in production)
 router.get('/test-users', async (req, res) => {

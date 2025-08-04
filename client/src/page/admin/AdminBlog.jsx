@@ -50,27 +50,47 @@ const AdminBlog = () => {
     fetchPosts();
   }, []); // Chỉ load 1 lần khi component mount
 
+  // Gọi lại API khi filters thay đổi
+  useEffect(() => {
+    if (filters.page !== 1 || filters.search !== '') {
+      fetchPosts();
+    }
+  }, [filters.page, filters.limit]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [filters.page, filters.limit]); // Reload khi thay đổi page hoặc limit
+
   const fetchPosts = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
       console.log('🔍 Fetching blog posts...');
       
-      const response = await axios.get('/api/admin/blog/posts', {
+      // Tạo query parameters
+      const queryParams = new URLSearchParams({
+        page: filters.page,
+        limit: filters.limit,
+        ...(filters.search && { search: filters.search })
+      });
+      
+      const response = await axios.get(`/api/admin/blog/posts?${queryParams}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       console.log('✅ Response received:', response.data);
 
       if (response.data.success) {
-        const posts = response.data.data.posts || [];
-        setPosts(posts);
+        const postsData = response.data.data.posts || [];
+        const paginationData = response.data.data.pagination || {};
+        
+        setPosts(postsData);
         setPagination({
-          current: 1,
-          pageSize: 10,
-          total: posts.length
+          current: paginationData.current || 1,
+          pageSize: paginationData.pageSize || 10,
+          total: paginationData.total || postsData.length
         });
-        console.log(`📊 Loaded ${posts.length} blog posts`);
+        console.log(`📊 Loaded ${postsData.length} blog posts`);
       }
     } catch (error) {
       console.error('❌ Error fetching posts:', error);
@@ -162,11 +182,11 @@ const AdminBlog = () => {
     try {
       const token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
       
-      for (const postId of selectedRowKeys) {
-        await axios.delete(`/api/admin/blog/posts/${postId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      }
+      // Sử dụng bulk delete API thay vì xóa từng bài viết
+      await axios.delete('/api/admin/blog/posts', {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { ids: selectedRowKeys }
+      });
 
       notification.success({
         message: 'Thành công',
@@ -246,6 +266,38 @@ const AdminBlog = () => {
       key: 'updated_at',
       width: 150,
       render: (date) => new Date(date).toLocaleString('vi-VN')
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 120,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size="small">
+          <Tooltip title="Chỉnh sửa">
+            <Button 
+              type="primary" 
+              size="small" 
+              icon={<EditOutlined />}
+              onClick={() => handleEditPost(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Xóa">
+            <Popconfirm
+              title="Xóa bài viết này?"
+              description="Bạn có chắc muốn xóa bài viết này không?"
+              onConfirm={() => handleDeletePost(record.id)}
+              placement="left"
+            >
+              <Button 
+                danger 
+                size="small" 
+                icon={<DeleteOutlined />}
+              />
+            </Popconfirm>
+          </Tooltip>
+        </Space>
+      )
     }
   ];
 
@@ -302,10 +354,28 @@ const AdminBlog = () => {
               onSearch={fetchPosts}
             />
           </Col>
-          <Col span={16}>
+          <Col span={16} style={{ textAlign: 'right' }}>
             <Space>
-              <Button disabled>
-                Tạo bài viết (Coming soon)
+              <Popconfirm
+                title="Xóa các bài viết đã chọn?"
+                description={`Bạn có chắc muốn xóa ${selectedRowKeys.length} bài viết đã chọn?`}
+                onConfirm={handleBulkDelete}
+                disabled={selectedRowKeys.length === 0}
+              >
+                <Button 
+                  danger 
+                  disabled={selectedRowKeys.length === 0}
+                  icon={<DeleteOutlined />}
+                >
+                  Xóa đã chọn ({selectedRowKeys.length})
+                </Button>
+              </Popconfirm>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={handleCreatePost}
+              >
+                Tạo bài viết mới
               </Button>
             </Space>
           </Col>
@@ -318,17 +388,92 @@ const AdminBlog = () => {
           dataSource={posts}
           rowKey="id"
           loading={loading}
+          rowSelection={rowSelection}
+          onChange={handleTableChange}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
             total: pagination.total,
-            showSizeChanger: false,
-            showQuickJumper: false,
+            showSizeChanger: true,
+            showQuickJumper: true,
             showTotal: (total) => `Tổng ${total} bài viết`
           }}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1200 }}
         />
       </Card>
+
+      {/* Modal form để tạo/chỉnh sửa bài viết */}
+      <Modal
+        title={editingPost ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
+        open={isModalVisible}
+        onCancel={() => {
+          setIsModalVisible(false);
+          form.resetFields();
+          setEditingPost(null);
+        }}
+        footer={null}
+        width={800}
+        destroyOnClose
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          preserve={false}
+        >
+          <Form.Item
+            name="title"
+            label="Tiêu đề bài viết"
+            rules={[
+              { required: true, message: 'Vui lòng nhập tiêu đề bài viết' },
+              { min: 5, message: 'Tiêu đề phải có ít nhất 5 ký tự' }
+            ]}
+          >
+            <Input placeholder="Nhập tiêu đề bài viết..." />
+          </Form.Item>
+
+          <Form.Item
+            name="thumbnail_url"
+            label="URL ảnh đại diện"
+            rules={[
+              { type: 'url', message: 'Vui lòng nhập URL hợp lệ' }
+            ]}
+          >
+            <Input placeholder="https://example.com/image.jpg" />
+          </Form.Item>
+
+          <Form.Item
+            name="content"
+            label="Nội dung bài viết"
+            rules={[
+              { required: true, message: 'Vui lòng nhập nội dung bài viết' },
+              { min: 10, message: 'Nội dung phải có ít nhất 10 ký tự' }
+            ]}
+          >
+            <TextArea 
+              rows={8} 
+              placeholder="Nhập nội dung bài viết..."
+              showCount
+              maxLength={5000}
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => {
+                setIsModalVisible(false);
+                form.resetFields();
+                setEditingPost(null);
+              }}>
+                Hủy
+              </Button>
+              <Button type="primary" htmlType="submit">
+                {editingPost ? 'Cập nhật' : 'Tạo mới'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
