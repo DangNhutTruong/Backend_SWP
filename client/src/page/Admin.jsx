@@ -660,11 +660,9 @@ export default function Admin() {
     <div className="admin-dashboard">
       <div className="admin-header">
         <Title level={2}>Bảng điều khiển</Title>
-        <Paragraph>
-          Tổng quan về dữ liệu và hoạt động của hệ thống NoSmoke.
-        </Paragraph>
+
         {/* Debug button - remove in production */}
-        <Button 
+        {/* <Button 
           type="dashed" 
           onClick={() => {
             console.log('Current metrics state:', metrics);
@@ -674,7 +672,7 @@ export default function Admin() {
           style={{ marginBottom: 16 }}
         >
           🔍 Debug Metrics (Blog: {metrics.blogPostsCount || 0})
-        </Button>
+        </Button> */}
       </div>
 
       {/* Key Metrics Section */}
