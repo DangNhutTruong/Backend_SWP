@@ -1,4 +1,4 @@
-import api from '../utils/api';
+import API_CONFIG from '../config/apiConfig';
 
 /**
  * News Service - Handles real news articles from external sources
@@ -14,13 +14,23 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
+            console.log('🔍 Fetching smoking news from API...');
             // Gọi API backend để lấy tin tức từ RSS feeds
-            const response = await api.fetch(`/api/news/smoking?limit=${limit}`, {
-                method: 'GET'
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/smoking?limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully fetched smoking news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error fetching news:', error);
+            console.error('❌ Error fetching smoking news from API:', error);
+            console.log('🔄 Falling back to mock data...');
             // Fallback to mock data if API fails
             return this.getMockNews();
         }
@@ -36,12 +46,21 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
-            const response = await api.fetch(`/api/news/health?limit=${limit}`, {
-                method: 'GET'
+            console.log('🔍 Fetching health news from API...');
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/health?limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully fetched health news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error fetching health news:', error);
+            console.error('❌ Error fetching health news from API:', error);
             return this.getMockNews();
         }
     }
@@ -57,60 +76,94 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
-            const response = await api.fetch(`/api/news/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
-                method: 'GET'
+            console.log('🔍 Searching news with keyword:', keyword);
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully searched news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error searching news:', error);
+            console.error('❌ Error searching news from API:', error);
             return this.getMockNews();
         }
     }
 
     /**
-     * Get combined news from multiple sources
+     * Get combined news from multiple sources with smoking news prioritized
      * @returns {Promise<Object>} Combined news articles
      */
     async getCombinedNews() {
         try {
-            // Lấy tin tức từ nhiều nguồn
-            const [smokingNews, healthNews] = await Promise.all([
-                this.getSmokingNews({ limit: 5 }),
-                this.getHealthNews({ limit: 5 })
-            ]);
+            console.log('📰 getCombinedNews: Starting to fetch news...');
+            console.log('📰 API Base URL:', API_CONFIG.baseUrl);
+            
+            // CHỈ lấy tin tức về thuốc lá
+            const smokingNews = await this.getSmokingNews({ limit: 10 }); // Lấy nhiều tin để có nhiều lựa chọn
+            
+            console.log('📰 smokingNews response:', smokingNews);
+            
+            // Nếu không có tin tức về thuốc lá, sử dụng mock data
+            if (!smokingNews.success || !smokingNews.data || smokingNews.data.length === 0) {
+                console.log('⚠️ No real news data available, using mock data');
+                return this.getMockNews();
+            }
 
-            const combinedArticles = [
-                ...(smokingNews.data || []),
-                ...(healthNews.data || [])
-            ];
-
-            // Loại bỏ trùng lặp dựa trên id
-            const uniqueArticles = combinedArticles.filter((article, index, self) => 
-                index === self.findIndex((a) => a.id === article.id)
-            );
+            console.log('✅ Found real news data:', smokingNews.data.length, 'articles');
 
             // Sắp xếp theo ngày mới nhất
-            uniqueArticles.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+            const sortedArticles = smokingNews.data
+                .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+            // Kiểm tra thêm một lần nữa xem bài viết có liên quan đến thuốc lá không
+            const smokingKeywords = [
+                'thuốc lá', 'hút thuốc', 'cai thuốc', 'nicotine',
+                'khói thuốc', 'phổi', 'ung thư phổi', 'sức khỏe hô hấp',
+                'cai nghiện', 'bỏ thuốc', 'thuốc lá điện tử', 'vape'
+            ];
+
+            const strictlySmokingRelated = sortedArticles.filter(article => {
+                const title = (article.title || '').toLowerCase();
+                const description = (article.description || '').toLowerCase();
+                
+                return smokingKeywords.some(keyword => 
+                    title.includes(keyword) || description.includes(keyword)
+                );
+            });
+            
+            console.log('🔍 Filtered articles (smoking-related only):', strictlySmokingRelated.length);
+            
+            // Giới hạn số lượng bài viết là 6
+            const finalArticles = strictlySmokingRelated.slice(0, 6);
+
+            console.log('📰 Final articles to return:', finalArticles.length);
 
             return {
                 success: true,
-                data: uniqueArticles.slice(0, 6), // Lấy 6 bài mới nhất không trùng
-                total: uniqueArticles.length
+                data: finalArticles,
+                total: finalArticles.length
             };
         } catch (error) {
-            console.error('Error fetching combined news:', error);
+            console.error('❌ Error in getCombinedNews:', error);
+            console.log('🔄 Falling back to mock data due to error');
             return this.getMockNews();
         }
     }
 
     /**
-     * Fallback mock news data when API is unavailable
+     * Fallback mock news data when API is unavailable - Chỉ bài về thuốc lá
      * @returns {Object} Mock news data
      */
     getMockNews() {
         const mockArticles = [
             {
-                id: 'real-1',
+                id: 'mock-1',
                 title: 'Các nước giảm tác hại thuốc lá thế nào',
                 description: 'Tìm hiểu các chiến lược và chính sách hiệu quả của các quốc gia trên thế giới trong việc giảm thiểu tác hại từ thuốc lá.',
                 url: 'https://vnexpress.net/cac-nuoc-giam-tac-hai-thuoc-la-the-nao-4328671.html',
@@ -121,7 +174,7 @@ class NewsService {
                 },
             },
             {
-                id: 'real-2',
+                id: 'mock-2',
                 title: 'Tọa đàm về giảm thiểu tác hại thuốc lá',
                 description: 'Chuyên gia y tế thảo luận về những phương pháp tiên tiến nhất để giảm thiểu tác hại của thuốc lá đối với sức khỏe.',
                 url: 'https://vnexpress.net/toa-dam-ve-giam-thieu-tac-hai-thuoc-la-4377440.html',
@@ -132,7 +185,7 @@ class NewsService {
                 },
             },
             {
-                id: 'real-3',
+                id: 'mock-3',
                 title: 'Giải pháp giảm tác hại thuốc lá từ góc nhìn toàn cầu',
                 description: 'Phân tích toàn diện về các giải pháp quốc tế trong cuộc chiến chống tác hại của thuốc lá và khói thuốc.',
                 url: 'https://vnexpress.net/giai-phap-giam-tac-hai-thuoc-la-tu-goc-nhin-toan-cau-4551056.html',
@@ -143,7 +196,7 @@ class NewsService {
                 },
             },
             {
-                id: 'real-4',
+                id: 'mock-4',
                 title: 'Nhồi máu cơ tim bởi thói quen hút thuốc \'giảm căng thẳng\'',
                 description: 'Cảnh báo về nguy cơ nhồi máu cơ tim ở những người có thói quen hút thuốc để giảm stress và căng thẳng.',
                 url: 'https://vnexpress.net/nhoi-mau-co-tim-boi-thoi-quen-hut-thuoc-giam-cang-thang-4812409.html',
@@ -154,7 +207,7 @@ class NewsService {
                 },
             },
             {
-                id: 'real-5',
+                id: 'mock-5',
                 title: 'Mẹo bảo vệ phổi cho người đang cai thuốc lá',
                 description: 'Hướng dẫn chi tiết các phương pháp hỗ trợ phục hồi và bảo vệ sức khỏe phổi trong quá trình cai thuốc lá.',
                 url: 'https://vnexpress.net/meo-bao-ve-phoi-cho-nguoi-dang-cai-thuoc-la-4881240.html',
@@ -165,7 +218,7 @@ class NewsService {
                 },
             },
             {
-                id: 'real-6',
+                id: 'mock-6',
                 title: '6 triệu chứng thường gặp khi mới cai thuốc lá',
                 description: 'Những dấu hiệu và triệu chứng phổ biến mà cơ thể thường trải qua trong giai đoạn đầu cai thuốc lá.',
                 url: 'https://vnexpress.net/6-trieu-chung-thuong-gap-khi-moi-cai-thuoc-la-4893382.html',
@@ -175,14 +228,12 @@ class NewsService {
                     name: 'VnExpress'
                 },
             }
-           
         ];
 
         return {
             success: true,
-            data: mockArticles,
-            total: mockArticles.length,
-            message: 'Dữ liệu mẫu (API thực không khả dụng)'
+            data: mockArticles.slice(0, 6), // Đảm bảo tối đa 6 bài
+            total: Math.min(mockArticles.length, 6)
         };
     }
 

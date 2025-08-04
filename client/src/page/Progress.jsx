@@ -8,6 +8,7 @@ import ResetCheckinData from '../components/ResetCheckinData';
 import { FaCalendarCheck, FaLeaf, FaCoins, FaHeart } from 'react-icons/fa';
 import progressService from '../services/progressService';
 import { getUserActivePlan } from '../services/quitPlanService';
+import achievementAwardService from '../services/achievementAwardService';
 import './Progress.css';
 import '../styles/DailyCheckin.css';
 import '../styles/ProgressDashboard.css';
@@ -746,7 +747,44 @@ export default function Progress() {
     localStorage.removeItem('dashboardStats');
     localStorage.setItem('dashboardStats', JSON.stringify(newStats));
     
+    // 🏆 KIỂM TRA VÀ AWARD HUY HIỆU MỚI
+    checkAndAwardNewAchievements(newStats);
+    
     return newStats;
+  };
+
+  // 🏆 Kiểm tra và award huy hiệu mới dựa trên tiến trình
+  const checkAndAwardNewAchievements = async (stats) => {
+    if (!user || !user.id) {
+      console.log('🏆 No user logged in, skipping achievement check');
+      return;
+    }
+
+    try {
+      console.log('🏆 PROGRESS: Checking achievements with stats:', stats);
+      
+      const userProgress = {
+        days: stats.noSmokingDays || 0,
+        money: stats.savedMoney || 0,
+        cigarettes: stats.savedCigarettes || 0
+      };
+
+      const awardResult = await achievementAwardService.checkAndAwardAchievements(userProgress);
+      
+      if (awardResult.success && awardResult.newAchievements.length > 0) {
+        console.log('🎉 PROGRESS: New achievements awarded:', awardResult.newAchievements);
+        
+        // Hiển thị thông báo huy hiệu mới
+        achievementAwardService.showAchievementNotification(awardResult.newAchievements);
+        
+        // Log cho user biết
+        console.log(`🏆 Chúc mừng! Bạn đã nhận được ${awardResult.newAchievements.length} huy hiệu mới!`);
+      } else {
+        console.log('🏆 PROGRESS: No new achievements to award');
+      }
+    } catch (error) {
+      console.error('❌ PROGRESS: Error checking achievements:', error);
+    }
   };
   
   // Debug logging trước khi render (chỉ log một lần khi component mount)
@@ -851,6 +889,24 @@ export default function Progress() {
         <h1 className="page-title">
           {showCompletionDashboard ? 'Chúc mừng! Bạn đã lập kế hoạch cai thuốc' : 'Tiến trình cai thuốc hiện tại'}
         </h1>
+        
+        {/* Test Achievement Button */}
+        <button
+          onClick={() => checkAndAwardNewAchievements(dashboardStats)}
+          style={{
+            backgroundColor: '#9b59b6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            marginTop: '10px',
+            boxShadow: '0 2px 8px rgba(155, 89, 182, 0.3)'
+          }}
+        >
+          🏆 Kiểm tra huy hiệu mới
+        </button>
       </div>
       
       {/* Daily Checkin Section - Luôn hiển thị để người dùng có thể nhập số điếu đã hút */}

@@ -46,6 +46,7 @@ import "../styles/JournalEntry.css";
 import "../styles/ProgressTracker.css";
 import CoachMessaging from "./coach/CoachMessaging.jsx";
 import { getUserActivePlan } from "../services/quitPlanService";
+import achievementAwardService from "../services/achievementAwardService";
 
 // Component Modal chỉnh sửa kế hoạch
 function PlanEditModal({ isOpen, onClose, currentPlan, activePlan, onSave }) {
@@ -366,6 +367,27 @@ export default function ProfilePage() {
   };
   // Đảm bảo giá trị savings được tính sau khi activePlan đã được cập nhật
   const savings = calculateSavings();
+  
+  // Check và award huy hiệu khi savings thay đổi
+  useEffect(() => {
+    const checkAchievementsForProgress = async () => {
+      if (user && user.id && savings.days > 0) {
+        try {
+          console.log('🏆 PROFILE: Checking achievements for progress:', savings);
+          const awardResult = await achievementAwardService.checkAndAwardAchievements(savings);
+          
+          if (awardResult.success && awardResult.newAchievements.length > 0) {
+            console.log('🎉 PROFILE: New achievements awarded:', awardResult.newAchievements);
+            achievementAwardService.showAchievementNotification(awardResult.newAchievements);
+          }
+        } catch (error) {
+          console.error('❌ PROFILE: Error checking achievements:', error);
+        }
+      }
+    };
+
+    checkAchievementsForProgress();
+  }, [savings.days, savings.money, user?.id]); // Trigger khi savings thay đổi
   
   // Debug: Kiểm tra giá trị savings để tính huy hiệu
   console.log('🏆 ACHIEVEMENT DEBUG - savings.days:', savings.days);
@@ -1004,7 +1026,7 @@ export default function ProfilePage() {
             </div>
           </div>
         )}        {activeTab === "achievements" && (
-          <Achievement achievements={userData.achievements} />
+          <Achievement userId={userData?.id} />
         )}
 
         {activeTab === "appointments" && (

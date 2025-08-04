@@ -46,11 +46,28 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
     };
   }, [showOptionsMenu]);
 
+  // State để ngăn chặn việc click liên tục
+  const [isLikeProcessing, setIsLikeProcessing] = useState(false);
+  
   const handleLike = () => {
+    // Nếu đang xử lý, không làm gì
+    if (isLikeProcessing) return;
+    
+    // Đánh dấu là đang xử lý
+    setIsLikeProcessing(true);
+    
+    // Cập nhật trạng thái thích local
     setIsLiked(!isLiked);
+    
+    // Gọi callback từ parent
     if (onLike) {
-      onLike(post.id, !isLiked);
+      onLike(post.id, isLiked);
     }
+    
+    // Sau 500ms, mới cho phép nhấp lại
+    setTimeout(() => {
+      setIsLikeProcessing(false);
+    }, 500);
   };
 
   const formatTime = (timestamp) => {
@@ -183,6 +200,7 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
         <button 
           className={`action-btn like-btn ${isLiked ? 'liked' : ''}`}
           onClick={handleLike}
+          disabled={isLikeProcessing}
         >
           {isLiked ? <FaHeart /> : <FaRegHeart />}
           
@@ -192,7 +210,10 @@ const CommunityPost = ({ post, onLike, onComment, onShare, onDelete }) => {
 
         <button 
           className="action-btn share-btn"
-          onClick={() => onShare && onShare(post)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onShare) onShare(post);
+          }}
         >
           <FaShare />
           <span>Chia sẻ</span>

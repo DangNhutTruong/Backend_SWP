@@ -1,14 +1,193 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FaTrophy, FaShare, FaFacebook, FaTwitter, FaCopy, FaTimes, FaLock, FaClock, FaStar } from "react-icons/fa";
+import { FaTrophy, FaShare, FaFacebook, FaTwitter, FaCopy, FaTimes, FaLock, FaClock, FaStar, FaSpinner, FaCheckCircle } from "react-icons/fa";
+import achievementService from "../services/achievementService";
+import achievementAwardService from "../services/achievementAwardService";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Achievement.css";
 
-const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewAll = true }) => {
+const Achievement = ({ userId, title = "Huy hiệu đã đạt", showViewAll = true }) => {
+  const { user } = useAuth();
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showShareMenu, setShowShareMenu] = useState(null);
   const [shareStatus, setShareStatus] = useState({ show: false, message: '' });
   const [showAllAchievements, setShowAllAchievements] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   
   const shareMenuRef = useRef(null);
+
+  useEffect(() => {
+    loadAchievements();
+  }, [userId]);
+
+  // Hàm lấy icon dựa trên tên huy hiệu
+  const getAchievementIcon = (achievementName) => {
+    // Huy hiệu thời gian
+    if (achievementName.includes('24 giờ')) return '⏰';
+    if (achievementName.includes('3 ngày')) return '🌟';
+    if (achievementName.includes('1 tuần')) return '💎';
+    if (achievementName.includes('1 tháng')) return '👑';
+    if (achievementName.includes('6 tháng')) return '🚀';
+    if (achievementName.includes('1 năm')) return '🎊';
+    
+    // Huy hiệu sức khỏe  
+    if (achievementName.includes('Giảm 25%')) return '💪';
+    if (achievementName.includes('Giảm 50%')) return '🎯';
+    if (achievementName.includes('Giảm 75%')) return '🔥';
+    if (achievementName.includes('Hoàn toàn')) return '🏆';
+    
+    // Huy hiệu tiết kiệm
+    if (achievementName.includes('50,000') || achievementName.includes('50.000')) return '🪙';
+    if (achievementName.includes('500,000') || achievementName.includes('500.000')) return '💳';
+    if (achievementName.includes('1 triệu')) return '💰';
+    if (achievementName.includes('5 triệu')) return '💎';
+    if (achievementName.includes('10 triệu')) return '🏦';
+    if (achievementName.includes('tiết kiệm')) return '💵';
+    
+    return '🏅'; // Default medal icon
+  };
+
+  // Tải huy hiệu từ API và kiểm tra award mới
+  const loadAchievements = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔍 Achievement Component Debug:');
+      console.log('- userId:', userId);
+      console.log('- user:', user);
+
+      // Luôn luôn cố gắng lấy tất cả achievements trước
+      console.log('📍 Đang lấy tất cả huy hiệu từ database...');
+      const allAchievementsResponse = await achievementService.getAllAchievements();
+      console.log('📊 All Achievements Response:', allAchievementsResponse);
+
+      if (allAchievementsResponse.success) {
+        // Nếu user đã đăng nhập, cố gắng lấy thêm thông tin đã đạt được
+        let userAchievements = [];
+        if (user && user.id) {
+          console.log('📍 User đã đăng nhập, cố gắng lấy achievements của user...');
+          
+          // Kiểm tra và award huy hiệu mới trước
+          await checkAndAwardNewAchievements();
+          
+          const userResponse = await achievementService.getMyAchievements();
+          console.log('📊 User Achievements Response:', userResponse);
+          
+          if (userResponse.success) {
+            userAchievements = userResponse.data;
+          }
+        }
+
+        // Merge dữ liệu: tất cả achievements + thông tin đã đạt được (nếu có)
+        const formattedAchievements = allAchievementsResponse.data.map(achievement => {
+          // Tìm achievement tương ứng trong user achievements
+          const userAchievement = userAchievements.find(ua => ua.id === achievement.id);
+          
+          return {
+            id: achievement.id,
+            name: achievement.name,
+            description: achievement.description,
+            icon: getAchievementIcon(achievement.name),
+            category: getCategoryFromName(achievement.name),
+            completed: !!userAchievement?.achieved_at,
+            date: userAchievement?.achieved_at ? new Date(userAchievement.achieved_at) : null,
+            progressText: userAchievement?.achieved_at ? 
+              `Đạt được: ${new Intl.DateTimeFormat('vi-VN').format(new Date(userAchievement.achieved_at))}` : 
+              'Chưa đạt được'
+          };
+        });
+        
+        console.log('✅ Formatted achievements:', formattedAchievements);
+        setAchievements(formattedAchievements);
+      } else {
+        console.error('❌ Không thể lấy achievements từ database');
+        setError("Không thể tải huy hiệu từ database: " + (allAchievementsResponse.message || 'Lỗi không xác định'));
+      }
+    } catch (error) {
+      console.error("❌ Error loading achievements:", error);
+      setError("Có lỗi xảy ra khi tải dữ liệu huy hiệu: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kiểm tra và award huy hiệu mới
+  const checkAndAwardNewAchievements = async () => {
+    try {
+      const userProgress = calculateUserProgress();
+      console.log('🏆 Checking achievements with progress:', userProgress);
+      
+      const awardResult = await achievementAwardService.checkAndAwardAchievements(userProgress);
+      
+      if (awardResult.success && awardResult.newAchievements.length > 0) {
+        console.log('🎉 New achievements awarded:', awardResult.newAchievements);
+        
+        // Hiển thị thông báo huy hiệu mới
+        achievementAwardService.showAchievementNotification(awardResult.newAchievements);
+      }
+    } catch (error) {
+      console.error('❌ Error checking new achievements:', error);
+    }
+  };
+
+  // Tính toán tiến trình của user từ localStorage (giống Profile)
+  const calculateUserProgress = () => {
+    try {
+      // Lấy dữ liệu từ localStorage
+      const dashboardStats = localStorage.getItem('dashboardStats');
+      if (dashboardStats) {
+        const stats = JSON.parse(dashboardStats);
+        return {
+          days: stats.daysWithoutSmoking || 0,
+          money: stats.savedMoney || 0,
+          cigarettes: stats.savedCigarettes || 0
+        };
+      }
+
+      // Fallback: tính từ activePlan
+      const activePlan = localStorage.getItem('activePlan');
+      if (activePlan) {
+        const plan = JSON.parse(activePlan);
+        if (plan.startDate) {
+          const startDate = new Date(plan.startDate);
+          const currentDate = new Date();
+          const timeDiff = currentDate.getTime() - startDate.getTime();
+          const daysDiff = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+          
+          const cigarettesPerDay = plan.initialCigarettes || 20;
+          const savedCigarettes = daysDiff * cigarettesPerDay;
+          const savedMoney = savedCigarettes * 2500; // 2500 VND/điếu
+          
+          return {
+            days: daysDiff,
+            money: savedMoney,
+            cigarettes: savedCigarettes
+          };
+        }
+      }
+
+      return { days: 0, money: 0, cigarettes: 0 };
+    } catch (error) {
+      console.error('❌ Error calculating user progress:', error);
+      return { days: 0, money: 0, cigarettes: 0 };
+    }
+  };
+
+  // Xác định category dựa trên tên huy hiệu
+  const getCategoryFromName = (name) => {
+    if (name.includes('giờ') || name.includes('ngày') || name.includes('tuần') || name.includes('tháng') || name.includes('năm')) {
+      return 'time';
+    }
+    if (name.includes('Giảm') || name.includes('lượng thuốc') || name.includes('phổi')) {
+      return 'health';
+    }
+    if (name.includes('tiết kiệm') || name.includes('chi phí') || name.includes('triệu') || name.includes('đồng')) {
+      return 'money';
+    }
+    return 'health'; // Default
+  };
   
   // Lọc huy hiệu theo category
   const getFilteredAchievements = () => {
@@ -125,14 +304,75 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
     const completedCount = achievements.filter(a => a.completed).length;
     const totalCount = achievements.length;
 
+    // Xác định thông báo phù hợp
+    let statusMessage = '';
+    if (user && user.id && completedCount === 0) {
+      statusMessage = "Bạn chưa đạt được huy hiệu nào. Hãy bắt đầu hành trình cai thuốc!";
+    } else if (!user) {
+      statusMessage = "Đăng nhập để xem tiến trình huy hiệu của bạn!";
+    }
+
     return (
       <div className="achievements-section">
         <div className="achievements-header">
           <h1 style={{ color: "#333", fontWeight: "700" }}>{title}</h1>
           <div className="achievement-stats">
             <span className="completed-count">{completedCount}/{totalCount} hoàn thành</span>
+            {user && user.id && (
+              <button 
+                className="check-achievements-btn"
+                onClick={async () => {
+                  setLoading(true);
+                  await checkAndAwardNewAchievements();
+                  await loadAchievements();
+                  setLoading(false);
+                }}
+                style={{
+                  marginLeft: '15px',
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+                }}
+                disabled={loading}
+              >
+                {loading ? '🔄 Đang kiểm tra...' : '🏆 Kiểm tra huy hiệu mới'}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Hiển thị thông báo status nếu có */}
+        {statusMessage && (
+          <div className="status-message" style={{ 
+            padding: '20px', 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '12px', 
+            margin: '20px 0',
+            color: 'white',
+            textAlign: 'center',
+            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>
+              ✨ {statusMessage}
+            </p>
+          </div>
+        )}
 
         {shareStatus.show && (
           <div className="share-notification">
@@ -192,19 +432,12 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
                 
                 <div className="achievement-progress">
                   <span className="progress-text">{achievement.progressText}</span>
-                  {!achievement.completed && achievement.progress !== undefined && achievement.targetDays && (
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ width: `${(achievement.progress / achievement.targetDays) * 100}%` }}
-                      ></div>
-                    </div>
-                  )}
                 </div>
 
-                {achievement.reward && (
-                  <div className="achievement-reward">
-                    <small>🎁 {achievement.reward}</small>
+                {achievement.completed && achievement.date && (
+                  <div className="achievement-date">
+                    <FaCheckCircle />
+                    <span>Đạt được: {new Intl.DateTimeFormat('vi-VN').format(new Date(achievement.date))}</span>
                   </div>
                 )}
                 
@@ -322,8 +555,22 @@ const Achievement = ({ achievements, title = "Huy hiệu đã đạt", showViewA
 
   return (
     <>
-      <AchievementContent />
-      <AchievementModal />
+      {loading ? (
+        <div className="achievements-loading">
+          <FaSpinner className="spinning" />
+          <p>Đang tải huy hiệu...</p>
+        </div>
+      ) : error ? (
+        <div className="achievements-error">
+          <p>{error}</p>
+          <button onClick={loadAchievements}>Thử lại</button>
+        </div>
+      ) : (
+        <>
+          <AchievementContent />
+          <AchievementModal />
+        </>
+      )}
     </>
   );
 };

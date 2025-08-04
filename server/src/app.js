@@ -87,6 +87,9 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/packages', packagesRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/payments', zaloPayRoutes);
+// Đăng ký routes cho achievement
+import achievementRoutes from './routes/achievementRoutes.js';
+app.use('/api', achievementRoutes);
 // Health routes removed - functionality now in ProgressDashboard component
 
 // Test database connection

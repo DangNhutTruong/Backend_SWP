@@ -51,23 +51,20 @@ export default function Blog() {
     }
   };
 
-  // Load tin tức thực tế từ RSS feeds
+    // Load tin tức về thuốc lá từ API
   const loadNewsArticles = async () => {
     try {
       setLoadingNews(true);
       setNewsError(null);
-      console.log('🔄 Đang tải tin tức thực tế...');
+      console.log('🔄 Đang tải tin tức về cai thuốc lá...');
       
-      const response = await newsService.getCombinedNews();
+      // Chỉ tải tin tức liên quan đến thuốc lá
+      const response = await newsService.getCombinedNews(); // Đã được sửa để chỉ lấy tin về thuốc lá
+      
       if (response.success) {
         const articles = response.data || [];
-        console.log('✅ Đã tải được', articles.length, 'bài tin tức');
+        console.log('✅ Đã tải được', articles.length, 'bài tin tức về thuốc lá');
         setNewsArticles(articles);
-        
-        // Hiển thị thông báo về nguồn dữ liệu
-        if (response.message) {
-          showToast(response.message, 'info', 2000);
-        }
       } else {
         throw new Error(response.message || 'Không thể tải tin tức');
       }
@@ -79,7 +76,6 @@ export default function Blog() {
       try {
         const fallbackResponse = await newsService.getMockNews();
         setNewsArticles(fallbackResponse.data || []);
-        showToast('Sử dụng dữ liệu mẫu do không thể kết nối RSS feeds', 'warning', 3000);
       } catch (fallbackError) {
         console.error('❌ Lỗi khi tải dữ liệu mẫu:', fallbackError);
         showToast('Không thể tải tin tức', 'error');
@@ -88,7 +84,7 @@ export default function Blog() {
       setLoadingNews(false);
     }
   };
-
+  
   useEffect(() => {
     loadPosts();
     loadNewsArticles(); // Tải tin tức thực tế
@@ -173,20 +169,38 @@ export default function Blog() {
     }
   };
 
+  // Hàm giải mã HTML entities
+  const decodeHtmlEntities = (text) => {
+    if (!text) return '';
+    
+    // Tạo một phần tử tạm để giải mã HTML entities
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    return doc.body.textContent || '';
+  };
+  
   // Component bài viết thông thường (hiển thị cả description)
   const BlogPostCard = ({ post }) => {
     // Xử lý format khác nhau từ API và hard code
     const imageUrl = post.urlToImage || post.image || '/image/articles/default.jpg';
-    const postTitle = post.title;
-    const postDescription = post.description || post.excerpt || '';
+    const postTitle = decodeHtmlEntities(post.title);
+    const postDescription = decodeHtmlEntities(post.description || post.excerpt || '');
     const postUrl = post.url;
     const sourceName = post.source?.name || '';
 
-    // Xử lý click vào card
+    // State để ngăn chặn click liên tục
+    const [isClicking, setIsClicking] = useState(false);
+    
+    // Xử lý click vào card với debouncing
     const handleCardClick = () => {
-      if (postUrl.startsWith('http')) {
-        window.open(postUrl, '_blank', 'noopener,noreferrer');
-      }
+      if (isClicking || !postUrl.startsWith('http')) return;
+      
+      setIsClicking(true);
+      window.open(postUrl, '_blank', 'noopener,noreferrer');
+      
+      // Reset trạng thái click sau 500ms
+      setTimeout(() => {
+        setIsClicking(false);
+      }, 500);
     };
 
     return (
@@ -229,7 +243,10 @@ export default function Blog() {
         {/* Bài viết mới nhất */}
         <div className="latest-posts-section">
           <div className="section-header-with-actions">
-            <h2 className="section-title" style={{ marginTop: '20px' }}>Tin tức mới nhất về cai thuốc lá</h2>
+            <h2 className="section-title" style={{ marginTop: '20px' }}>
+              <span className="highlight-text">Tin tức về cai thuốc lá</span>
+              
+            </h2>
             <button 
               onClick={loadNewsArticles} 
               className="refresh-news-btn"
@@ -272,28 +289,29 @@ export default function Blog() {
           {!loadingNews && !newsError && newsArticles.length === 0 && (
             <div className="empty-news-container">
               <FaInfoCircle />
-              <p>Hiện tại chưa có tin tức mới. Hãy thử lại sau.</p>
+              <p>Hiện tại chưa có tin tức về cai thuốc lá. Hãy thử lại sau.</p>
               <button onClick={loadNewsArticles} className="retry-btn">
                 Tải lại
               </button>
             </div>
           )}
 
-          {/* Phân trang (tạm ẩn do sử dụng API) */}
-          {/*
-          <div className="pagination">
-            <button className="pagination-btn active">1</button>
-            <button className="pagination-btn">2</button>
-            <button className="pagination-btn">3</button>
-            <span>...</span>
-            <button className="pagination-btn">10</button>
-            <button className="pagination-btn next">Tiếp theo</button>
-          </div>
-          */}
+        
         </div>        {/* Phần cộng đồng */}
         <div className="community-section">
           <h2 className="section-title">Chia sẻ từ cộng đồng</h2>
-          <div className="community-box">            {/* Component tạo bài viết */}
+          <div className="community-box">
+            {/* Community Guidelines */}
+            {user && (
+              <div className="community-guidelines">
+                <div className="guidelines-title">🌟 Hướng dẫn đăng bài</div>
+                <p className="guidelines-text">
+                  Chia sẻ câu chuyện cai thuốc, kinh nghiệm và động lực của bạn để truyền cảm hứng cho cộng đồng!
+                </p>
+              </div>
+            )}
+
+            {/* Component tạo bài viết */}
             {user ? (
               <CommunityPostCreator 
                 achievements={[]}
@@ -301,8 +319,9 @@ export default function Blog() {
               />
             ) : (
               <div className="login-to-post">
-                <p>Vui lòng đăng nhập để chia sẻ hành trình của bạn</p>
-                <Link to="/login" className="login-btn">Đăng nhập</Link>
+                <div className="empty-state-icon">🤝</div>
+                <p>✨ Tham gia cộng đồng để chia sẻ hành trình cai thuốc lá của bạn</p>
+                <Link to="/login" className="login-btn">Đăng nhập ngay</Link>
               </div>
             )}
 
@@ -311,14 +330,14 @@ export default function Blog() {
               {loading ? (
                 <div className="loading-state">
                   <div className="loading-spinner"></div>
-                  <p>Đang tải bài viết...</p>
+                  <p>🔄 Đang tải bài viết từ cộng đồng...</p>
                 </div>
               ) : error ? (
                 <div className="error-state">
                   <FaExclamationTriangle />
                   <h3>Có lỗi xảy ra</h3>
                   <p>{error}</p>
-                  <button onClick={loadPosts} className="retry-btn">Thử lại</button>
+                  <button onClick={loadPosts} className="retry-btn">🔄 Thử lại</button>
                 </div>
               ) : communityPosts.length > 0 ? (
                 communityPosts.map(post => (
@@ -334,19 +353,22 @@ export default function Blog() {
                   />
                 ))
               ) : (
-                <EmptyState 
-                  title="Chưa có bài viết nào trong cộng đồng"
-                  description="Hãy là người đầu tiên chia sẻ câu chuyện cai thuốc lá của bạn!"
-                  actionText="Tạo bài viết đầu tiên"
-                  onAction={() => document.querySelector('.post-input')?.focus()}
-                />
+                <div className="empty-state-enhanced">
+                  <span className="empty-state-icon">🌱</span>
+                  <EmptyState 
+                    title="🌟 Chưa có bài viết nào trong cộng đồng"
+                    description="Hãy là người đầu tiên chia sẻ câu chuyện cai thuốc lá đầy cảm hứng của bạn!"
+                    actionText="💝 Tạo bài viết đầu tiên"
+                    onAction={() => document.querySelector('.post-input')?.focus()}
+                  />
+                </div>
               )}
             </div>
 
             {communityPosts.length > 5 && (
               <div className="view-more">
                 <button className="view-more-btn">
-                  Xem thêm bài viết cộng đồng
+                  📚 Xem thêm câu chuyện cảm hứng
                 </button>
               </div>
             )}
@@ -389,9 +411,16 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
     }
   };
 
-  const handleClose = () => {
+  const handleClose = (e) => {
+    e.stopPropagation(); // Ngăn chặn sự kiện lan tỏa
     setIsVisible(false);
     setTimeout(() => onClose && onClose(), 300);
+  };
+
+  // Cắt ngắn thông báo quá dài và thêm dấu "..."
+  const truncateMessage = (msg) => {
+    // Thông báo vẫn hiển thị đầy đủ, CSS sẽ xử lý việc xuống dòng
+    return msg;
   };
 
   return (
@@ -400,9 +429,9 @@ const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
         {getIcon()}
       </div>
       <div className="toast-content">
-        <p className="toast-message">{message}</p>
+        <p className="toast-message">{truncateMessage(message)}</p>
       </div>
-      <button className="toast-close" onClick={handleClose}>
+      <button className="toast-close" onClick={handleClose} title="Đóng">
         <FaTimes />
       </button>
     </div>
