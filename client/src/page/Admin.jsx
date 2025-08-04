@@ -42,6 +42,22 @@ export default function Admin() {
     achievementInstances: 0
   });
 
+  // Blog Management State
+  const [blogModalVisible, setBlogModalVisible] = useState(false);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogStats, setBlogStats] = useState({
+    totalPosts: 0,
+    publishedPosts: 0,
+    draftPosts: 0
+  });
+  const [blogAnalytics, setBlogAnalytics] = useState({
+    postsByStatus: {},
+    topPosts: [],
+    categoryStats: [],
+    recentActivity: []
+  });
+
   // Coach Management State
   const [coaches, setCoaches] = useState([]);
   const [coachStats, setCoachStats] = useState({
@@ -81,6 +97,8 @@ export default function Admin() {
       
       if (response.success && response.data) {
         console.log('Received metrics data:', response.data);
+        console.log('Blog posts count:', response.data.blogPostsCount);
+        console.log('Community posts:', response.data.communityPosts);
         setMetrics(response.data);
       } else {
         console.error('Invalid response format from API:', response);
@@ -503,6 +521,59 @@ export default function Admin() {
   const handleAchievementsModalClose = () => {
     setAchievementsModalVisible(false);
   };
+
+  // Blog Management Functions
+  const handleBlogClick = async () => {
+    setBlogModalVisible(true);
+    setBlogLoading(true);
+    
+    try {
+      console.log('Fetching blog posts and analytics...');
+      
+      // Fetch blog posts with error handling
+      try {
+        const postsResponse = await api.fetch('/api/admin/blog/posts?page=1&limit=10');
+        if (postsResponse.success && postsResponse.data) {
+          setBlogPosts(postsResponse.data.posts || []);
+          setBlogStats({
+            totalPosts: postsResponse.data.statistics?.totalPosts || 0,
+            publishedPosts: postsResponse.data.statistics?.publishedPosts || 0,
+            draftPosts: postsResponse.data.statistics?.draftPosts || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching blog posts:', error);
+        setBlogPosts([]);
+        setBlogStats({ totalPosts: 0, publishedPosts: 0, draftPosts: 0 });
+      }
+      
+      // Fetch blog analytics with error handling
+      try {
+        const analyticsResponse = await api.fetch('/api/admin/blog/analytics');
+        if (analyticsResponse.success && analyticsResponse.data) {
+          setBlogAnalytics(analyticsResponse.data);
+        }
+      } catch (error) {
+        console.error('Error fetching blog analytics:', error);
+        setBlogAnalytics({
+          postsByStatus: {},
+          topPosts: [],
+          categoryStats: [],
+          recentActivity: []
+        });
+      }
+      
+    } catch (error) {
+      console.error('General error fetching blog data:', error);
+      alert('Không thể tải dữ liệu blog. Vui lòng thử lại sau.');
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
+  const handleBlogModalClose = () => {
+    setBlogModalVisible(false);
+  };
   
   // Coach Table Columns
   const coachColumns = [
@@ -592,6 +663,18 @@ export default function Admin() {
         <Paragraph>
           Tổng quan về dữ liệu và hoạt động của hệ thống NoSmoke.
         </Paragraph>
+        {/* Debug button - remove in production */}
+        <Button 
+          type="dashed" 
+          onClick={() => {
+            console.log('Current metrics state:', metrics);
+            console.log('Blog posts count from state:', metrics.blogPostsCount);
+            fetchMetrics(); // Re-fetch metrics
+          }}
+          style={{ marginBottom: 16 }}
+        >
+          🔍 Debug Metrics (Blog: {metrics.blogPostsCount || 0})
+        </Button>
       </div>
 
       {/* Key Metrics Section */}
@@ -662,13 +745,18 @@ export default function Admin() {
         </Col>
 
         <Col xs={24} sm={12} md={8} lg={6} xl={4}>
-          <Card className="metric-card">
+          <Card 
+            className="metric-card clickable-card" 
+            onClick={handleBlogClick}
+            style={{ cursor: 'pointer' }}
+            hoverable
+          >
             <Statistic
               title="📝 Bài viết & Thảo luận"
               value={metrics.blogPostsCount + metrics.communityPosts}
               valueStyle={{ color: '#13c2c2' }}
             />
-            <Text type="secondary">Blog ({metrics.blogPostsCount}) & Cộng đồng ({metrics.communityPosts})</Text>
+            <Text type="secondary">Blog ({metrics.blogPostsCount}) & Cộng đồng ({metrics.communityPosts}) • Click để xem chi tiết</Text>
           </Card>
         </Col>
       </Row>
@@ -1488,6 +1576,179 @@ export default function Admin() {
             scroll={{ x: 800 }}
             size="small"
           />
+        </div>
+      </Modal>
+
+      {/* Blog Management Modal */}
+      <Modal
+        title={
+          <Space>
+            <FileAddOutlined style={{ color: '#13c2c2' }} />
+            Quản lý bài viết & Blog
+          </Space>
+        }
+        visible={blogModalVisible}
+        onCancel={handleBlogModalClose}
+        footer={null}
+        width={1200}
+        className="blog-modal"
+      >
+        <div className="blog-content">
+          {/* Blog Statistics */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Tổng số bài viết"
+                  value={blogStats.totalPosts || 0}
+                  valueStyle={{ color: '#13c2c2' }}
+                  prefix={<FileAddOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Đã xuất bản"
+                  value={blogStats.publishedPosts || 0}
+                  valueStyle={{ color: '#52c41a' }}
+                  prefix={<CheckCircleOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Bản nháp"
+                  value={blogStats.draftPosts || 0}
+                  valueStyle={{ color: '#faad14' }}
+                  prefix={<ClockCircleOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Bài viết phổ biến"
+                  value={blogAnalytics.topPosts?.length || 0}
+                  valueStyle={{ color: '#eb2f96' }}
+                  prefix={<HeartOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Blog Posts Table */}
+          <Table
+            loading={blogLoading}
+            dataSource={blogPosts}
+            rowKey="id"
+            pagination={{
+              pageSize: 8,
+              showSizeChanger: false,
+              showQuickJumper: true,
+            }}
+            columns={[
+              {
+                title: 'Tiêu đề',
+                dataIndex: 'title',
+                key: 'title',
+                width: 300,
+                render: (text) => <strong style={{ color: '#13c2c2' }}>{text}</strong>,
+                ellipsis: true,
+              },
+              {
+                title: 'Tác giả',
+                dataIndex: 'author_name',
+                key: 'author_name',
+                width: 120,
+                render: (text) => text || 'Admin',
+              },
+              {
+                title: 'Trạng thái',
+                dataIndex: 'status',
+                key: 'status',
+                width: 100,
+                render: (status) => (
+                  <Tag color={
+                    status === 'published' ? 'success' : 
+                    status === 'draft' ? 'warning' : 'default'
+                  }>
+                    {status === 'published' ? 'Đã xuất bản' : 
+                     status === 'draft' ? 'Bản nháp' : 'Khác'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'Danh mục',
+                dataIndex: 'category',
+                key: 'category',
+                width: 120,
+                render: (category) => category || 'Chưa phân loại',
+              },
+              {
+                title: 'Lượt xem',
+                dataIndex: 'views',
+                key: 'views',
+                width: 80,
+                render: (views) => views || 0,
+                sorter: (a, b) => (a.views || 0) - (b.views || 0),
+              },
+              {
+                title: 'Ngày tạo',
+                dataIndex: 'created_at',
+                key: 'created_at',
+                width: 120,
+                render: (date) => moment(date).format('DD/MM/YYYY'),
+                sorter: (a, b) => moment(a.created_at).unix() - moment(b.created_at).unix(),
+              },
+              {
+                title: 'Thao tác',
+                key: 'action',
+                width: 120,
+                render: (_, record) => (
+                  <Space size="small">
+                    <Button 
+                      type="primary" 
+                      size="small"
+                      onClick={() => window.open(`/admin/blog`, '_blank')}
+                    >
+                      Sửa
+                    </Button>
+                    <Button 
+                      type="default" 
+                      size="small"
+                      onClick={() => window.open(`/admin/blog`, '_blank')}
+                    >
+                      Xem
+                    </Button>
+                  </Space>
+                ),
+              },
+            ]}
+            scroll={{ x: 1000 }}
+            size="small"
+          />
+
+          {/* Quick Actions */}
+          <div style={{ marginTop: 16, textAlign: 'center' }}>
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<FileAddOutlined />}
+                onClick={() => window.open('/admin/blog', '_blank')}
+              >
+                Quản lý đầy đủ
+              </Button>
+              <Button 
+                type="default" 
+                icon={<LineChartOutlined />}
+                onClick={() => console.log('Show detailed analytics')}
+              >
+                Xem thống kê chi tiết
+              </Button>
+            </Space>
+          </div>
         </div>
       </Modal>
 

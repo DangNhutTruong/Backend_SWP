@@ -53,6 +53,9 @@ import {
     bulkDeletePosts
 } from '../controllers/blogController.js';
 
+// Import blog analytics from adminController
+import { getBlogAnalytics } from '../controllers/adminController.js';
+
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -60,6 +63,36 @@ const router = express.Router();
 // Public endpoints for testing
 router.get('/achievements', getAchievements);
 router.get('/metrics', getMetrics);
+
+// Debug endpoint for blog count
+router.get('/debug/blog-count', async (req, res) => {
+  try {
+    const [result] = await pool.execute('SELECT COUNT(*) as count FROM blog_post');
+    res.json({
+      success: true,
+      totalBlogPosts: result[0].count,
+      message: 'Direct blog count from database'
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Blog test endpoint (no auth for testing)
+router.get('/blog/test-simple', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Blog routes working',
+    data: {
+      totalPosts: 5,
+      publishedPosts: 3,
+      draftPosts: 2
+    }
+  });
+});
 
 // Protect all other routes with authentication and admin role check
 router.use(requireAuth, requireAdmin);
@@ -128,6 +161,28 @@ router.post('/notifications/send-expiry-alerts', sendExpiryNotifications);
 router.post('/reports/:reportType/generate', generateReport);
 
 // ============= BLOG MANAGEMENT ROUTES =============
+// Test blog route (no auth required for testing)
+router.get('/blog/test', async (req, res) => {
+  try {
+    // Test if blog_post table exists and has data
+    const [result] = await pool.execute('SELECT COUNT(*) as count FROM blog_post');
+    res.json({
+      success: true,
+      message: 'Blog table accessible',
+      count: result[0].count
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      message: 'Blog table error',
+      error: error.message
+    });
+  }
+});
+
+// Get blog analytics
+router.get('/blog/analytics', getBlogAnalytics);
+
 // Get all blog posts with pagination and search
 router.get('/blog/posts', getBlogPosts);
 

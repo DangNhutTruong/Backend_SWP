@@ -1407,15 +1407,16 @@ export const getMetrics = async (req, res) => {
     );
     const membershipCount = membershipResult[0].count;
 
-    // 5. Blog posts count (check if table exists first)
+    // 5. Blog posts count (check if table exists first) - Count all posts
     let blogPostsCount = 0;
     try {
       const [blogResult] = await pool.execute(
-        'SELECT COUNT(*) as count FROM blog_posts WHERE status = "published"'
+        'SELECT COUNT(*) as count FROM blog_post'
       );
       blogPostsCount = blogResult[0]?.count || 0;
     } catch (error) {
       // Table doesn't exist, use 0
+      console.log('Blog table error in metrics:', error.message);
       blogPostsCount = 0;
     }
 
@@ -2515,6 +2516,32 @@ export const bulkUpdatePosts = async (req, res) => {
 // Get blog analytics
 export const getBlogAnalytics = async (req, res) => {
   try {
+    // Check if blog_post table exists first
+    const [tableExists] = await pool.execute(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE() 
+      AND table_name = 'blog_post'
+    `);
+
+    if (tableExists[0].count === 0) {
+      // Table doesn't exist, return empty data
+      return res.json({
+        success: true,
+        data: {
+          postsByStatus: {},
+          topPosts: [],
+          categoryStats: [],
+          recentActivity: [],
+          summary: {
+            totalPosts: 0,
+            publishedPosts: 0,
+            draftPosts: 0
+          }
+        }
+      });
+    }
+
     // Total posts by status
     const [postStats] = await pool.execute(`
       SELECT 
@@ -2524,24 +2551,49 @@ export const getBlogAnalytics = async (req, res) => {
       GROUP BY status
     `);
 
-    // Top viewed posts
-    const [topPosts] = await pool.execute(`
-      SELECT id, title, views, likes, created_at
-      FROM blog_post
-      WHERE status = 'published'
-      ORDER BY views DESC
-      LIMIT 5
-    `);
+    // Top viewed posts (with fallback for missing columns)
+    let topPosts = [];
+    try {
+      const [topPostsResult] = await pool.execute(`
+        SELECT id, title, 
+               COALESCE(views, 0) as views, 
+               COALESCE(likes, 0) as likes, 
+               created_at
+        FROM blog_post
+        WHERE status = 'published'
+        ORDER BY views DESC
+        LIMIT 5
+      `);
+      topPosts = topPostsResult;
+    } catch (error) {
+      console.log('Views/likes columns might not exist, using basic query');
+      const [basicTopPosts] = await pool.execute(`
+        SELECT id, title, created_at,
+               0 as views, 0 as likes
+        FROM blog_post
+        WHERE status = 'published'
+        ORDER BY created_at DESC
+        LIMIT 5
+      `);
+      topPosts = basicTopPosts;
+    }
 
-    // Posts by category
-    const [categoryStats] = await pool.execute(`
-      SELECT 
-        category,
-        COUNT(*) as count
-      FROM blog_post
-      WHERE status = 'published'
-      GROUP BY category
-    `);
+    // Posts by category (with fallback)
+    let categoryStats = [];
+    try {
+      const [categoryStatsResult] = await pool.execute(`
+        SELECT 
+          COALESCE(category, 'Chưa phân loại') as category,
+          COUNT(*) as count
+        FROM blog_post
+        WHERE status = 'published'
+        GROUP BY category
+      `);
+      categoryStats = categoryStatsResult;
+    } catch (error) {
+      console.log('Category column might not exist');
+      categoryStats = [];
+    }
 
     // Recent activity (posts created in last 7 days)
     const [recentActivity] = await pool.execute(`
@@ -2555,7 +2607,7 @@ export const getBlogAnalytics = async (req, res) => {
     `);
 
     const analytics = {
-      postStats: postStats.reduce((acc, row) => {
+      postsByStatus: postStats.reduce((acc, row) => {
         acc[row.status] = row.count;
         return acc;
       }, {}),
