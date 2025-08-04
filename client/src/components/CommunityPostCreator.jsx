@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { FaImage, FaCamera, FaTimes, FaHeart, FaComment, FaShare, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { FaImage, FaTimes, FaTrash, FaTrophy } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import achievementService from '../services/achievementService';
 import '../styles/CommunityPostCreator.css';
 
 /**
@@ -75,12 +76,92 @@ export const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, title = "Xóa b
 /**
  * Component tạo bài viết cộng đồng với hình ảnh
  */
-const CommunityPostCreator = ({ onPostCreated }) => {
+const CommunityPostCreator = React.memo(({ onPostCreated }) => {
   const { user } = useAuth();
   const [postText, setPostText] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedAchievements, setSelectedAchievements] = useState([]);
+  const [userAchievements, setUserAchievements] = useState([]);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [loadingAchievements, setLoadingAchievements] = useState(false);
+  const achievementsLoadedRef = useRef(false);
   const fileInputRef = useRef(null);
+
+  // Load huy hiệu của user khi component mount
+  const loadUserAchievements = useCallback(async () => {
+    if (!user?.id || achievementsLoadedRef.current || loadingAchievements) {
+      return;
+    }
+    
+    try {
+      setLoadingAchievements(true);
+      achievementsLoadedRef.current = true; // Set flag ngay lập tức để prevent duplicate calls
+      
+      const response = await achievementService.getMyAchievements();
+      if (response.success && response.data) {
+        // Chỉ lấy những huy hiệu đã đạt được và remove duplicates
+        const completedAchievements = response.data.filter(achievement => achievement.achieved_at);
+        // Remove duplicates based on ID
+        const uniqueAchievements = completedAchievements.filter((achievement, index, self) => 
+          index === self.findIndex(a => a.id === achievement.id)
+        );
+        setUserAchievements(uniqueAchievements);
+      }
+    } catch (error) {
+      console.error('Error loading user achievements:', error);
+      setUserAchievements([]);
+      achievementsLoadedRef.current = false; // Reset flag on error
+    } finally {
+      setLoadingAchievements(false);
+    }
+  }, [user?.id, loadingAchievements]);
+
+  useEffect(() => {
+    loadUserAchievements();
+  }, [loadUserAchievements]);
+
+  // Hàm lấy icon cho huy hiệu
+  const getAchievementIcon = (achievementName) => {
+    if (achievementName.includes('24 giờ')) return '⏰';
+    if (achievementName.includes('3 ngày')) return '🌟';
+    if (achievementName.includes('1 tuần')) return '💎';
+    if (achievementName.includes('1 tháng')) return '👑';
+    if (achievementName.includes('6 tháng')) return '🚀';
+    if (achievementName.includes('1 năm')) return '🎊';
+    if (achievementName.includes('Giảm 25%')) return '💪';
+    if (achievementName.includes('Giảm 50%')) return '🎯';
+    if (achievementName.includes('Giảm 75%')) return '🔥';
+    if (achievementName.includes('Hoàn toàn')) return '🏆';
+    if (achievementName.includes('50,000') || achievementName.includes('50.000')) return '🪙';
+    if (achievementName.includes('500,000') || achievementName.includes('500.000')) return '💳';
+    if (achievementName.includes('1 triệu')) return '💰';
+    if (achievementName.includes('5 triệu')) return '💎';
+    if (achievementName.includes('10 triệu')) return '🏦';
+    if (achievementName.includes('tiết kiệm')) return '💵';
+    return '🏅';
+  };
+
+  // Xử lý chọn/bỏ chọn huy hiệu
+  const toggleAchievement = (achievement) => {
+    setSelectedAchievements(prev => {
+      const isSelected = prev.find(a => a.id === achievement.id);
+      if (isSelected) {
+        return prev.filter(a => a.id !== achievement.id);
+      } else {
+        // Đảm bảo không có duplicates khi thêm
+        const newSelection = [...prev, achievement];
+        return newSelection.filter((item, index, self) => 
+          index === self.findIndex(a => a.id === item.id)
+        );
+      }
+    });
+  };
+
+  // Xóa huy hiệu đã chọn
+  const removeAchievement = (achievementId) => {
+    setSelectedAchievements(prev => prev.filter(a => a.id !== achievementId));
+  };
 
   // Cảnh báo khi rời trang nếu đang soạn bài
   React.useEffect(() => {
@@ -186,12 +267,17 @@ const CommunityPostCreator = ({ onPostCreated }) => {
     const postData = {
       title: title,
       content: trimmedContent,
-      thumbnail_url: selectedImages.length > 0 ? selectedImages[0].url : null
+      thumbnail_url: selectedImages.length > 0 ? selectedImages[0].url : null,
+      achievements: selectedAchievements.map(achievement => ({
+        id: achievement.id,
+        name: achievement.name,
+        icon: getAchievementIcon(achievement.name),
+        achieved_at: achievement.achieved_at
+      }))
     };
 
     // Kiểm tra kích thước tổng của dữ liệu
     const dataSize = JSON.stringify(postData).length;
-    console.log('📊 Post data size:', dataSize, 'bytes');
     
     if (dataSize > 500 * 1024) { // 500KB
       alert('Dữ liệu bài viết quá lớn! Vui lòng giảm kích thước hình ảnh hoặc nội dung.');
@@ -201,13 +287,13 @@ const CommunityPostCreator = ({ onPostCreated }) => {
     // Callback để thông báo bài viết mới được tạo (Blog.jsx sẽ xử lý API call)
     if (typeof onPostCreated === 'function') {
       onPostCreated(postData);
-    } else {
-      console.error('onPostCreated is not a function:', onPostCreated);
     }
 
     // Reset form
     setPostText('');
     setSelectedImages([]);
+    setSelectedAchievements([]);
+    setShowAchievements(false);
     setIsExpanded(false);
   };
 
@@ -246,6 +332,56 @@ const CommunityPostCreator = ({ onPostCreated }) => {
 
       {isExpanded && (
         <div className="post-creator-expanded">
+          {/* Hiển thị huy hiệu đã chọn */}
+          {selectedAchievements.length > 0 && (
+            <div className="selected-achievements">
+              <h4>🏆 Huy hiệu được khoe:</h4>
+              <div className="achievement-tags">
+                {selectedAchievements.map((achievement, index) => (
+                  <div key={`selected-${achievement.id}-${index}`} className="achievement-tag">
+                    <span className="achievement-icon">{getAchievementIcon(achievement.name)}</span>
+                    <span className="achievement-name">{achievement.name}</span>
+                    <button 
+                      className="remove-achievement"
+                      onClick={() => removeAchievement(achievement.id)}
+                      title="Bỏ chọn huy hiệu"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Panel chọn huy hiệu */}
+          {showAchievements && userAchievements.length > 0 && (
+            <div className="achievements-panel">
+              <h4>🏅 Chọn huy hiệu để khoe:</h4>
+              {loadingAchievements ? (
+                <div className="loading-achievements">Đang tải huy hiệu...</div>
+              ) : (
+                <div className="achievements-list">
+                  {userAchievements.map((achievement, index) => (
+                    <div 
+                      key={`available-${achievement.id}-${index}`} 
+                      className={`achievement-item ${selectedAchievements.find(a => a.id === achievement.id) ? 'selected' : ''}`}
+                      onClick={() => toggleAchievement(achievement)}
+                    >
+                      <span className="achievement-icon">{getAchievementIcon(achievement.name)}</span>
+                      <div className="achievement-info">
+                        <span className="achievement-name">{achievement.name}</span>
+                        <span className="achievement-date">
+                          {new Date(achievement.achieved_at).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Hiển thị hình ảnh đã chọn */}
           {selectedImages.length > 0 && (
             <div className="selected-images">
@@ -280,6 +416,16 @@ const CommunityPostCreator = ({ onPostCreated }) => {
               >
                 <FaImage /> Hình ảnh
               </button>
+              
+              {userAchievements.length > 0 && (
+                <button 
+                  className={`toolbar-btn ${showAchievements ? 'active' : ''}`}
+                  onClick={() => setShowAchievements(!showAchievements)}
+                  title="Thêm huy hiệu"
+                >
+                  <FaTrophy /> Huy hiệu ({userAchievements.length})
+                </button>
+              )}
                 
             </div>
 
@@ -290,6 +436,8 @@ const CommunityPostCreator = ({ onPostCreated }) => {
                   setIsExpanded(false);
                   setPostText('');
                   setSelectedImages([]);
+                  setSelectedAchievements([]);
+                  setShowAchievements(false);
                 }}
               >
                 Hủy
@@ -317,6 +465,9 @@ const CommunityPostCreator = ({ onPostCreated }) => {
       )}
     </div>
   );
-};
+});
+
+// Set display name for debugging
+CommunityPostCreator.displayName = 'CommunityPostCreator';
 
 export default CommunityPostCreator;

@@ -1,0 +1,118 @@
+/* Smooth Transitions Patch - Fix flickering/jumping issues */
+
+/* Override aggressive "transition: all" with specific properties */
+.achievement-item {
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+.toolbar-btn {
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+.cancel-btn {
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+.submit-btn {
+  transition: background-color 0.15s ease, transform 0.1s ease !important;
+}
+
+.post-input {
+  transition: border-color 0.15s ease, background-color 0.15s ease !important;
+}
+
+/* Community Post actions */
+.action-btn {
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+.options-btn {
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+/* Prevent layout shift on hover */
+.achievement-item:hover,
+.toolbar-btn:hover,
+.action-btn:hover {
+  transform: none !important;
+}
+
+/* Smooth hover for images without jumping */
+.post-thumbnail {
+  transition: opacity 0.2s ease !important;
+}
+
+.post-thumbnail:hover {
+  transform: none !important;
+}
+
+/* Better performance for animations */
+.community-post-creator,
+.community-post {
+  will-change: auto;
+  transform: translateZ(0); /* Enable hardware acceleration */
+}
+
+/* Prevent image jumping during load */
+.post-thumbnail,
+.selected-image,
+.community-post img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  backface-visibility: hidden;
+}
+
+/* Reduce transition duration for better performance */
+* {
+  transition-duration: 0.15s !important;
+}
+
+/* Fix for screen sharing - disable problematic animations */
+@media screen and (min-width: 1px) {
+  .achievement-item:hover {
+    background-color: #fff3e0 !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  
+  .action-btn:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  
+  .toolbar-btn:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Disable transitions during screen sharing for better performance */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Optimize for screen sharing */
+.community-post-creator *,
+.community-post * {
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Prevent text selection jumps */
+.achievement-name,
+.post-content,
+.post-title {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Stabilize hover effects */
+.community-post-creator:hover,
+.community-post:hover {
+  transform: none !important;
+}

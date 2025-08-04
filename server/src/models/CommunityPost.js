@@ -45,33 +45,61 @@ class CommunityPost {
      */
     static async create(postData) {
         try {
-            const { smoker_id, title, content, thumbnail_url } = postData;
+            const { smoker_id, title, content, thumbnail_url, achievements } = postData;
             
             console.log('🔍 Creating post with data:', { 
                 smoker_id, 
                 title, 
                 content: content?.substring(0, 50), 
-                thumbnail_size: thumbnail_url ? thumbnail_url.length : null 
+                thumbnail_size: thumbnail_url ? thumbnail_url.length : null,
+                achievements_count: achievements ? achievements.length : 0,
+                achievements_sample: achievements ? achievements[0] : null,
+                achievements_type: typeof achievements,
+                achievements_isArray: Array.isArray(achievements)
             });
+
+            // Check achievements data type and serialize properly
+            let achievementsJson = null;
+            if (achievements) {
+                console.log('🔍 Raw achievements received:', achievements);
+                console.log('🔍 Type of achievements:', typeof achievements);
+                console.log('🔍 Is Array:', Array.isArray(achievements));
+                
+                if (Array.isArray(achievements) && achievements.length > 0) {
+                    achievementsJson = JSON.stringify(achievements);
+                } else if (typeof achievements === 'string') {
+                    // Already a JSON string
+                    achievementsJson = achievements;
+                } else if (typeof achievements === 'object') {
+                    // Convert object to JSON string
+                    achievementsJson = JSON.stringify(achievements);
+                }
+            }
+            
+            // Test if achievements column exists
+            try {
+                await pool.query('SELECT achievements FROM blog_post LIMIT 1');
+            } catch (columnError) {
+                // Try to add the column if it doesn't exist
+                try {
+                    await pool.query('ALTER TABLE blog_post ADD COLUMN achievements JSON NULL');
+                } catch (alterError) {
+                    console.error('Could not add achievements column:', alterError.message);
+                }
+            }
             
             const [result] = await pool.query(
-                `INSERT INTO blog_post (smoker_id, title, content, thumbnail_url) 
-                 VALUES (?, ?, ?, ?)`,
-                [smoker_id, title, content, thumbnail_url]
+                `INSERT INTO blog_post (smoker_id, title, content, thumbnail_url, \`achievements\`) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [smoker_id, title, content, thumbnail_url, achievementsJson]
             );
             
-            console.log('🆔 Insert result:', result);
-            console.log('📝 New post ID:', result.insertId);
-            console.log('🔢 Affected rows:', result.affectedRows);
-
             if (result.affectedRows === 0) {
-                console.error('❌ No rows were inserted!');
                 throw new Error('Failed to insert post');
             }
 
             // Get the created post with user information
             const createdPost = await this.findById(result.insertId);
-            console.log('📖 Retrieved post:', createdPost);
             return createdPost;
         } catch (error) {
             console.error('Error creating community post:', error);
@@ -104,19 +132,44 @@ class CommunityPost {
             );
 
             // Format data for frontend
-            const formattedPosts = posts.map(post => ({
-                id: post.id,
-                title: post.title,
-                content: post.content,
-                thumbnail_url: post.thumbnail_url,
-                created_at: post.created_at,
-                updated_at: post.updated_at,
-                likes_count: 0,
-                comments_count: 0,
-                user_id: post.smoker_id,
-                user_name: post.full_name || post.username || 'Anonymous',
-                user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
-            }));
+            const formattedPosts = posts.map(post => {
+                // Parse achievements JSON if present
+                let achievements = null;
+                if (post.achievements) {
+                    try {
+                        if (typeof post.achievements === 'string') {
+                            // Check if it's a malformed object string
+                            if (post.achievements.includes('[object Object]')) {
+                                console.warn('Found malformed achievement data for post', post.id, '- skipping');
+                                achievements = null;
+                            } else {
+                                achievements = JSON.parse(post.achievements);
+                            }
+                        } else if (typeof post.achievements === 'object') {
+                            // Already an object, use directly
+                            achievements = post.achievements;
+                        }
+                    } catch (error) {
+                        console.warn('Error parsing achievements JSON for post', post.id, error);
+                        achievements = null;
+                    }
+                }
+
+                return {
+                    id: post.id,
+                    title: post.title,
+                    content: post.content,
+                    thumbnail_url: post.thumbnail_url,
+                    achievements: achievements,
+                    created_at: post.created_at,
+                    updated_at: post.updated_at,
+                    likes_count: 0,
+                    comments_count: 0,
+                    user_id: post.smoker_id,
+                    user_name: post.full_name || post.username || 'Anonymous',
+                    user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
+                };
+            });
 
             return formattedPosts;
         } catch (error) {
@@ -147,12 +200,38 @@ class CommunityPost {
             if (posts.length === 0) return null;
 
             const post = posts[0];
+            
+            // Parse achievements JSON if present
+            let achievements = null;
+            if (post.achievements) {
+                try {
+                    if (typeof post.achievements === 'string') {
+                        // Check if it's a malformed object string
+                        if (post.achievements.includes('[object Object]')) {
+                            achievements = null;
+                        } else {
+                            achievements = JSON.parse(post.achievements);
+                        }
+                    } else if (typeof post.achievements === 'object') {
+                        // Already an object, use directly
+                        achievements = post.achievements;
+                    }
+                    console.log('✅ Parsed achievements:', achievements);
+                } catch (error) {
+                    console.warn('Error parsing achievements JSON for post', post.id, error);
+                    achievements = null;
+                }
+            } else {
+                console.log('❌ No achievements data found');
+            }
+            
             // Format data for frontend
             return {
                 id: post.id,
                 title: post.title,
                 content: post.content,
                 thumbnail_url: post.thumbnail_url,
+                achievements: achievements,
                 created_at: post.created_at,
                 updated_at: post.updated_at,
                 likes_count: 0,
@@ -192,19 +271,44 @@ class CommunityPost {
             );
 
             // Format data for frontend
-            const formattedPosts = posts.map(post => ({
-                id: post.id,
-                title: post.title,
-                content: post.content,
-                thumbnail_url: post.thumbnail_url,
-                created_at: post.created_at,
-                updated_at: post.updated_at,
-                likes_count: 0,
-                comments_count: 0,
-                user_id: post.smoker_id,
-                user_name: post.full_name || post.username || 'Anonymous',
-                user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
-            }));
+            const formattedPosts = posts.map(post => {
+                // Parse achievements JSON if present
+                let achievements = null;
+                if (post.achievements) {
+                    try {
+                        if (typeof post.achievements === 'string') {
+                            // Check if it's a malformed object string
+                            if (post.achievements.includes('[object Object]')) {
+                                console.warn('Found malformed achievement data for post', post.id, '- skipping');
+                                achievements = null;
+                            } else {
+                                achievements = JSON.parse(post.achievements);
+                            }
+                        } else if (typeof post.achievements === 'object') {
+                            // Already an object, use directly
+                            achievements = post.achievements;
+                        }
+                    } catch (error) {
+                        console.warn('Error parsing achievements JSON for post', post.id, error);
+                        achievements = null;
+                    }
+                }
+
+                return {
+                    id: post.id,
+                    title: post.title,
+                    content: post.content,
+                    thumbnail_url: post.thumbnail_url,
+                    achievements: achievements,
+                    created_at: post.created_at,
+                    updated_at: post.updated_at,
+                    likes_count: 0,
+                    comments_count: 0,
+                    user_id: post.smoker_id,
+                    user_name: post.full_name || post.username || 'Anonymous',
+                    user_avatar: post.avatar_url || '/image/default-user-avatar.svg'
+                };
+            });
 
             return formattedPosts;
         } catch (error) {
