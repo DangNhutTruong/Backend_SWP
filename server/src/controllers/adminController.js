@@ -1487,11 +1487,11 @@ export const getMetrics = async (req, res) => {
       communityPosts = 0;
     }
 
-    // 13. Achievements (check if table exists first)
+    // 13. Total achievement types available in the system
     let achievements = 0;
     try {
       const [achievementsResult] = await pool.execute(
-        'SELECT COUNT(*) as count FROM user_achievements'
+        'SELECT COUNT(*) as count FROM achievement'
       );
       achievements = achievementsResult[0]?.count || 0;
     } catch (error) {
@@ -2224,69 +2224,79 @@ export const deleteUser = async (req, res) => {
 
 // ===== BLOG MANAGEMENT =====
 
-// Get all blog posts for admin
-export const getBlogPosts = async (req, res) => {
+// Get all achievements for admin dashboard
+export const getAchievements = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, category } = req.query;
-    const offset = (page - 1) * limit;
-
-    let whereClause = '';
-    let queryParams = [];
-
-    if (status && status !== 'all') {
-      whereClause += ' WHERE status = ?';
-      queryParams.push(status);
-    }
-
-    if (category && category !== 'all') {
-      whereClause += whereClause ? ' AND category = ?' : ' WHERE category = ?';
-      queryParams.push(category);
-    }
-
-    // Get total count
-    const [countResult] = await pool.execute(
-      `SELECT COUNT(*) as total FROM blog_post${whereClause}`,
-      queryParams
-    );
-
-    // Get blog posts with pagination
-    const [posts] = await pool.execute(
-      `SELECT 
+    
+    // Get all achievements from database
+    const [achievements] = await pool.execute(`
+      SELECT 
         id,
-        title,
-        content,
-        thumbnail_url,
-        category,
-        status,
-        created_at,
-        updated_at,
-        author_id,
-        views,
-        likes
-      FROM blog_post
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?`,
-      [...queryParams, parseInt(limit), offset]
-    );
+        name,
+        description,
+        icon_url
+      FROM achievement 
+      ORDER BY id ASC
+    `);
+
+    // Get count of ACTIVE users who earned each achievement
+    const [userCounts] = await pool.execute(`
+      SELECT 
+        ua.achievement_id,
+        COUNT(DISTINCT ua.smoker_id) as users_earned
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+      GROUP BY ua.achievement_id
+    `);
+
+    // Create a map for easier lookup
+    const earnedCountsMap = {};
+    userCounts.forEach(count => {
+      earnedCountsMap[count.achievement_id] = count.users_earned;
+    });
+
+    // Combine achievements with user counts
+    const achievementsWithCounts = achievements.map(achievement => ({
+      ...achievement,
+      usersEarned: earnedCountsMap[achievement.id] || 0,
+      created_at: new Date().toISOString() // Default date since column doesn't exist
+    }));
+
+    // Get total UNIQUE users who have earned ANY achievement
+    const [totalUniqueUsersResult] = await pool.execute(`
+      SELECT COUNT(DISTINCT ua.smoker_id) as unique_users
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+    `);
+    
+    const totalUniqueUsers = totalUniqueUsersResult[0]?.unique_users || 0;
+    
+    // Get total achievement instances (sum of all earned achievements)
+    const [totalInstancesResult] = await pool.execute(`
+      SELECT COUNT(*) as total_instances
+      FROM user_achievement ua
+      INNER JOIN users u ON ua.smoker_id = u.id
+      WHERE u.is_active = 1
+    `);
+    
+    const totalInstances = totalInstancesResult[0]?.total_instances || 0;
 
     res.json({
       success: true,
       data: {
-        posts,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(countResult[0].total / limit),
-          totalItems: countResult[0].total,
-          limit: parseInt(limit)
-        }
+        achievements: achievementsWithCounts,
+        totalAchievements: achievements.length,
+        totalUsersEarned: totalUniqueUsers,
+        achievementInstances: totalInstances
       }
     });
   } catch (error) {
-    console.error('Error fetching blog posts:', error);
+    console.error('Error fetching achievements:', error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy danh sách bài viết',
+      message: 'Lỗi khi lấy danh sách thành tựu',
       error: error.message
     });
   }

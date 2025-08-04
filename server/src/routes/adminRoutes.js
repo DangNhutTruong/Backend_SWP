@@ -39,18 +39,29 @@ import {
     getMetrics,
     getProgressData,
     getRecentActivities,
-    getPaymentStatistics
+    getPaymentStatistics,
+    getAchievements,
+    // Blog management functions (excluding getBlogPosts)
+    getBlogPost,
+    createBlogPost,
+    updateBlogPost,
+    deleteBlogPost,
+    bulkUpdatePosts,
+    getBlogAnalytics
 } from '../controllers/adminController.js';
 
-// Import simple blog management function
-// import { getBlogPosts } from '../controllers/simpleBlogController.js';
+// Import simple blog display function from separate controller
 import { getBlogPosts } from '../controllers/blogController.js';
 
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Protect all routes with authentication and admin role check
+// Public endpoints for testing
+router.get('/achievements', getAchievements);
+router.get('/metrics', getMetrics);
+
+// Protect all other routes with authentication and admin role check
 router.use(requireAuth, requireAdmin);
 
 // User management routes (specific routes first, then parameterized routes)
@@ -81,9 +92,6 @@ router.delete('/coach-assignments/:id', deleteCoachAssignment);
 router.get('/appointments/stats', getAppointmentStats);
 
 // ============= ANALYTICS & MEMBERSHIP ROUTES (from admin.js) =============
-
-// Main metrics endpoint for dashboard
-router.get('/metrics', getMetrics);
 
 // Analytics endpoints
 router.get('/analytics', getAnalytics);
