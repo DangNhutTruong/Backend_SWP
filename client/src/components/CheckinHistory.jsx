@@ -23,6 +23,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     // Tải kế hoạch từ database để lấy initialCigarettes
     const [userPlan, setUserPlan] = useState(null);
 
+    // Hàm chuyển đổi trạng thái của sidebar (mở/đóng)
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
     // Hàm lấy kế hoạch của người dùng từ localStorage hoặc API
     const loadUserPlan = async () => {
         try {
@@ -1172,11 +1177,6 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             // Tải lại trang (tương đương với nhấn F5)
             window.location.reload();
         }, 500);
-    };
-
-    // Hàm chuyển đổi trạng thái của sidebar (mở/đóng)
-    const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
     };
 
     return (
