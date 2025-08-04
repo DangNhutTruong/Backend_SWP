@@ -1,4 +1,4 @@
-import api from '../utils/api';
+import API_CONFIG from '../config/apiConfig';
 
 /**
  * News Service - Handles real news articles from external sources
@@ -14,13 +14,23 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
+            console.log('🔍 Fetching smoking news from API...');
             // Gọi API backend để lấy tin tức từ RSS feeds
-            const response = await api.fetch(`/api/news/smoking?limit=${limit}`, {
-                method: 'GET'
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/smoking?limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully fetched smoking news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error fetching news:', error);
+            console.error('❌ Error fetching smoking news from API:', error);
+            console.log('🔄 Falling back to mock data...');
             // Fallback to mock data if API fails
             return this.getMockNews();
         }
@@ -36,12 +46,21 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
-            const response = await api.fetch(`/api/news/health?limit=${limit}`, {
-                method: 'GET'
+            console.log('🔍 Fetching health news from API...');
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/health?limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully fetched health news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error fetching health news:', error);
+            console.error('❌ Error fetching health news from API:', error);
             return this.getMockNews();
         }
     }
@@ -57,12 +76,21 @@ class NewsService {
         try {
             const { limit = 10 } = params;
             
-            const response = await api.fetch(`/api/news/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
-                method: 'GET'
+            console.log('🔍 Searching news with keyword:', keyword);
+            const response = await fetch(`${API_CONFIG.baseUrl}/news/search?q=${encodeURIComponent(keyword)}&limit=${limit}`, {
+                method: 'GET',
+                headers: API_CONFIG.headers
             });
-            return response;
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Successfully searched news from API:', data);
+            return data;
         } catch (error) {
-            console.error('Error searching news:', error);
+            console.error('❌ Error searching news from API:', error);
             return this.getMockNews();
         }
     }
@@ -73,13 +101,21 @@ class NewsService {
      */
     async getCombinedNews() {
         try {
+            console.log('📰 getCombinedNews: Starting to fetch news...');
+            console.log('📰 API Base URL:', API_CONFIG.baseUrl);
+            
             // CHỈ lấy tin tức về thuốc lá
             const smokingNews = await this.getSmokingNews({ limit: 10 }); // Lấy nhiều tin để có nhiều lựa chọn
             
+            console.log('📰 smokingNews response:', smokingNews);
+            
             // Nếu không có tin tức về thuốc lá, sử dụng mock data
             if (!smokingNews.success || !smokingNews.data || smokingNews.data.length === 0) {
+                console.log('⚠️ No real news data available, using mock data');
                 return this.getMockNews();
             }
+
+            console.log('✅ Found real news data:', smokingNews.data.length, 'articles');
 
             // Sắp xếp theo ngày mới nhất
             const sortedArticles = smokingNews.data
@@ -101,17 +137,21 @@ class NewsService {
                 );
             });
             
+            console.log('🔍 Filtered articles (smoking-related only):', strictlySmokingRelated.length);
+            
             // Giới hạn số lượng bài viết là 6
             const finalArticles = strictlySmokingRelated.slice(0, 6);
+
+            console.log('📰 Final articles to return:', finalArticles.length);
 
             return {
                 success: true,
                 data: finalArticles,
-                total: finalArticles.length,
-                message: `Hiển thị ${finalArticles.length} tin tức liên quan đến thuốc lá`
+                total: finalArticles.length
             };
         } catch (error) {
-            console.error('Error fetching combined news:', error);
+            console.error('❌ Error in getCombinedNews:', error);
+            console.log('🔄 Falling back to mock data due to error');
             return this.getMockNews();
         }
     }
@@ -193,8 +233,7 @@ class NewsService {
         return {
             success: true,
             data: mockArticles.slice(0, 6), // Đảm bảo tối đa 6 bài
-            total: Math.min(mockArticles.length, 6),
-            message: 'Dữ liệu mẫu về thuốc lá (API thực không khả dụng)'
+            total: Math.min(mockArticles.length, 6)
         };
     }
 

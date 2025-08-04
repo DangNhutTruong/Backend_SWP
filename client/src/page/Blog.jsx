@@ -65,10 +65,6 @@ export default function Blog() {
         const articles = response.data || [];
         console.log('✅ Đã tải được', articles.length, 'bài tin tức về thuốc lá');
         setNewsArticles(articles);
-        
-        if (response.message) {
-          showToast(response.message, 'info', 2000);
-        }
       } else {
         throw new Error(response.message || 'Không thể tải tin tức');
       }
@@ -80,7 +76,6 @@ export default function Blog() {
       try {
         const fallbackResponse = await newsService.getMockNews();
         setNewsArticles(fallbackResponse.data || []);
-        showToast('Sử dụng dữ liệu mẫu về cai thuốc lá', 'warning', 3000);
       } catch (fallbackError) {
         console.error('❌ Lỗi khi tải dữ liệu mẫu:', fallbackError);
         showToast('Không thể tải tin tức', 'error');
@@ -192,11 +187,20 @@ export default function Blog() {
     const postUrl = post.url;
     const sourceName = post.source?.name || '';
 
-    // Xử lý click vào card
+    // State để ngăn chặn click liên tục
+    const [isClicking, setIsClicking] = useState(false);
+    
+    // Xử lý click vào card với debouncing
     const handleCardClick = () => {
-      if (postUrl.startsWith('http')) {
-        window.open(postUrl, '_blank', 'noopener,noreferrer');
-      }
+      if (isClicking || !postUrl.startsWith('http')) return;
+      
+      setIsClicking(true);
+      window.open(postUrl, '_blank', 'noopener,noreferrer');
+      
+      // Reset trạng thái click sau 500ms
+      setTimeout(() => {
+        setIsClicking(false);
+      }, 500);
     };
 
     return (
@@ -292,21 +296,22 @@ export default function Blog() {
             </div>
           )}
 
-          {/* Phân trang (tạm ẩn do sử dụng API) */}
-          {/*
-          <div className="pagination">
-            <button className="pagination-btn active">1</button>
-            <button className="pagination-btn">2</button>
-            <button className="pagination-btn">3</button>
-            <span>...</span>
-            <button className="pagination-btn">10</button>
-            <button className="pagination-btn next">Tiếp theo</button>
-          </div>
-          */}
+        
         </div>        {/* Phần cộng đồng */}
         <div className="community-section">
           <h2 className="section-title">Chia sẻ từ cộng đồng</h2>
-          <div className="community-box">            {/* Component tạo bài viết */}
+          <div className="community-box">
+            {/* Community Guidelines */}
+            {user && (
+              <div className="community-guidelines">
+                <div className="guidelines-title">🌟 Hướng dẫn đăng bài</div>
+                <p className="guidelines-text">
+                  Chia sẻ câu chuyện cai thuốc, kinh nghiệm và động lực của bạn để truyền cảm hứng cho cộng đồng!
+                </p>
+              </div>
+            )}
+
+            {/* Component tạo bài viết */}
             {user ? (
               <CommunityPostCreator 
                 achievements={[]}
@@ -314,8 +319,9 @@ export default function Blog() {
               />
             ) : (
               <div className="login-to-post">
-                <p>Vui lòng đăng nhập để chia sẻ hành trình của bạn</p>
-                <Link to="/login" className="login-btn">Đăng nhập</Link>
+                <div className="empty-state-icon">🤝</div>
+                <p>✨ Tham gia cộng đồng để chia sẻ hành trình cai thuốc lá của bạn</p>
+                <Link to="/login" className="login-btn">Đăng nhập ngay</Link>
               </div>
             )}
 
@@ -324,14 +330,14 @@ export default function Blog() {
               {loading ? (
                 <div className="loading-state">
                   <div className="loading-spinner"></div>
-                  <p>Đang tải bài viết...</p>
+                  <p>🔄 Đang tải bài viết từ cộng đồng...</p>
                 </div>
               ) : error ? (
                 <div className="error-state">
                   <FaExclamationTriangle />
                   <h3>Có lỗi xảy ra</h3>
                   <p>{error}</p>
-                  <button onClick={loadPosts} className="retry-btn">Thử lại</button>
+                  <button onClick={loadPosts} className="retry-btn">🔄 Thử lại</button>
                 </div>
               ) : communityPosts.length > 0 ? (
                 communityPosts.map(post => (
@@ -347,19 +353,22 @@ export default function Blog() {
                   />
                 ))
               ) : (
-                <EmptyState 
-                  title="Chưa có bài viết nào trong cộng đồng"
-                  description="Hãy là người đầu tiên chia sẻ câu chuyện cai thuốc lá của bạn!"
-                  actionText="Tạo bài viết đầu tiên"
-                  onAction={() => document.querySelector('.post-input')?.focus()}
-                />
+                <div className="empty-state-enhanced">
+                  <span className="empty-state-icon">🌱</span>
+                  <EmptyState 
+                    title="🌟 Chưa có bài viết nào trong cộng đồng"
+                    description="Hãy là người đầu tiên chia sẻ câu chuyện cai thuốc lá đầy cảm hứng của bạn!"
+                    actionText="💝 Tạo bài viết đầu tiên"
+                    onAction={() => document.querySelector('.post-input')?.focus()}
+                  />
+                </div>
               )}
             </div>
 
             {communityPosts.length > 5 && (
               <div className="view-more">
                 <button className="view-more-btn">
-                  Xem thêm bài viết cộng đồng
+                  📚 Xem thêm câu chuyện cảm hứng
                 </button>
               </div>
             )}

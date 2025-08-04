@@ -7,6 +7,7 @@ import migrateProgressTable from './utils/migrateProgressTable.js';
 import Package from './models/Package.js';
 import { ensureMembershipTables } from './models/Membership.js';
 import CommunityPost from './models/CommunityPost.js';
+import Achievement from './models/Achievement.js';
 // import { ensurePaymentsTable } from './models/Payment.js';
 import { ensureCoachTables } from './models/CoachTables.js';
 // import fixMessageTable from './scripts/fix-message-table.js';
@@ -23,6 +24,8 @@ const ensureAllTablesExist = async () => {
   await Package.ensureDefaultPackages();
   await ensureMembershipTables();
   await CommunityPost.ensureTables();
+  await Achievement.ensureTables();
+  await Achievement.ensureDefaultAchievements();
   // await ensurePaymentsTable();
   await ensureCoachTables(); // Ensure coach tables exist
   // await fixMessageTable();
