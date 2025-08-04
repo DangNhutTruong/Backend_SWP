@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { FaCalendarAlt, FaEye, FaHeart, FaComment, FaCheckCircle, FaTimes, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import CommunityPostCreator, { EmptyState } from "../components/CommunityPostCreator.jsx";
@@ -91,10 +91,14 @@ export default function Blog() {
   }, []);
 
   // Xử lý khi người dùng tạo bài viết mới
-  const handlePostCreated = async (newPostData) => {
+  const handlePostCreated = useCallback(async (newPostData) => {
     try {
+      console.log('🔍 Creating post with data:', newPostData);
       const response = await communityService.createPost(newPostData);
+      console.log('📝 Create post response:', response);
+      
       if (response.success) {
+        console.log('✅ Post created, achievements in response:', response.data.achievements);
         setCommunityPosts(prev => [response.data, ...prev]);
         showToast('Đã đăng bài viết thành công!', 'success');
       } else {
@@ -104,7 +108,7 @@ export default function Blog() {
       console.error('Error creating post:', error);
       showToast(error.message, 'error');
     }
-  };
+  }, []);
 
   // Xử lý khi người dùng thích bài viết (tạm thời dùng local state)
   const handleLike = (postId, isLiked) => {
@@ -314,7 +318,6 @@ export default function Blog() {
             {/* Component tạo bài viết */}
             {user ? (
               <CommunityPostCreator 
-                achievements={[]}
                 onPostCreated={handlePostCreated}
               />
             ) : (

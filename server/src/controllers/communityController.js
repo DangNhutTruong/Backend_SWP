@@ -75,13 +75,15 @@ export const getPostById = async (req, res) => {
  */
 export const createPost = async (req, res) => {
     try {
-        const { title, content, thumbnail_url } = req.body;
+        const { title, content, thumbnail_url, achievements } = req.body;
         const smoker_id = req.user.id; // From auth middleware
 
         console.log('📥 Create post request:', { 
             title, 
             content: content?.substring(0, 50), 
             thumbnail_size: thumbnail_url ? `${thumbnail_url.length} chars` : 'none',
+            achievements_count: achievements ? achievements.length : 0,
+            achievements_data: achievements,
             smoker_id 
         });
 
@@ -119,11 +121,13 @@ export const createPost = async (req, res) => {
             smoker_id,
             title: title.trim(),
             content: content.trim(),
-            thumbnail_url: thumbnail_url || null
+            thumbnail_url: thumbnail_url || null,
+            achievements: achievements || null
         };
 
         const newPost = await CommunityPost.create(postData);
         console.log('📝 Created new post with ID:', newPost.id);
+        console.log('🏆 Post achievements after creation:', newPost.achievements);
 
         res.status(201).json({
             success: true,
