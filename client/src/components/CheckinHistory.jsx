@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useReducer } from 'react';
+import './CheckinHistory.css';
 import { FaCalendarAlt, FaEdit, FaSave, FaTimes, FaChevronLeft, FaChevronRight, FaSync, FaTrash } from 'react-icons/fa';
 import progressService from '../services/progressService';
 import { getCurrentUserId } from '../utils/userUtils';
@@ -23,9 +24,106 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     // Tải kế hoạch từ database để lấy initialCigarettes
     const [userPlan, setUserPlan] = useState(null);
 
+    // Hàm tính tiền tiết kiệm dựa trên pack price từ kế hoạch
+    const calculateMoneySaved = (cigarettesAvoided, plan) => {
+        let packPrice = 25000; // Giá mặc định nếu không tìm thấy
+
+        // Lấy giá gói thuốc từ kế hoạch hiện tại
+        try {
+            if (plan && plan.packPrice) {
+                packPrice = plan.packPrice;
+                console.log('🔍 CheckinHistory calculateMoneySaved - Got packPrice from plan:', packPrice);
+            } else {
+                // Fallback: Lấy từ localStorage
+                const localPlan = localStorage.getItem('activePlan');
+                if (localPlan) {
+                    const parsedPlan = JSON.parse(localPlan);
+                    if (parsedPlan.packPrice) {
+                        packPrice = parsedPlan.packPrice;
+                        console.log('🔍 CheckinHistory calculateMoneySaved - Got packPrice from localStorage:', packPrice);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error getting pack price:', error);
+        }
+
+        const costPerCigarette = packPrice / 20; // Giả sử 1 gói = 20 điếu
+        const moneySaved = Math.round(cigarettesAvoided * costPerCigarette);
+
+        console.log('🔍 CheckinHistory calculateMoneySaved - Calculation:', {
+            cigarettesAvoided,
+            packPrice,
+            costPerCigarette,
+            moneySaved
+        });
+
+        return moneySaved;
+    };
+
     // Hàm chuyển đổi trạng thái của sidebar (mở/đóng)
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    // Hàm tính tổng số điếu đã tránh từ lịch sử check-in
+    const calculateTotalCigarettesAvoided = (historyData) => {
+        if (!historyData || historyData.length === 0) {
+            return 0;
+        }
+
+        let totalAvoided = 0;
+        historyData.forEach(entry => {
+            // Chỉ tính những ngày có dữ liệu thực tế (không phải N/A)
+            if (entry.cigarettesAvoided !== null && entry.cigarettesAvoided !== undefined && !entry.isEmpty) {
+                totalAvoided += entry.cigarettesAvoided;
+            }
+        });
+
+        console.log('🔍 CheckinHistory - Total cigarettes avoided:', totalAvoided);
+        return totalAvoided;
+    };
+
+    // Hàm tính tổng số tiền đã tiết kiệm từ lịch sử check-in
+    const calculateTotalMoneySaved = (historyData) => {
+        if (!historyData || historyData.length === 0) {
+            return 0;
+        }
+
+        let totalMoney = 0;
+        historyData.forEach(entry => {
+            // Chỉ tính những ngày có dữ liệu thực tế (không phải N/A)
+            if (entry.moneySaved !== null && entry.moneySaved !== undefined && !entry.isEmpty) {
+                totalMoney += entry.moneySaved;
+            }
+        });
+
+        console.log('🔍 CheckinHistory - Total money saved:', totalMoney);
+        return totalMoney;
+    };
+
+    // Hàm thông báo kết quả tổng số điếu đã tránh cho component khác
+    const notifyTotalCigarettesAvoided = (total) => {
+        // Dispatch custom event để thông báo cho ProgressDashboard hoặc component khác
+        const event = new CustomEvent('totalCigarettesAvoidedUpdated', {
+            detail: { totalCigarettesAvoided: total }
+        });
+        window.dispatchEvent(event);
+
+        // Cũng có thể lưu vào localStorage để component khác có thể đọc
+        localStorage.setItem('totalCigarettesAvoided', total.toString());
+    };
+
+    // Hàm thông báo kết quả tổng số tiền đã tiết kiệm cho component khác
+    const notifyTotalMoneySaved = (total) => {
+        // Dispatch custom event để thông báo cho ProgressDashboard hoặc component khác
+        const event = new CustomEvent('totalMoneySavedUpdated', {
+            detail: { totalMoneySaved: total }
+        });
+        window.dispatchEvent(event);
+
+        // Cũng có thể lưu vào localStorage để component khác có thể đọc
+        localStorage.setItem('totalMoneySaved', total.toString());
     };
 
     // Hàm lấy kế hoạch của người dùng từ localStorage hoặc API
@@ -239,27 +337,40 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 }
 
                 if (response && response.success && response.data) {
-                    // Lấy initialCigarettes từ kế hoạch hiện tại
-                    const currentPlanInitialCigarettes = getInitialCigarettesFromPlan(userPlan);
-                    
+                    // Lấy initialCigarettes từ kế hoạch hiện tại - ĐẢM BẢO KHÔNG BỊ 0
+                    const currentPlanInitialCigarettes = getInitialCigarettesFromPlan(userPlan) ||
+                        getInitialCigarettesFromPlan(plan) ||
+                        parseInt(localStorage.getItem('initialCigarettes')) ||
+                        30; // Fallback cuối cùng
+
+                    console.log('🔍 CheckinHistory - Debug currentPlanInitialCigarettes:', {
+                        fromUserPlan: getInitialCigarettesFromPlan(userPlan),
+                        fromPlan: getInitialCigarettesFromPlan(plan),
+                        fromLocalStorage: localStorage.getItem('initialCigarettes'),
+                        final: currentPlanInitialCigarettes
+                    });
+
                     // Format dữ liệu từ API với logic tính lại
                     const apiHistory = response.data.map(entry => {
                         const actualCigs = entry.actual_cigarettes || 0;
                         const entryDate = entry.date.split('T')[0];
-                        
+
                         // Tính target từ kế hoạch thay vì database (sử dụng plan thay vì userPlan)
                         const targetFromPlan = getTargetCigarettesForDate(entryDate, plan);
-                        
+
                         // Tính lại cigarettesAvoided theo kế hoạch hiện tại: initial_của_kế_hoạch_hiện_tại - actual_đã_hút
                         const recalculatedCigarettesAvoided = Math.max(0, currentPlanInitialCigarettes - actualCigs);
-                        
+
+                        // Tính tiền tiết kiệm dựa trên pack price thực tế - sử dụng plan hiện tại
+                        const calculatedMoneySaved = calculateMoneySaved(recalculatedCigarettesAvoided, plan || userPlan);
+
                         return {
                             date: entryDate,
                             targetCigarettes: targetFromPlan, // Tính từ kế hoạch thay vì database
                             actualCigarettes: actualCigs, // Giữ nguyên số điếu đã hút thực tế
                             initialCigarettes: currentPlanInitialCigarettes, // Sử dụng initial từ kế hoạch hiện tại
                             cigarettesAvoided: recalculatedCigarettesAvoided, // Tính lại theo kế hoạch hiện tại
-                            moneySaved: recalculatedCigarettesAvoided * 1250, // Tính lại money saved
+                            moneySaved: calculatedMoneySaved, // Tính dựa trên pack price thực tế
                             healthScore: currentPlanInitialCigarettes > 0 ? Math.round((recalculatedCigarettesAvoided / currentPlanInitialCigarettes) * 100) : 0, // Tính lại health score
                             notes: entry.notes || '',
                             isFromApi: true // Đánh dấu là dữ liệu từ API
@@ -295,6 +406,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
                     fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                     setCheckinHistory(fullHistory);
+
+                    // Tính và thông báo tổng số điếu đã tránh
+                    const totalAvoided = calculateTotalCigarettesAvoided(fullHistory);
+                    notifyTotalCigarettesAvoided(totalAvoided);
+
+                    // Tính và thông báo tổng số tiền đã tiết kiệm
+                    const totalMoney = calculateTotalMoneySaved(fullHistory);
+                    notifyTotalMoneySaved(totalMoney);
+
                     console.log('✅ CheckinHistory - Loaded', fullHistory.length, 'entries (including empty days)');
                 } else {
                     // Fallback: Tạo lịch sử từ localStorage theo plan_id
@@ -368,6 +488,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                     // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
                     fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                     setCheckinHistory(fullHistory);
+
+                    // Tính và thông báo tổng số điếu đã tránh
+                    const totalAvoided = calculateTotalCigarettesAvoided(fullHistory);
+                    notifyTotalCigarettesAvoided(totalAvoided);
+
+                    // Tính và thông báo tổng số tiền đã tiết kiệm
+                    const totalMoney = calculateTotalMoneySaved(fullHistory);
+                    notifyTotalMoneySaved(totalMoney);
+
                     console.log('✅ CheckinHistory - Loaded', fullHistory.length, 'entries (including empty days) from localStorage fallback');
                 }
             } catch (err) {
@@ -417,6 +546,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 localHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                 if (localHistory.length > 0) {
                     setCheckinHistory(localHistory);
+
+                    // Tính và thông báo tổng số điếu đã tránh
+                    const totalAvoided = calculateTotalCigarettesAvoided(localHistory);
+                    notifyTotalCigarettesAvoided(totalAvoided);
+
+                    // Tính và thông báo tổng số tiền đã tiết kiệm
+                    const totalMoney = calculateTotalMoneySaved(localHistory);
+                    notifyTotalMoneySaved(totalMoney);
+
                     setError('Không thể tải từ máy chủ. Hiển thị dữ liệu lưu cục bộ.');
                 }
             } finally {
@@ -479,7 +617,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             if (response && response.success && response.data) {
                                 // Lấy initialCigarettes từ kế hoạch mới
                                 const newPlanInitialCigarettes = getInitialCigarettesFromPlan(plan);
-                                
+
                                 const apiHistory = response.data.map(entry => {
                                     const actualCigs = entry.actual_cigarettes || 0;
                                     // Tính lại cigarettesAvoided theo kế hoạch mới: initial_của_kế_hoạch_mới - actual_đã_hút
@@ -487,14 +625,17 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                     // Tính lại target theo kế hoạch mới
                                     const entryDate = entry.date.split('T')[0];
                                     const recalculatedTarget = getTargetCigarettesForDate(entryDate, plan);
-                                    
+
+                                    // Tính tiền tiết kiệm dựa trên pack price thực tế - sử dụng plan hiện tại
+                                    const calculatedMoneySaved = calculateMoneySaved(recalculatedCigarettesAvoided, plan || userPlan);
+
                                     return {
                                         date: entryDate,
                                         targetCigarettes: recalculatedTarget, // Tính lại target theo kế hoạch mới
                                         actualCigarettes: actualCigs, // Giữ nguyên số điếu đã hút thực tế
                                         initialCigarettes: newPlanInitialCigarettes, // Cập nhật theo kế hoạch mới
                                         cigarettesAvoided: recalculatedCigarettesAvoided, // Tính lại theo kế hoạch mới
-                                        moneySaved: recalculatedCigarettesAvoided * 1250, // Tính lại money saved
+                                        moneySaved: calculatedMoneySaved, // Tính dựa trên pack price thực tế
                                         healthScore: newPlanInitialCigarettes > 0 ? Math.round((recalculatedCigarettesAvoided / newPlanInitialCigarettes) * 100) : 0, // Tính lại health score
                                         notes: entry.notes || '',
                                         isFromApi: true
@@ -519,7 +660,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                     }
 
                                     // Tính mục tiêu cho ngày này dựa trên kế hoạch mới
-                                    const targetForThisDay = getTargetForDate(date, plan);
+                                    const targetForThisDay = getTargetCigarettesForDate(date, plan);
 
                                     // Tạo empty entry cho ngày chưa có dữ liệu
                                     return createEmptyCheckin(date, getInitialCigarettesFromPlan(plan), targetForThisDay);
@@ -528,6 +669,14 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                 // Sắp xếp theo ngày tăng dần để ngày bắt đầu kế hoạch ở trang 1
                                 fullHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                                 setCheckinHistory(fullHistory);
+
+                                // Tính và thông báo tổng số điếu đã tránh cho kế hoạch mới
+                                const totalAvoided = calculateTotalCigarettesAvoided(fullHistory);
+                                notifyTotalCigarettesAvoided(totalAvoided);
+
+                                // Tính và thông báo tổng số tiền đã tiết kiệm cho kế hoạch mới
+                                const totalMoney = calculateTotalMoneySaved(fullHistory);
+                                notifyTotalMoneySaved(totalMoney);
                             }
                         }
                     } catch (error) {
@@ -734,7 +883,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
 
                 const moneySaved = response.data?.money_saved !== undefined
                     ? response.data.money_saved
-                    : cigarettesAvoided * 1250; // Giả sử 1250 VND mỗi điếu
+                    : calculateMoneySaved(cigarettesAvoided, userPlan); // Tính dựa trên pack price thực tế
 
                 const healthScore = response.data?.health_score !== undefined
                     ? response.data.health_score
@@ -804,14 +953,18 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                 setEditingEntry(null);
                 setTempEditData({});
 
-                // Reload lại dữ liệu để đảm bảo UI cập nhật với targets mới
-                console.log('🔄 Reloading checkin history after save...');
-                await loadCheckinHistory();
-
                 // Force update component để đảm bảo UI được render lại với dữ liệu mới
                 setTimeout(() => {
                     forceUpdate();
                     console.log('🔄 Force update component sau khi cập nhật dữ liệu');
+
+                    // Tính và thông báo tổng số điếu đã tránh sau khi update
+                    const totalAvoided = calculateTotalCigarettesAvoided(checkinHistory);
+                    notifyTotalCigarettesAvoided(totalAvoided);
+
+                    // Tính và thông báo tổng số tiền đã tiết kiệm sau khi update
+                    const totalMoney = calculateTotalMoneySaved(checkinHistory);
+                    notifyTotalMoneySaved(totalMoney);
                 }, 0);
 
                 // Hiển thị thông báo thành công
@@ -849,11 +1002,6 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }
 
         try {
-            const userId = getCurrentUserId();
-            if (!userId) {
-                throw new Error('User not logged in');
-            }
-
             // Tìm entry hiện tại
             const currentEntry = checkinHistory.find(entry => entry.date === date);
 
@@ -890,17 +1038,20 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             console.log('🗑️ Deleting checkin for date:', date);
 
             try {
-                // Thử xóa từ API trước
-                const deleteResponse = await progressService.deleteCheckin(date);
+                // Xóa từ API đơn giản - chỉ cần ngày
+                console.log('🗑️ Attempting to delete from API for date:', date);
+
+                const deleteResponse = await progressService.deleteCheckinByDate(date);
 
                 if (deleteResponse && deleteResponse.success) {
                     console.log('✅ Successfully deleted from API');
                 } else {
-                    console.warn('⚠️ API delete response not successful, but continuing with local cleanup');
+                    console.warn('⚠️ API delete response not successful:', deleteResponse);
+                    // Vẫn tiếp tục với việc xóa local
                 }
             } catch (apiError) {
-                console.warn('⚠️ Error deleting from API:', apiError);
-                // Tiếp tục với việc xóa local vì có thể API không hỗ trợ delete hoặc entry không tồn tại trong DB
+                console.error('❌ Error deleting from API:', apiError);
+                // Tiếp tục với việc xóa local ngay cả khi API lỗi
             }
 
             // Reset entry về trạng thái trống (với mục tiêu được tính lại từ kế hoạch)
@@ -932,6 +1083,18 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             const localStorageKey = `checkin_${planId}_${date}`;
             localStorage.removeItem(localStorageKey);
             console.log(`🗑️ Removed localStorage key: ${localStorageKey}`);
+
+            // Tính và thông báo lại tổng số điếu đã tránh sau khi xóa
+            setTimeout(() => {
+                const updatedHistory = checkinHistory.map(entry =>
+                    entry.date === date ? resetEntry : entry
+                );
+                const totalAvoided = calculateTotalCigarettesAvoided(updatedHistory);
+                notifyTotalCigarettesAvoided(totalAvoided);
+
+                const totalMoney = calculateTotalMoneySaved(updatedHistory);
+                notifyTotalMoneySaved(totalMoney);
+            }, 100);
 
             // Gọi callback để cập nhật dashboard nếu xóa dữ liệu ngày hôm nay
             if (onProgressUpdate && date === new Date().toISOString().split('T')[0]) {
@@ -1014,13 +1177,16 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         // Lấy initialCigarettes từ kế hoạch hiện tại
                         const currentPlanInitialCigarettes = getInitialCigarettesFromPlan(currentPlan);
                         const actualCigs = todayEntry.actual_cigarettes || 0;
-                        
+
                         // Tính target từ kế hoạch hiện tại thay vì database
                         const calculatedTarget = getTargetCigarettesForDate(today, currentPlan);
-                        
+
                         // Tính lại cigarettesAvoided theo kế hoạch hiện tại
                         const recalculatedCigarettesAvoided = Math.max(0, currentPlanInitialCigarettes - actualCigs);
-                        
+
+                        // Tính tiền tiết kiệm dựa trên pack price thực tế - sử dụng plan hiện tại
+                        const calculatedMoneySaved = calculateMoneySaved(recalculatedCigarettesAvoided, currentPlan || userPlan);
+
                         // Chuyển đổi dữ liệu từ API thành định dạng cho UI với logic tính lại
                         const formattedEntry = {
                             date: today,
@@ -1028,7 +1194,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                             actualCigarettes: actualCigs, // Giữ nguyên số điếu đã hút thực tế
                             initialCigarettes: currentPlanInitialCigarettes, // Sử dụng initial từ kế hoạch hiện tại
                             cigarettesAvoided: recalculatedCigarettesAvoided, // Tính lại theo kế hoạch hiện tại
-                            moneySaved: recalculatedCigarettesAvoided * 1250, // Tính lại money saved
+                            moneySaved: calculatedMoneySaved, // Tính dựa trên pack price thực tế
                             healthScore: currentPlanInitialCigarettes > 0 ? Math.round((recalculatedCigarettesAvoided / currentPlanInitialCigarettes) * 100) : 0, // Tính lại health score
                             notes: todayEntry.notes || ''
                         };
@@ -1348,9 +1514,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
-
-                    {/* Pagination */}
+                    </div>                    {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="pagination">
                             <button

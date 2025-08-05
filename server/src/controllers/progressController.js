@@ -932,3 +932,46 @@ export const clearUserProgress = async (req, res) => {
         return sendError(res, 'Failed to clear progress data', 500);
     }
 };
+
+// DELETE /api/progress/delete/:date - Delete checkin by date only (simple delete)
+export const deleteCheckinByDate = async (req, res) => {
+    try {
+        const { date } = req.params;
+
+        if (!date) {
+            return sendError(res, 'Date parameter is required', 400);
+        }
+
+        console.log(`🗑️ Attempting to delete checkin for date: ${date}`);
+
+        // Check if checkin exists for this date
+        const [existing] = await pool.execute(
+            'SELECT * FROM daily_progress WHERE date = ?',
+            [date]
+        );
+
+        if (existing.length === 0) {
+            return sendError(res, 'No checkin found for this date', 404);
+        }
+
+        console.log(`🗑️ Found ${existing.length} checkin(s) for date ${date}:`, existing.map(e => ({ smoker_id: e.smoker_id, plan_id: e.plan_id })));
+
+        // Delete all checkins for this date
+        const [result] = await pool.execute(
+            'DELETE FROM daily_progress WHERE date = ?',
+            [date]
+        );
+
+        console.log(`✅ Deleted ${result.affectedRows} checkin(s) for date ${date}`);
+
+        return sendSuccess(res, 'Checkin deleted successfully', {
+            deletedCount: result.affectedRows,
+            date: date,
+            deletedEntries: existing
+        });
+
+    } catch (error) {
+        console.error('❌ Error deleting checkin by date:', error);
+        return sendError(res, 'Failed to delete checkin', 500);
+    }
+};

@@ -11,7 +11,8 @@ import {
     createCheckinByUserId,
     updateCheckinByUserId,
     getProgressByUserId,
-    clearUserProgress
+    clearUserProgress,
+    deleteCheckinByDate
 } from '../controllers/progressController.js';
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.put('/:userId', updateCheckinByUserId);
 
 // GET /api/progress/:userId - Get progress by userId
 router.get('/:userId', getProgressByUserId);
+
+// DELETE /api/progress/delete/:date - Delete checkin by date only (simple delete)
+router.delete('/delete/:date', deleteCheckinByDate);
 
 // Routes với authentication (flow cũ)
 // POST /api/progress/checkin - Create daily checkin
