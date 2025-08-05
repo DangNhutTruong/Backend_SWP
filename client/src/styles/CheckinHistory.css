@@ -108,7 +108,8 @@
     gap: 10px;
 }
 
-.refresh-btn, .close-sidebar-btn {
+.refresh-btn,
+.close-sidebar-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -152,7 +153,7 @@
     transition: opacity 0.3s, visibility 0.3s;
 }
 
-.checkin-history-sidebar.open ~ .checkin-history-wrapper::before {
+.checkin-history-sidebar.open~.checkin-history-wrapper::before {
     opacity: 1;
     visibility: visible;
 }
@@ -271,7 +272,8 @@
 
 .edit-btn,
 .save-btn,
-.cancel-btn {
+.cancel-btn,
+.delete-btn {
     border: none;
     background: transparent;
     cursor: pointer;
@@ -293,16 +295,32 @@
     color: #e74c3c;
 }
 
+.delete-btn {
+    color: #e74c3c;
+}
+
 .edit-btn:hover,
 .save-btn:hover,
-.cancel-btn:hover {
+.cancel-btn:hover,
+.delete-btn:hover {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+.delete-btn:hover {
+    background-color: rgba(231, 76, 60, 0.1);
 }
 
 .edit-actions {
     display: flex;
     justify-content: center;
     gap: 5px;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    align-items: center;
 }
 
 .edit-input {
@@ -415,8 +433,8 @@
     .checkin-history-sidebar {
         width: 100%;
     }
-    
-    .history-table th, 
+
+    .history-table th,
     .history-table td {
         padding: 8px;
         font-size: 0.85rem;
@@ -455,10 +473,25 @@
 }
 
 @keyframes fadeInOut {
-    0% { opacity: 0; transform: translateY(20px); }
-    10% { opacity: 1; transform: translateY(0); }
-    90% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-20px); }
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    10% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
 }
 
 @media (max-width: 768px) {
@@ -529,4 +562,59 @@
 .empty-value {
     color: #999;
     font-style: italic;
+}
+
+/* Style cho phần tổng kết */
+.total-summary {
+    margin-top: 25px;
+    padding: 20px 0;
+    border-top: 2px solid #e9ecef;
+    display: flex;
+    justify-content: center;
+}
+
+.summary-card {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+    min-width: 300px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.summary-icon {
+    font-size: 48px;
+    margin-right: 20px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.summary-content {
+    flex: 1;
+}
+
+.summary-content h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.summary-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 5px 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.summary-content small {
+    opacity: 0.9;
+    font-size: 0.85rem;
 }

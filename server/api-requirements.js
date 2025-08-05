@@ -1,0 +1,76 @@
+// Check current API endpoints plan_id requirements
+import { pool } from './src/config/database.js';
+
+const checkAPIRequirements = async () => {
+    console.log('🔍 API Requirements Summary:\n');
+
+    console.log('📋 Updated API endpoints that now REQUIRE plan_id:');
+    console.log('');
+    console.log('1. POST /api/progress/checkin');
+    console.log('   - plan_id in request body (REQUIRED)');
+    console.log('   - Example: { "date": "2025-08-05", "plan_id": 123, "targetCigarettes": 10, "actualCigarettes": 5 }');
+    console.log('');
+    console.log('2. GET /api/progress/user');
+    console.log('   - plan_id in query params (REQUIRED)');
+    console.log('   - Example: GET /api/progress/user?plan_id=123');
+    console.log('');
+    console.log('3. GET /api/progress/checkin/:date');
+    console.log('   - plan_id in query params (REQUIRED)');
+    console.log('   - Example: GET /api/progress/checkin/2025-08-05?plan_id=123');
+    console.log('');
+    console.log('4. PUT /api/progress/checkin/:date');
+    console.log('   - plan_id in request body (REQUIRED)');
+    console.log('   - Example: { "plan_id": 123, "actualCigarettes": 3 }');
+    console.log('');
+    console.log('5. DELETE /api/progress/checkin/:date');
+    console.log('   - plan_id in query params (REQUIRED)');
+    console.log('   - Example: DELETE /api/progress/checkin/2025-08-05?plan_id=123');
+    console.log('');
+    console.log('6. GET /api/progress/stats');
+    console.log('   - plan_id in query params (REQUIRED)');
+    console.log('   - Example: GET /api/progress/stats?plan_id=123&days=30');
+    console.log('');
+    console.log('7. GET /api/progress/chart-data');
+    console.log('   - plan_id in query params (REQUIRED)');
+    console.log('   - Example: GET /api/progress/chart-data?plan_id=123&type=cigarettes');
+    console.log('');
+    console.log('🎯 Frontend Integration Steps:');
+    console.log('');
+    console.log('1. Add plan selection dropdown to get current selected plan_id');
+    console.log('2. Include plan_id in ALL API calls to progress endpoints');
+    console.log('3. When plan changes, clear cache and reload data for new plan');
+    console.log('4. Store selected plan_id in state management (Redux/Context)');
+    console.log('');
+    console.log('💡 Example Frontend Code:');
+    console.log('');
+    console.log('// Get user progress for specific plan');
+    console.log('const getUserProgress = async (planId) => {');
+    console.log('  const response = await fetch(`/api/progress/user?plan_id=${planId}`);');
+    console.log('  return response.json();');
+    console.log('};');
+    console.log('');
+    console.log('// Create checkin for specific plan');
+    console.log('const createCheckin = async (checkinData) => {');
+    console.log('  const response = await fetch("/api/progress/checkin", {');
+    console.log('    method: "POST",');
+    console.log('    headers: { "Content-Type": "application/json" },');
+    console.log('    body: JSON.stringify({');
+    console.log('      ...checkinData,');
+    console.log('      plan_id: selectedPlanId // REQUIRED');
+    console.log('    })');
+    console.log('  });');
+    console.log('  return response.json();');
+    console.log('};');
+    console.log('');
+    console.log('// Delete checkin for specific plan');
+    console.log('const deleteCheckin = async (date, planId) => {');
+    console.log('  const response = await fetch(`/api/progress/checkin/${date}?plan_id=${planId}`, {');
+    console.log('    method: "DELETE"');
+    console.log('  });');
+    console.log('  return response.json();');
+    console.log('};');
+
+    await pool.end();
+};
+
+checkAPIRequirements();

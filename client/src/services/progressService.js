@@ -15,30 +15,30 @@ const progressService = {
       // Sử dụng ngày được cung cấp hoặc ngày hôm nay nếu không có
       const checkinDate = date || new Date().toISOString().split('T')[0];
       console.log('📅 Creating check-in for date:', checkinDate, 'userId:', userId);
-      
+
       // Calculate statistics based on checkin data
       const targetCigs = parseInt(checkinData.targetCigarettes || 0);
       const actualCigs = parseInt(checkinData.actualCigarettes || 0);
       const initialCigs = parseInt(checkinData.initialCigarettes || checkinData.dailyCigarettes || 50); // Số điếu ban đầu hút 1 ngày
-      
+
       // Calculate cigarettes avoided - FIXED: Dùng số điếu ban đầu - số điếu thực tế hút
       const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
-      
+
       console.log('🔍 Cigarettes calculation:', {
         initialCigs,
         actualCigs,
         targetCigs,
         cigarettesAvoided
       });
-      
+
       // Calculate money saved (assuming average cost per cigarette)
       const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250; // 25,000 VND per pack of 20
       const moneySaved = cigarettesAvoided * costPerCigarette;
-      
+
       // Calculate health score (simple formula based on cigarettes avoided)
       // 0-100 scale where 0 = smoked all cigarettes, 100 = avoided all cigarettes
       const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-      
+
       // Sử dụng định dạng phù hợp với API (camelCase thay vì snake_case)
       const dataToSend = {
         date: checkinDate,
@@ -51,10 +51,10 @@ const progressService = {
         healthScore: healthScore,
         notes: checkinData.notes || ''
       };
-      
+
       console.log('Sending checkin data to API:', `${API_URL}/${userId}`, dataToSend);
       console.log('Full request URL:', window.location.origin + API_URL + `/${userId}`);
-      
+
       // Sử dụng fetch thay vì axios để tránh lỗi proxy (giống với createCheckinByUserId)
       const response = await fetch(`${API_URL}/${userId}`, {
         method: 'POST',
@@ -63,24 +63,24 @@ const progressService = {
         },
         body: JSON.stringify(dataToSend)
       });
-      
+
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
       }
-      
+
       console.log('Checkin API response:', result);
       return result;
     } catch (error) {
       console.error('Error creating checkin:', error);
-      
+
       // Thử lại với fetch trực tiếp nếu có lỗi
       try {
         console.warn('Trying direct API call to bypass proxy issues...');
         const directUrl = `http://localhost:5000/api/progress/${userId}`;
         console.log('Trying direct URL:', directUrl);
-        
+
         const targetCigs = parseInt(checkinData.targetCigarettes || 0);
         const actualCigs = parseInt(checkinData.actualCigarettes || 0);
         const initialCigs = parseInt(checkinData.initialCigarettes || checkinData.dailyCigarettes || 50);
@@ -88,7 +88,7 @@ const progressService = {
         const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250;
         const moneySaved = cigarettesAvoided * costPerCigarette;
         const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-        
+
         const dataToSend = {
           date: date || new Date().toISOString().split('T')[0],
           user_id: userId,
@@ -100,7 +100,7 @@ const progressService = {
           healthScore: healthScore,
           notes: checkinData.notes || ''
         };
-        
+
         const directResponse = await fetch(directUrl, {
           method: 'POST',
           headers: {
@@ -109,13 +109,13 @@ const progressService = {
           },
           body: JSON.stringify(dataToSend)
         });
-        
+
         const directResult = await directResponse.json();
-        
+
         if (!directResponse.ok) {
           throw new Error(`Direct API Error: ${directResponse.status} - ${directResult.message || 'Unknown error'}`);
         }
-        
+
         console.log('Direct API call successful:', directResult);
         return directResult;
       } catch (directError) {
@@ -129,33 +129,33 @@ const progressService = {
   updateCheckin: async (date, checkinData) => {
     try {
       console.log(`Updating checkin for date ${date}:`, checkinData);
-      
+
       // Đầu tiên lấy dữ liệu hiện tại để giữ lại các thông số thống kê khác
       const currentData = await progressService.getCheckinByDate(date);
-      
+
       // Calculate statistics based on checkin data
       const targetCigs = parseInt(checkinData.targetCigarettes || 0);
       const actualCigs = parseInt(checkinData.actualCigarettes || 0);
       const initialCigs = parseInt(checkinData.initialCigarettes || checkinData.dailyCigarettes || 50); // Số điếu ban đầu hút 1 ngày
-      
+
       // Calculate cigarettes avoided - FIXED: Dùng số điếu ban đầu - số điếu thực tế hút
       const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
-      
+
       console.log('🔍 Update cigarettes calculation:', {
         initialCigs,
         actualCigs,
         targetCigs,
         cigarettesAvoided
       });
-      
+
       // Calculate money saved (assuming average cost per cigarette)
       const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250; // 25,000 VND per pack of 20
       const moneySaved = cigarettesAvoided * costPerCigarette;
-      
+
       // Calculate health score (simple formula based on cigarettes avoided)
       // 0-100 scale where 0 = smoked all cigarettes, 100 = avoided all cigarettes
       const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-      
+
       const updatedData = {
         targetCigarettes: targetCigs,
         actualCigarettes: actualCigs,
@@ -178,7 +178,7 @@ const progressService = {
         url: `${API_URL}/checkin/${date}`,
         config: error.config,
       });
-      
+
       // Thử lại với axios trực tiếp nếu lỗi liên quan đến proxy
       if (error.message && (error.message.includes('404') || error.response?.status === 404)) {
         try {
@@ -201,7 +201,7 @@ const progressService = {
           throw directError;
         }
       }
-      
+
       throw error;
     }
   },
@@ -223,7 +223,7 @@ const progressService = {
         url: `${API_URL}/user/${date}`,
         config: error.config,
       });
-      
+
       // Thử lại với axios trực tiếp nếu lỗi liên quan đến proxy
       if (error.message && (error.message.includes('404') || error.response?.status === 404)) {
         try {
@@ -246,7 +246,7 @@ const progressService = {
           throw directError;
         }
       }
-      
+
       throw error;
     }
   },
@@ -260,9 +260,9 @@ const progressService = {
         console.warn('⚠️ User not logged in, cannot fetch progress');
         throw new Error('User not logged in');
       }
-      
+
       console.log('🔍 Getting user progress for userId:', userId);
-      
+
       // Lấy kế hoạch hiện tại để bổ sung mục tiêu
       let currentPlan = null;
       try {
@@ -275,40 +275,40 @@ const progressService = {
       } catch (planError) {
         console.warn("Không thể lấy được kế hoạch hiện tại:", planError);
       }
-      
+
       // Tạo bảng tra cứu các mục tiêu theo ngày nếu có kế hoạch
       const planTargets = {};
       if (currentPlan && currentPlan.weeks && Array.isArray(currentPlan.weeks)) {
         const startDate = new Date(currentPlan.start_date || currentPlan.startDate);
-        
+
         // Tạo mục tiêu cho từng ngày dựa trên các tuần trong kế hoạch
         currentPlan.weeks.forEach((week, weekIndex) => {
           for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
             const currentDate = new Date(startDate);
             currentDate.setDate(startDate.getDate() + (weekIndex * 7) + dayOfWeek);
             const dateStr = currentDate.toISOString().split('T')[0];
-            
+
             // Lưu mục tiêu cho ngày này - ưu tiên amount hoặc targetCigarettes nếu có
             planTargets[dateStr] = week.amount || week.targetCigarettes || week.target || 0;
           }
         });
-        
+
         console.log("Đã tạo bảng tra cứu mục tiêu từ kế hoạch:", planTargets);
       }
-      
+
       // Sử dụng API endpoint theo userId thay vì token-based
       const response = await progressService.getProgressByUserId(userId, params);
-      
+
       // Chuyển đổi dữ liệu từ cấu trúc mới sang định dạng mà frontend cần
       if (response && response.data) {
         response.data = response.data.map(item => {
           // Parse progress_data từ JSON
           const progressData = item.progress_data ? JSON.parse(item.progress_data) : {};
           const dateStr = item.date;
-          
+
           // Lấy mục tiêu từ progress_data hoặc từ kế hoạch nếu không có
           const targetCigs = progressData.targetCigarettes || planTargets[dateStr] || 0;
-          
+
           return {
             id: item.id,
             date: dateStr,
@@ -326,18 +326,18 @@ const progressService = {
             updated_at: item.updated_at
           };
         });
-        
+
         // Thêm các ngày chỉ có mục tiêu nhưng không có check-in nếu có kế hoạch
         if (Object.keys(planTargets).length > 0) {
           const existingDates = new Set(response.data.map(item => item.date));
-          
+
           // Thêm mục tiêu cho các ngày không có check-in
           Object.entries(planTargets).forEach(([date, target]) => {
             if (!existingDates.has(date)) {
               // Chỉ thêm các ngày trong phạm vi thời gian hợp lý
               const targetDate = new Date(date);
               const today = new Date();
-              
+
               // Chỉ thêm các ngày từ ngày bắt đầu kế hoạch đến hôm nay
               if (targetDate <= today) {
                 response.data.push({
@@ -358,12 +358,12 @@ const progressService = {
               }
             }
           });
-          
+
           // Sắp xếp lại dữ liệu theo ngày
           response.data.sort((a, b) => new Date(a.date) - new Date(b.date));
         }
       }
-      
+
       return response;
     } catch (error) {
       console.error('Error fetching user progress:', error);
@@ -380,28 +380,28 @@ const progressService = {
         console.warn('⚠️ User not logged in, cannot fetch checkin');
         return { data: null };
       }
-      
+
       console.log(`🔍 Getting checkin for userId ${userId} on date: ${date}`);
-      
+
       // Sử dụng API endpoint theo userId
       const response = await fetch(`/api/progress/${userId}/${date}`);
-      
+
       if (response.status === 404) {
         return { data: null };
       }
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} - ${data.message || 'Unknown error'}`);
       }
-      
+
       // Chuyển đổi dữ liệu từ cấu trúc mới sang định dạng mà frontend cần
       if (data && data.data) {
         const item = data.data;
         // Parse progress_data từ JSON
         const progressData = item.progress_data ? JSON.parse(item.progress_data) : {};
-        
+
         data.data = {
           id: item.id,
           date: item.date,
@@ -419,7 +419,7 @@ const progressService = {
           updated_at: item.updated_at
         };
       }
-      
+
       return data;
     } catch (error) {
       console.error(`Error fetching checkin for ${date}:`, error);
@@ -438,20 +438,52 @@ const progressService = {
     }
   },
 
+  // Xóa check-in theo ngày đơn giản
+  deleteCheckinByDate: async (date) => {
+    try {
+      console.log('🗑️ Deleting checkin for date:', date);
+
+      const response = await axios.delete(`${API_URL}/delete/${date}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting checkin for date ${date}:`, error);
+      throw error;
+    }
+  },
+
+  // Xóa check-in cho user ID và ngày cụ thể (legacy method)
+  deleteCheckinByUserId: async (userId, date) => {
+    try {
+      console.log('🗑️ Deleting checkin for userId:', userId, 'date:', date);
+
+      const config = {
+        params: {
+          user_id: userId
+        }
+      };
+
+      const response = await axios.delete(`${API_URL}/checkin/${date}`, config);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting checkin for user ${userId} on ${date}:`, error);
+      throw error;
+    }
+  },
+
   // Lấy số liệu thống kê tiến trình
   getProgressStats: async (days = 30) => {
     try {
       // Lấy userId từ getCurrentUserId
       const userId = getCurrentUserId();
       const token = getAuthToken();
-      
+
       if (!userId || !token) {
         console.warn('⚠️ User not logged in, cannot fetch progress stats');
         throw new Error('User not logged in');
       }
-      
+
       console.log('🔍 Getting progress stats for userId:', userId);
-      
+
       // Sử dụng token-based API (vì chưa có userId-based endpoint)
       const response = await axios.get(`${API_URL}/stats`, {
         params: { days },
@@ -459,22 +491,22 @@ const progressService = {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const data = response.data;
       if (data && data.data) {
         // Tính toán thêm số ngày không hút thuốc (nếu chưa có)
         if (data.data.total_checkins > 0 && !data.data.no_smoking_days) {
-          data.data.no_smoking_days = data.data.total_checkins > 0 ? 
+          data.data.no_smoking_days = data.data.total_checkins > 0 ?
             Math.round((data.data.goals_met / data.data.total_checkins) * data.data.period_days) : 0;
         }
-        
+
         // Thêm thông tin về lợi ích sức khỏe
         if (!data.data.health_benefits) {
           // Tính các milestone sức khỏe được xử lý bởi ProgressDashboard component
           data.data.health_benefits = [];
         }
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching progress stats:', error);
@@ -488,21 +520,21 @@ const progressService = {
       // Lấy userId từ getCurrentUserId
       const userId = getCurrentUserId();
       const token = getAuthToken();
-      
+
       if (!userId || !token) {
         console.warn('⚠️ User not logged in, cannot fetch chart data');
         throw new Error('User not logged in');
       }
-      
+
       console.log('🔍 Getting chart data for userId:', userId);
-      
+
       // Đảm bảo có type và days trong params
       const enhancedParams = {
         type: 'comprehensive', // Mặc định là lấy tất cả dữ liệu
         days: 30,             // Mặc định 30 ngày
         ...params
       };
-      
+
       // Lấy kế hoạch hiện tại từ quitPlanService
       let currentPlan = null;
       try {
@@ -515,7 +547,7 @@ const progressService = {
       } catch (planError) {
         console.warn("Không thể lấy được kế hoạch hiện tại:", planError);
       }
-      
+
       // Sử dụng token-based API
       const response = await axios.get(`${API_URL}/chart-data`, {
         params: enhancedParams,
@@ -523,9 +555,9 @@ const progressService = {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const data = response.data;
-      
+
       // Xử lý và định dạng dữ liệu cho biểu đồ
       if (data && data.data) {
         // Đảm bảo dữ liệu được sắp xếp theo ngày
@@ -542,36 +574,36 @@ const progressService = {
             };
           })
           .sort((a, b) => new Date(a.date) - new Date(b.date));
-          
+
         // Thêm dữ liệu từ kế hoạch nếu có kế hoạch hiện tại
         if (currentPlan && currentPlan.weeks && Array.isArray(currentPlan.weeks)) {
           // Tạo bảng tra cứu các mục tiêu theo ngày
           const planTargets = {};
           const startDate = new Date(currentPlan.start_date || currentPlan.startDate);
-          
+
           // Tạo mục tiêu cho từng ngày dựa trên các tuần trong kế hoạch
           currentPlan.weeks.forEach((week, weekIndex) => {
             for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
               const currentDate = new Date(startDate);
               currentDate.setDate(startDate.getDate() + (weekIndex * 7) + dayOfWeek);
               const dateStr = currentDate.toISOString().split('T')[0];
-              
+
               // Lưu mục tiêu cho ngày này - ưu tiên amount hoặc targetCigarettes nếu có
               planTargets[dateStr] = week.amount || week.targetCigarettes || week.target || 0;
             }
           });
-          
+
           console.log("Đã tạo bảng tra cứu mục tiêu từ kế hoạch:", planTargets);
-          
+
           // Điền mục tiêu vào dữ liệu hiện có hoặc thêm mới nếu chưa có
           const existingDates = new Set(response.data.data.map(item => item.date));
           const allDates = new Set([...existingDates, ...Object.keys(planTargets)]);
-          
+
           // Tạo mảng dữ liệu mới với đầy đủ mục tiêu
           const newData = [];
           allDates.forEach(date => {
             const existingItem = data.data.find(item => item.date === date);
-            
+
             if (existingItem) {
               // Cập nhật mục tiêu nếu chưa có
               if (!existingItem.target && planTargets[date] !== undefined) {
@@ -591,24 +623,24 @@ const progressService = {
               });
             }
           });
-          
+
           // Sắp xếp lại dữ liệu theo ngày
           data.data = newData.sort((a, b) => new Date(a.date) - new Date(b.date));
           console.log(`Đã cập nhật ${newData.length} mục dữ liệu biểu đồ với mục tiêu từ kế hoạch`);
         }
-        
+
         // Tính toán thêm dữ liệu xu hướng nếu có nhiều hơn 2 điểm dữ liệu
         if (data.data.length > 2) {
           // Tính xu hướng hút thuốc (tăng/giảm)
           const firstActual = data.data[0].actual;
           const lastActual = data.data[data.data.length - 1].actual;
-          const trend = firstActual > lastActual ? 'decrease' : 
-                      (firstActual < lastActual ? 'increase' : 'stable');
-          
+          const trend = firstActual > lastActual ? 'decrease' :
+            (firstActual < lastActual ? 'increase' : 'stable');
+
           // Tính phần trăm thay đổi
-          const changePercent = firstActual > 0 ? 
+          const changePercent = firstActual > 0 ?
             Math.round(((lastActual - firstActual) / firstActual) * 100) : 0;
-            
+
           data.trend = {
             direction: trend,
             percentage: Math.abs(changePercent),
@@ -617,7 +649,7 @@ const progressService = {
           };
         }
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching chart data:', error);
@@ -629,30 +661,30 @@ const progressService = {
   createCheckinByUserId: async (userId, checkinData) => {
     try {
       console.log(`Creating checkin for userId ${userId}:`, checkinData);
-      
+
       if (!checkinData.date) {
         checkinData.date = new Date().toISOString().split('T')[0];
       }
-      
+
       // Calculate statistics
       const targetCigs = parseInt(checkinData.targetCigarettes || 0);
       const actualCigs = parseInt(checkinData.actualCigarettes || 0);
       const initialCigs = parseInt(checkinData.initialCigarettes || checkinData.dailyCigarettes || 50); // Số điếu ban đầu hút 1 ngày
-      
+
       // Calculate cigarettes avoided - FIXED: Dùng số điếu ban đầu - số điếu thực tế hút
       const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
-      
+
       console.log('🔍 CreateCheckinByUserId cigarettes calculation:', {
         initialCigs,
         actualCigs,
         targetCigs,
         cigarettesAvoided
       });
-      
+
       const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250;
       const moneySaved = cigarettesAvoided * costPerCigarette;
       const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-      
+
       const dataToSend = {
         date: checkinData.date,
         targetCigarettes: targetCigs,
@@ -669,7 +701,7 @@ const progressService = {
       };
 
       console.log(`Sending to API: POST /api/progress/${userId}`, dataToSend);
-      
+
       // Sử dụng fetch thay vì axios để tránh lỗi proxy
       const response = await fetch(`/api/progress/${userId}`, {
         method: 'POST',
@@ -680,14 +712,14 @@ const progressService = {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
       }
 
       console.log('✅ Checkin created successfully:', result);
       return result;
-      
+
     } catch (error) {
       console.error('❌ Error in createCheckinByUserId:', error);
       throw error;
@@ -699,25 +731,25 @@ const progressService = {
     try {
       const queryString = new URLSearchParams(params).toString();
       const url = `/api/progress/${userId}${queryString ? '?' + queryString : ''}`;
-      
+
       console.log(`Getting progress for userId ${userId}:`, url);
-      
+
       const response = await fetch(url);
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
       }
 
       console.log('✅ Progress retrieved successfully:', result);
       return result;
-      
+
     } catch (error) {
       console.error('❌ Error in getProgressByUserId:', error);
       throw error;
     }
   },
-  
+
   // Cập nhật check-in cho một ngày cụ thể theo userId
   updateCheckinByUserId: async (userId, date, checkinData) => {
     try {
@@ -726,10 +758,10 @@ const progressService = {
       // Calculate statistics based on checkin data
       const targetCigs = parseInt(checkinData.targetCigarettes || 0);
       const actualCigs = parseInt(checkinData.actualCigarettes || 0);
-      
+
       // Đảm bảo initialCigs có giá trị hợp lý (không bao giờ = 0)
-      let initialCigs = parseInt(checkinData.initialCigarettes || 0); 
-      
+      let initialCigs = parseInt(checkinData.initialCigarettes || 0);
+
       // Nếu initialCigs là 0, thử lấy từ kế hoạch hoặc đặt giá trị mặc định
       if (initialCigs === 0) {
         try {
@@ -737,10 +769,10 @@ const progressService = {
           const localPlan = localStorage.getItem('activePlan');
           if (localPlan) {
             const parsedPlan = JSON.parse(localPlan);
-            initialCigs = parsedPlan.initialCigarettes || 
-                          parsedPlan.initial_cigarettes || 
-                          parsedPlan.dailyCigarettes ||
-                          parsedPlan.daily_cigarettes || 20;
+            initialCigs = parsedPlan.initialCigarettes ||
+              parsedPlan.initial_cigarettes ||
+              parsedPlan.dailyCigarettes ||
+              parsedPlan.daily_cigarettes || 20;
           } else {
             // Nếu không có active plan, sử dụng giá trị mặc định
             initialCigs = 20; // Giá trị mặc định hợp lý
@@ -753,21 +785,21 @@ const progressService = {
 
       // Calculate cigarettes avoided
       const cigarettesAvoided = Math.max(0, initialCigs - actualCigs);
-      
+
       console.log('🔍 UpdateCheckinByUserId cigarettes calculation:', {
         initialCigs,
         actualCigs,
         targetCigs,
         cigarettesAvoided
       });
-      
+
       // Calculate money saved
       const costPerCigarette = checkinData.packPrice ? (checkinData.packPrice / 20) : 1250; // 25,000 VND per pack of 20
       const moneySaved = cigarettesAvoided * costPerCigarette;
-      
+
       // Calculate health score
       const healthScore = initialCigs > 0 ? Math.round((cigarettesAvoided / initialCigs) * 100) : 0;
-      
+
       const dataToSend = {
         date: date,
         targetCigarettes: targetCigs,
@@ -779,7 +811,7 @@ const progressService = {
       };
 
       console.log(`Sending to API: PUT /api/progress/${userId}`, dataToSend);
-      
+
       // Sử dụng fetch thay vì axios để tránh lỗi proxy
       const response = await fetch(`/api/progress/${userId}`, {
         method: 'PUT',
@@ -790,14 +822,14 @@ const progressService = {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} - ${result.message || 'Unknown error'}`);
       }
 
       console.log('✅ Checkin updated successfully:', result);
       return result;
-      
+
     } catch (error) {
       console.error('❌ Error in updateCheckinByUserId:', error);
       throw error;
@@ -810,14 +842,14 @@ const progressService = {
       // Lấy userId từ getCurrentUserId
       const userId = getCurrentUserId();
       const token = getAuthToken();
-      
+
       if (!userId || !token) {
         console.warn('⚠️ User not logged in, cannot clear progress');
         throw new Error('User not logged in');
       }
-      
+
       console.log('🔍 Clearing all progress for userId:', userId);
-      
+
       // Gọi API để xóa tất cả progress của user
       const response = await axios.delete(`${API_URL}/user/${userId}/clear`, {
         headers: {
@@ -825,9 +857,9 @@ const progressService = {
           'Content-Type': 'application/json'
         }
       });
-      
+
       console.log('✅ All progress cleared successfully:', response.data);
-      
+
       // Clear localStorage progress data
       const keys = Object.keys(localStorage);
       keys.forEach(key => {
@@ -835,12 +867,12 @@ const progressService = {
           localStorage.removeItem(key);
         }
       });
-      
+
       return response.data;
-      
+
     } catch (error) {
       console.error('❌ Error clearing user progress:', error);
-      
+
       // Fallback: Clear localStorage anyway
       const keys = Object.keys(localStorage);
       keys.forEach(key => {
@@ -848,7 +880,7 @@ const progressService = {
           localStorage.removeItem(key);
         }
       });
-      
+
       throw error;
     }
   },
@@ -857,7 +889,7 @@ const progressService = {
   forceCleanAllProgress: async () => {
     try {
       console.log('🔍 Force cleaning all progress data...');
-      
+
       // 1. Try to clear database via API
       try {
         await progressService.clearUserProgress();
@@ -865,7 +897,7 @@ const progressService = {
       } catch (apiError) {
         console.warn('⚠️ Could not clear database progress:', apiError);
       }
-      
+
       // 2. Clear localStorage
       try {
         const keys = Object.keys(localStorage);
@@ -880,7 +912,7 @@ const progressService = {
       } catch (localStorageError) {
         console.warn('⚠️ Could not clear localStorage:', localStorageError);
       }
-      
+
       // 3. Clear sessionStorage
       try {
         const sessionKeys = Object.keys(sessionStorage);
@@ -895,10 +927,10 @@ const progressService = {
       } catch (sessionStorageError) {
         console.warn('⚠️ Could not clear sessionStorage:', sessionStorageError);
       }
-      
+
       console.log('✅ Force clean completed');
       return true;
-      
+
     } catch (error) {
       console.error('❌ Error in force clean:', error);
       return false;

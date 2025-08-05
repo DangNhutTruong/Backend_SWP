@@ -63,6 +63,7 @@ const ActivePlanSelector = ({ selectedPlan, onPlanChange, isLoading = false }) =
 
         // Update localStorage
         localStorage.setItem('activePlan', JSON.stringify(plan));
+        console.log('💾 ActivePlanSelector - Saved to localStorage:', localStorage.getItem('activePlan'));
 
         // Force component re-render
         setForceUpdate(prev => prev + 1);
@@ -75,12 +76,25 @@ const ActivePlanSelector = ({ selectedPlan, onPlanChange, isLoading = false }) =
         // Close dropdown
         setIsDropdownOpen(false);
 
-        // Trigger reload event for other components
-        window.dispatchEvent(new CustomEvent('localStorageChanged', {
-            detail: { key: 'activePlan' }
-        }));
+        // Test if event listeners are working
+        console.log('🔔 ActivePlanSelector - About to dispatch event...');
 
+        // Trigger reload event for other components
+        const event = new CustomEvent('localStorageChanged', {
+            detail: { key: 'activePlan', planId: plan.id, planName: plan.plan_name || plan.planName }
+        });
+        window.dispatchEvent(event);
+
+        console.log('🔔 ActivePlanSelector - Event dispatched:', event);
         console.log('✅ ActivePlanSelector - Plan change completed');
+
+        // Also try manual trigger to test
+        setTimeout(() => {
+            console.log('🧪 Testing manual event dispatch...');
+            window.dispatchEvent(new CustomEvent('localStorageChanged', {
+                detail: { key: 'activePlan', test: true }
+            }));
+        }, 100);
     };
 
     const formatPlanName = (plan) => {
