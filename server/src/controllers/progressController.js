@@ -10,7 +10,6 @@ export const createCheckin = async (req, res) => {
     try {
         const {
             date,
-            targetCigarettes,
             actualCigarettes,
             notes,
             healthScore = 0,
@@ -28,10 +27,6 @@ export const createCheckin = async (req, res) => {
             return sendError(res, 'Plan ID is required - you must specify which quit plan this checkin is for', 400);
         }
 
-        if (targetCigarettes === undefined || targetCigarettes < 0) {
-            return sendError(res, 'Target cigarettes must be a non-negative number', 400);
-        }
-
         if (actualCigarettes === undefined || actualCigarettes < 0) {
             return sendError(res, 'Actual cigarettes must be a non-negative number', 400);
         }
@@ -47,8 +42,7 @@ export const createCheckin = async (req, res) => {
         }
 
         // Calculate cigarettes avoided if not provided
-        const calculatedCigarettesAvoided =
-            cigarettesAvoided || Math.max(0, targetCigarettes - actualCigarettes);
+        const calculatedCigarettesAvoided = cigarettesAvoided || 0;
 
         // Calculate streak days
         let streakDays = 0;
@@ -70,14 +64,13 @@ export const createCheckin = async (req, res) => {
         // Insert new checkin
         const [result] = await pool.execute(
             `INSERT INTO daily_progress 
-             (smoker_id, plan_id, date, target_cigarettes, actual_cigarettes, notes, 
+             (smoker_id, plan_id, date, actual_cigarettes, notes, 
              health_score, money_saved, cigarettes_avoided, streak_days) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 req.user.id,
                 plan_id,
                 date,
-                targetCigarettes,
                 actualCigarettes,
                 notes || null,
                 healthScore,
@@ -194,7 +187,6 @@ export const updateCheckin = async (req, res) => {
     try {
         const { date } = req.params;
         const {
-            targetCigarettes,
             actualCigarettes,
             notes,
             healthScore,
@@ -236,11 +228,6 @@ export const updateCheckin = async (req, res) => {
         const updates = [];
         const params = [];
 
-        if (targetCigarettes !== undefined && targetCigarettes >= 0) {
-            updates.push('target_cigarettes = ?');
-            params.push(targetCigarettes);
-        }
-
         if (actualCigarettes !== undefined && actualCigarettes >= 0) {
             updates.push('actual_cigarettes = ?');
             params.push(actualCigarettes);
@@ -264,13 +251,6 @@ export const updateCheckin = async (req, res) => {
             } else if (existingRecord.streak_days > 0) {
                 // Reset streak if user smoked today
                 updates.push('streak_days = 0');
-            }
-
-            // Recalculate cigarettes avoided if target was provided too
-            if (targetCigarettes !== undefined) {
-                const calculatedCigarettesAvoided = Math.max(0, targetCigarettes - actualCigarettes);
-                updates.push('cigarettes_avoided = ?');
-                params.push(calculatedCigarettesAvoided);
             }
         }
 
@@ -401,7 +381,6 @@ export const getProgressStats = async (req, res) => {
             SELECT 
                 COUNT(*) as total_checkins,
                 AVG(actual_cigarettes) as avg_cigarettes,
-                SUM(CASE WHEN actual_cigarettes <= target_cigarettes THEN 1 ELSE 0 END) as goals_met,
                 MIN(actual_cigarettes) as best_day,
                 MAX(actual_cigarettes) as worst_day,
                 MAX(streak_days) as max_streak,
@@ -418,22 +397,15 @@ export const getProgressStats = async (req, res) => {
 
         // Get streak information
         const [recentCheckins] = await pool.execute(`
-            SELECT date, actual_cigarettes, target_cigarettes
+            SELECT date, actual_cigarettes
             FROM daily_progress 
             WHERE ${recentWhere}
             ORDER BY date DESC
             LIMIT 30
         `, recentParams);
 
-        // Calculate current streak
+        // Calculate current streak - will be calculated on frontend with plan targets
         let currentStreak = 0;
-        for (const checkin of recentCheckins) {
-            if (checkin.actual_cigarettes <= checkin.target_cigarettes) {
-                currentStreak++;
-            } else {
-                break;
-            }
-        }
 
         // Get total reduction since first checkin
         const [firstCheckin] = await pool.execute(`
@@ -465,13 +437,11 @@ export const getProgressStats = async (req, res) => {
             period_days: parseInt(days),
             total_checkins: stats[0].total_checkins || 0,
             avg_cigarettes: Math.round((stats[0].avg_cigarettes || 0) * 10) / 10,
-            goals_met: stats[0].goals_met || 0,
-            success_rate: stats[0].total_checkins > 0
-                ? Math.round((stats[0].goals_met / stats[0].total_checkins) * 100)
-                : 0,
+            goals_met: 0, // Will be calculated on frontend with plan targets
+            success_rate: 0, // Will be calculated on frontend with plan targets
             best_day: stats[0].best_day || 0,
             worst_day: stats[0].worst_day || 0,
-            current_streak: currentStreak,
+            current_streak: currentStreak, // Will be calculated on frontend with plan targets
             max_streak: stats[0].max_streak || 0,
             total_reduction: totalReduction,
             reduction_percentage: reductionPercentage,
@@ -512,7 +482,7 @@ export const getChartData = async (req, res) => {
 
         switch (type) {
             case 'cigarettes':
-                fields = 'date, actual_cigarettes, target_cigarettes';
+                fields = 'date, actual_cigarettes';
                 break;
             case 'health':
                 fields = 'date, health_score, cigarettes_avoided, streak_days';
@@ -521,10 +491,10 @@ export const getChartData = async (req, res) => {
                 fields = 'date, money_saved, cigarettes_avoided';
                 break;
             case 'comprehensive':
-                fields = 'date, actual_cigarettes, target_cigarettes, health_score, money_saved, cigarettes_avoided';
+                fields = 'date, actual_cigarettes, health_score, money_saved, cigarettes_avoided';
                 break;
             default:
-                fields = 'date, actual_cigarettes, target_cigarettes';
+                fields = 'date, actual_cigarettes';
         }
 
         // Build where condition with required plan_id
@@ -544,7 +514,7 @@ export const getChartData = async (req, res) => {
         const formattedData = chartData.map(row => ({
             date: row.date,
             actual: row.actual_cigarettes || 0,
-            target: row.target_cigarettes || 0,
+            target: 0, // Target will be calculated dynamically on frontend from plan
             healthScore: row.health_score || 0,
             cigarettesAvoided: row.cigarettes_avoided || 0,
             moneySaved: row.money_saved || 0,
@@ -570,7 +540,6 @@ export const createCheckinByUserId = async (req, res) => {
         const { userId } = req.params;
         const {
             date = new Date().toISOString().split('T')[0],
-            targetCigarettes,
             actualCigarettes,
             notes,
             healthScore = 0,
@@ -588,10 +557,6 @@ export const createCheckinByUserId = async (req, res) => {
         // Validation
         if (!userId) {
             return sendError(res, 'User ID is required', 400);
-        }
-
-        if (targetCigarettes === undefined || targetCigarettes < 0) {
-            return sendError(res, 'Target cigarettes must be a non-negative number', 400);
         }
 
         if (actualCigarettes === undefined || actualCigarettes < 0) {
@@ -621,8 +586,7 @@ export const createCheckinByUserId = async (req, res) => {
         }
 
         // Calculate cigarettes avoided if not provided
-        const calculatedCigarettesAvoided =
-            cigarettesAvoided || Math.max(0, targetCigarettes - actualCigarettes);
+        const calculatedCigarettesAvoided = cigarettesAvoided || 0;
 
         // Calculate streak days
         let streakDays = 0;
@@ -659,20 +623,18 @@ export const createCheckinByUserId = async (req, res) => {
         });
 
         // Calculate progress percentage if not provided
-        const calculatedProgressPercentage = progressPercentage ||
-            (targetCigarettes > 0 ? Math.round(((targetCigarettes - actualCigarettes) / targetCigarettes) * 100) : 0);
+        const calculatedProgressPercentage = progressPercentage || 0;
 
         // Insert new checkin
         const [result] = await pool.execute(
             `INSERT INTO daily_progress 
-             (smoker_id, date, target_cigarettes, actual_cigarettes, notes, 
+             (smoker_id, date, actual_cigarettes, notes, 
              health_score, money_saved, cigarettes_avoided, streak_days, 
              tool_type, days_clean, vapes_avoided, progress_percentage, progress_data) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 userId,
                 date,
-                targetCigarettes,
                 actualCigarettes,
                 notes || null,
                 healthScore,
@@ -710,7 +672,6 @@ export const updateCheckinByUserId = async (req, res) => {
         const { userId } = req.params;
         const {
             date = new Date().toISOString().split('T')[0],
-            targetCigarettes,
             actualCigarettes,
             notes,
             healthScore,
@@ -745,11 +706,6 @@ export const updateCheckinByUserId = async (req, res) => {
         const updates = [];
         const params = [];
 
-        if (targetCigarettes !== undefined && targetCigarettes >= 0) {
-            updates.push('target_cigarettes = ?');
-            params.push(targetCigarettes);
-        }
-
         if (actualCigarettes !== undefined && actualCigarettes >= 0) {
             updates.push('actual_cigarettes = ?');
             params.push(actualCigarettes);
@@ -773,18 +729,6 @@ export const updateCheckinByUserId = async (req, res) => {
             } else if (existingRecord.streak_days > 0) {
                 // Reset streak if user smoked today
                 updates.push('streak_days = 0');
-            }
-
-            // Recalculate cigarettes avoided and progress percentage
-            if (targetCigarettes !== undefined) {
-                const calculatedCigarettesAvoided = Math.max(0, targetCigarettes - actualCigarettes);
-                updates.push('cigarettes_avoided = ?');
-                params.push(calculatedCigarettesAvoided);
-
-                const calculatedProgressPercentage = targetCigarettes > 0 ?
-                    Math.round(((targetCigarettes - actualCigarettes) / targetCigarettes) * 100) : 0;
-                updates.push('progress_percentage = ?');
-                params.push(calculatedProgressPercentage);
             }
         }
 
