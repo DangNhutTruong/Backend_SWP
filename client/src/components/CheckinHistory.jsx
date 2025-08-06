@@ -194,7 +194,7 @@ const CheckinHistory = ({ onProgressUpdate, activePlan: propActivePlan, dashboar
         return 0;
     };
 
-    // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (bao gồm cả ngày tương lai)
+    // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến ngày hiện tại (không bao gồm ngày tương lai)
     const generateDaysArray = (startDate, endDate = null) => {
         const today = new Date();
         const start = new Date(startDate);
@@ -383,10 +383,10 @@ const CheckinHistory = ({ onProgressUpdate, activePlan: propActivePlan, dashboar
                         historyMap.set(entry.date, entry);
                     });
 
-                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (hoặc hiện tại)
+                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày hiện tại (không bao gồm tương lai)
                     console.log('🔍 CheckinHistory - planStartDate:', planStartDate);
                     console.log('🔍 CheckinHistory - planEndDate:', planEndDate);
-                    const allDays = generateDaysArray(planStartDate, planEndDate);
+                    const allDays = generateDaysArray(planStartDate, null); // null = chỉ đến ngày hiện tại
                     console.log(`🔍 Generated ${allDays.length} days from plan start to end`);
 
                     // Tạo lịch sử đầy đủ với tất cả các ngày
@@ -465,10 +465,10 @@ const CheckinHistory = ({ onProgressUpdate, activePlan: propActivePlan, dashboar
                         historyMap.set(entry.date, entry);
                     });
 
-                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (hoặc hiện tại)
+                    // Lấy các ngày từ ngày bắt đầu kế hoạch đến ngày hiện tại (không bao gồm tương lai)
                     console.log('🔍 CheckinHistory - (localStorage fallback) planStartDate:', planStartDate);
                     console.log('🔍 CheckinHistory - (localStorage fallback) planEndDate:', planEndDate);
-                    const allDays = generateDaysArray(planStartDate, planEndDate);
+                    const allDays = generateDaysArray(planStartDate, null); // null = chỉ đến ngày hiện tại
                     console.log(`🔍 Generated ${allDays.length} days from plan start to end (localStorage fallback)`);
 
                     // Tạo lịch sử đầy đủ với tất cả các ngày
@@ -648,10 +648,10 @@ const CheckinHistory = ({ onProgressUpdate, activePlan: propActivePlan, dashboar
                                     historyMap.set(entry.date, entry);
                                 });
 
-                                // Tạo full history cho toàn bộ thời gian kế hoạch
+                                // Tạo full history từ ngày bắt đầu đến ngày hiện tại (không bao gồm tương lai)
                                 console.log('🔍 CheckinHistory (reload) - planStartDate:', planStartDate);
                                 console.log('🔍 CheckinHistory (reload) - planEndDate:', planEndDate);
-                                const allDays = generateDaysArray(planStartDate, planEndDate);
+                                const allDays = generateDaysArray(planStartDate, null); // null = chỉ đến ngày hiện tại
                                 console.log(`🔍 CheckinHistory (reload) - Generated ${allDays.length} days`);
 
                                 const fullHistory = allDays.map(date => {
