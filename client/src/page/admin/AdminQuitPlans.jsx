@@ -20,17 +20,17 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Modal, 
-  Form, 
-  Input, 
-  Typography, 
-  Tag, 
-  Tooltip, 
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Modal,
+  Form,
+  Input,
+  Typography,
+  Tag,
+  Tooltip,
   Popconfirm,
   Select,
   InputNumber,
@@ -38,10 +38,10 @@ import {
   List,
   message
 } from 'antd';
-import { 
-  EditOutlined, 
-  DeleteOutlined, 
-  PlusOutlined, 
+import {
+  EditOutlined,
+  DeleteOutlined,
+  PlusOutlined,
   EyeOutlined,
   CopyOutlined,
   MinusCircleOutlined,
@@ -61,7 +61,7 @@ export default function AdminQuitPlans() {
   const [form] = Form.useForm();
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [viewingTemplate, setViewingTemplate] = useState(null);
-  
+
   useEffect(() => {
     // Mô phỏng API call để lấy dữ liệu kế hoạch mẫu
     fetchTemplates();
@@ -162,8 +162,8 @@ export default function AdminQuitPlans() {
   const handleSubmit = (values) => {
     if (editingTemplate) {
       // Cập nhật kế hoạch hiện có
-      setTemplates(templates.map(t => 
-        t.id === editingTemplate.id 
+      setTemplates(templates.map(t =>
+        t.id === editingTemplate.id
           ? { ...t, ...values, usageCount: t.usageCount }
           : t
       ));
@@ -178,7 +178,7 @@ export default function AdminQuitPlans() {
       setTemplates([...templates, newTemplate]);
       message.success('Kế hoạch mẫu đã được tạo thành công!');
     }
-    
+
     setIsModalVisible(false);
   };
 
@@ -200,14 +200,14 @@ export default function AdminQuitPlans() {
   };
 
   const handleToggleStatus = (id, currentStatus) => {
-    setTemplates(templates.map(t => 
+    setTemplates(templates.map(t =>
       t.id === id ? { ...t, isPublished: !currentStatus } : t
     ));
     message.success(`Kế hoạch mẫu đã được ${currentStatus ? 'ẩn' : 'xuất bản'}!`);
   };
 
   const getDifficultyColor = (difficulty) => {
-    switch(difficulty) {
+    switch (difficulty) {
       case 'easy': return 'green';
       case 'medium': return 'blue';
       case 'hard': return 'red';
@@ -216,7 +216,7 @@ export default function AdminQuitPlans() {
   };
 
   const getDifficultyText = (difficulty) => {
-    switch(difficulty) {
+    switch (difficulty) {
       case 'easy': return 'Dễ';
       case 'medium': return 'Trung bình';
       case 'hard': return 'Khó';
@@ -225,7 +225,7 @@ export default function AdminQuitPlans() {
   };
 
   const getUserTypeText = (type) => {
-    switch(type) {
+    switch (type) {
       case 'beginners': return 'Người mới bắt đầu';
       case 'moderate-smokers': return 'Người hút vừa phải';
       case 'heavy-smokers': return 'Người hút nhiều';
@@ -313,22 +313,22 @@ export default function AdminQuitPlans() {
       render: (_, record) => (
         <Space size="middle">
           <Tooltip title="Xem chi tiết">
-            <Button 
+            <Button
               icon={<EyeOutlined />}
               onClick={() => showViewModal(record)}
             />
           </Tooltip>
           <Tooltip title="Sao chép">
-            <Button 
+            <Button
               icon={<CopyOutlined />}
               onClick={() => handleDuplicate(record)}
             />
           </Tooltip>
           <Tooltip title="Sửa">
-            <Button 
-              type="primary" 
-              icon={<EditOutlined />} 
-              onClick={() => showModal(record)} 
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => showModal(record)}
             />
           </Tooltip>
           <Tooltip title={record.isPublished ? 'Ẩn kế hoạch' : 'Xuất bản'}>
@@ -346,9 +346,9 @@ export default function AdminQuitPlans() {
             cancelText="Hủy"
           >
             <Tooltip title="Xóa">
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
+              <Button
+                danger
+                icon={<DeleteOutlined />}
               />
             </Tooltip>
           </Popconfirm>
@@ -362,8 +362,8 @@ export default function AdminQuitPlans() {
       <Card>
         <div className="header-with-button">
           <Title level={3}>Quản lý kế hoạch cai thuốc mẫu</Title>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             icon={<PlusOutlined />}
             onClick={() => showModal()}
           >
@@ -405,27 +405,27 @@ export default function AdminQuitPlans() {
           <div className="template-detail">
             <Title level={4}>{viewingTemplate.name}</Title>
             <Paragraph>{viewingTemplate.description}</Paragraph>
-            
+
             <div className="template-meta">
               <Space size="large">
                 <div><strong>Thời gian:</strong> {viewingTemplate.duration} ngày</div>
                 <div>
-                  <strong>Độ khó:</strong> 
+                  <strong>Độ khó:</strong>
                   <Tag color={getDifficultyColor(viewingTemplate.difficulty)} style={{ marginLeft: 8 }}>
                     {getDifficultyText(viewingTemplate.difficulty)}
                   </Tag>
                 </div>
                 <div>
-                  <strong>Đối tượng:</strong> 
+                  <strong>Đối tượng:</strong>
                   {viewingTemplate.targetUsers.map(user => (
                     <Tag key={user} style={{ marginLeft: 8 }}>{getUserTypeText(user)}</Tag>
                   ))}
                 </div>
               </Space>
             </div>
-            
+
             <Divider orientation="left">Các bước thực hiện</Divider>
-            
+
             <List
               itemLayout="horizontal"
               dataSource={viewingTemplate.steps}

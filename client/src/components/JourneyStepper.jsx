@@ -49,7 +49,7 @@ const checkAuthStatus = () => {
 export default function JourneyStepper({ onPlanCreated }) {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // ===== STATES QUẢN LÝ UI VÀ LUỒNG TẠO KẾ HOẠCH =====
   const [currentStep, setCurrentStep] = useState(1);                    // Bước hiện tại (1-4)
   const [isCompleted, setIsCompleted] = useState(false);                // Đã hoàn thành tạo kế hoạch
@@ -57,7 +57,7 @@ export default function JourneyStepper({ onPlanCreated }) {
   const [isEditing, setIsEditing] = useState(false);                    // Đang ở chế độ chỉnh sửa
   const [isFullEdit, setIsFullEdit] = useState(false);                  // Phân biệt giữa edit một phần vs edit toàn bộ
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);        // Hiển thị thông báo chào mừng quay lại
-  
+
   // ===== STATE FORM DATA - THÔNG TIN NGƯỜI DÙNG =====
   const [formData, setFormData] = useState({
     cigarettesPerDay: 10,       // Số điếu thuốc hút mỗi ngày (dùng để tính toán kế hoạch)

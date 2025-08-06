@@ -22,7 +22,7 @@
 export const getCurrentUserId = () => {
     // Priority order: auth system keys -> legacy keys -> user object fields -> null
     let userId = localStorage.getItem('user_id') || localStorage.getItem('userId');
-    
+
     if (!userId) {
         // Check nosmoke_user first (main auth system)
         const userStr = localStorage.getItem('nosmoke_user') || localStorage.getItem('user');
@@ -35,11 +35,11 @@ export const getCurrentUserId = () => {
             }
         }
     }
-    
+
     // Try sessionStorage as backup
     if (!userId) {
         userId = sessionStorage.getItem('user_id') || sessionStorage.getItem('userId');
-        
+
         if (!userId) {
             const userStr = sessionStorage.getItem('nosmoke_user') || sessionStorage.getItem('user');
             if (userStr) {
@@ -52,7 +52,7 @@ export const getCurrentUserId = () => {
             }
         }
     }
-    
+
     return userId || null;
 };
 
@@ -63,7 +63,7 @@ export const getCurrentUserId = () => {
 export const isUserLoggedIn = () => {
     const userId = getCurrentUserId();
     const token = getAuthToken();
-    
+
     return !!(userId && token);
 };
 
@@ -72,9 +72,9 @@ export const isUserLoggedIn = () => {
  * @returns {object|null} User object hoặc null nếu không tìm thấy
  */
 export const getCurrentUser = () => {
-    const userStr = localStorage.getItem('nosmoke_user') || sessionStorage.getItem('nosmoke_user') || 
-                   localStorage.getItem('user') || sessionStorage.getItem('user');
-    
+    const userStr = localStorage.getItem('nosmoke_user') || sessionStorage.getItem('nosmoke_user') ||
+        localStorage.getItem('user') || sessionStorage.getItem('user');
+
     if (userStr) {
         try {
             return JSON.parse(userStr);
@@ -82,7 +82,7 @@ export const getCurrentUser = () => {
             console.warn('Error parsing user data:', e);
         }
     }
-    
+
     return null;
 };
 
@@ -93,7 +93,7 @@ export const getCurrentUser = () => {
  */
 export const getAuthToken = () => {
     return localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') ||
-           localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 };
 
 /**

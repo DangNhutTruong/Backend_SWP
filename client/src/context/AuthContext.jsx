@@ -190,14 +190,14 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.removeItem('actualProgress');
         sessionStorage.removeItem('dashboardStats');
         sessionStorage.removeItem('quitPlanCompletion');
-        
+
         // Xóa tất cả dữ liệu check-in cũ để tránh dính data
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('checkin_')) {
             localStorage.removeItem(key);
           }
         });
-        
+
         console.log('🧹 Đã xóa dữ liệu ứng dụng cũ trước khi login user mới');
 
         // Lưu token và user data
@@ -228,7 +228,7 @@ export const AuthProvider = ({ children }) => {
   // Hàm đăng xuất
   const logout = () => {
     setUser(null);
-    
+
     // Xóa thông tin user và token khỏi cả localStorage và sessionStorage
     localStorage.removeItem('nosmoke_user');
     localStorage.removeItem('nosmoke_token');
@@ -236,7 +236,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem('nosmoke_user');
     sessionStorage.removeItem('nosmoke_token');
     sessionStorage.removeItem('refresh_token');
-    
+
     // Xóa tất cả dữ liệu ứng dụng để tránh dính data từ user trước
     localStorage.removeItem('activePlan');
     localStorage.removeItem('actualProgress');
@@ -245,14 +245,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user_id');
     localStorage.removeItem('userId');
     localStorage.removeItem('activeProfileTab');
-    
+
     // Xóa tất cả dữ liệu check-in
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('checkin_')) {
         localStorage.removeItem(key);
       }
     });
-    
+
     // Xóa cả sessionStorage
     sessionStorage.removeItem('activePlan');
     sessionStorage.removeItem('actualProgress');
@@ -261,9 +261,9 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem('user_id');
     sessionStorage.removeItem('userId');
     sessionStorage.removeItem('membership_refresh_needed');
-    
+
     console.log('🧹 Đã xóa sạch tất cả dữ liệu người dùng khỏi storage');
-    
+
     return { success: true };
   };
   // Đảm bảo rằng membership luôn là một giá trị hợp lệ
@@ -450,210 +450,210 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-  // Hàm cập nhật thông tin người dùng
-  const updateUser = async (updatedData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🔄 AuthContext - updateUser called with:', updatedData);
-      
-      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
-      
-      if (!currentToken) {
-        throw new Error('No authentication token found');
-      }
+// Hàm cập nhật thông tin người dùng
+const updateUser = async (updatedData) => {
+  setLoading(true);
+  setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentToken}`
-        },
-        body: JSON.stringify(updatedData)
-      });
+  try {
+    console.log('🔄 AuthContext - updateUser called with:', updatedData);
 
-      const data = await response.json();
+    const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Update failed');
-      }
-
-      // Process the updated user data
-      const processedUser = {
-        ...data.data,
-        quitReason: data.data.quitReason || data.data.quit_reason,
-        quit_reason: data.data.quitReason || data.data.quit_reason,
-        dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
-        date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
-        fullName: data.data.fullName || data.data.full_name,
-        full_name: data.data.fullName || data.data.full_name
-      };
-
-      setUser(processedUser);
-
-      // Update storage
-      if (rememberMe) {
-        localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
-      } else {
-        sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
-      }
-
-      // Dispatch custom event for other components
-      window.dispatchEvent(new CustomEvent('user-updated', {
-        detail: { user: processedUser }
-      }));
-
-      console.log('✅ AuthContext - User updated successfully:', processedUser);
-      return { success: true, message: data.message, user: processedUser };
-    } catch (err) {
-      console.error('❌ AuthContext - Update user error:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+    if (!currentToken) {
+      throw new Error('No authentication token found');
     }
-  };
 
-  // Hàm tải lên avatar người dùng
-  const uploadAvatar = async (file) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🖼️ AuthContext - uploadAvatar called with file:', file.name);
-      
-      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
-      
-      if (!currentToken) {
-        throw new Error('No authentication token found');
-      }
+    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: JSON.stringify(updatedData)
+    });
 
-      const formData = new FormData();
-      formData.append('avatar', file);
+    const data = await response.json();
 
-      const response = await fetch(`${API_BASE_URL}/users/upload-avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${currentToken}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Avatar upload failed');
-      }
-
-      // Update user with new avatar URL
-      const updatedUser = {
-        ...user,
-        profile_image: data.data.avatarUrl
-      };
-
-      setUser(updatedUser);
-
-      // Update storage
-      if (rememberMe) {
-        localStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
-      } else {
-        sessionStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
-      }
-
-      console.log('✅ AuthContext - Avatar uploaded successfully:', data.data.avatarUrl);
-      return { success: true, avatarUrl: data.data.avatarUrl, message: data.message };
-    } catch (err) {
-      console.error('❌ AuthContext - Upload avatar error:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Update failed');
     }
-  };
 
-  // Hàm refresh thông tin user từ API (fetch latest user data)
-  const refreshUserFromAPI = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🔄 AuthContext - refreshUserFromAPI called');
-      
-      const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
-      
-      if (!currentToken) {
-        throw new Error('No authentication token found');
-      }
+    // Process the updated user data
+    const processedUser = {
+      ...data.data,
+      quitReason: data.data.quitReason || data.data.quit_reason,
+      quit_reason: data.data.quitReason || data.data.quit_reason,
+      dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
+      date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
+      fullName: data.data.fullName || data.data.full_name,
+      full_name: data.data.fullName || data.data.full_name
+    };
 
-      const response = await fetch(`${API_BASE_URL}/users/profile`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentToken}`
-        }
-      });
+    setUser(processedUser);
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to fetch user info');
-      }
-
-      // Process the user data
-      const processedUser = {
-        ...data.data,
-        quitReason: data.data.quitReason || data.data.quit_reason,
-        quit_reason: data.data.quitReason || data.data.quit_reason,
-        dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
-        date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
-        fullName: data.data.fullName || data.data.full_name,
-        full_name: data.data.fullName || data.data.full_name,
-        name: data.data.name || data.data.fullName || data.data.full_name || data.data.username
-      };
-
-      setUser(processedUser);
-
-      // Update storage based on where token is stored
-      const hasRememberMe = localStorage.getItem('nosmoke_token');
-      if (hasRememberMe) {
-        localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
-      } else {
-        sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
-      }
-
-      // Dispatch custom event for other components
-      window.dispatchEvent(new CustomEvent('user-updated', {
-        detail: { user: processedUser }
-      }));
-
-      console.log('✅ AuthContext - User refreshed successfully:', processedUser);
-      return { success: true, user: processedUser };
-    } catch (err) {
-      console.error('❌ AuthContext - Refresh user error:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+    // Update storage
+    if (rememberMe) {
+      localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+    } else {
+      sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
     }
-  };
 
-  // return (
-  //   <AuthContext.Provider value={{ 
-  //     user, 
-  //     token, 
-  //     loading, 
-  //     error, 
-  //     login, 
-  //     logout, 
-  //     setUser, 
-  //     updateUser, 
-  //     uploadAvatar,
-  //     refreshUserFromAPI,
-  //     isAuthenticated: !!user && !!token 
-  //   }}>
-  //     {children}
-  //   </AuthContext.Provider>
-  // );
+    // Dispatch custom event for other components
+    window.dispatchEvent(new CustomEvent('user-updated', {
+      detail: { user: processedUser }
+    }));
+
+    console.log('✅ AuthContext - User updated successfully:', processedUser);
+    return { success: true, message: data.message, user: processedUser };
+  } catch (err) {
+    console.error('❌ AuthContext - Update user error:', err);
+    setError(err.message);
+    return { success: false, error: err.message };
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Hàm tải lên avatar người dùng
+const uploadAvatar = async (file) => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    console.log('🖼️ AuthContext - uploadAvatar called with file:', file.name);
+
+    const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+
+    if (!currentToken) {
+      throw new Error('No authentication token found');
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${API_BASE_URL}/users/upload-avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${currentToken}`
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Avatar upload failed');
+    }
+
+    // Update user with new avatar URL
+    const updatedUser = {
+      ...user,
+      profile_image: data.data.avatarUrl
+    };
+
+    setUser(updatedUser);
+
+    // Update storage
+    if (rememberMe) {
+      localStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
+    } else {
+      sessionStorage.setItem('nosmoke_user', JSON.stringify(updatedUser));
+    }
+
+    console.log('✅ AuthContext - Avatar uploaded successfully:', data.data.avatarUrl);
+    return { success: true, avatarUrl: data.data.avatarUrl, message: data.message };
+  } catch (err) {
+    console.error('❌ AuthContext - Upload avatar error:', err);
+    setError(err.message);
+    return { success: false, error: err.message };
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Hàm refresh thông tin user từ API (fetch latest user data)
+const refreshUserFromAPI = async () => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    console.log('🔄 AuthContext - refreshUserFromAPI called');
+
+    const currentToken = token || localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token');
+
+    if (!currentToken) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentToken}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Failed to fetch user info');
+    }
+
+    // Process the user data
+    const processedUser = {
+      ...data.data,
+      quitReason: data.data.quitReason || data.data.quit_reason,
+      quit_reason: data.data.quitReason || data.data.quit_reason,
+      dateOfBirth: data.data.dateOfBirth || data.data.date_of_birth,
+      date_of_birth: data.data.dateOfBirth || data.data.date_of_birth,
+      fullName: data.data.fullName || data.data.full_name,
+      full_name: data.data.fullName || data.data.full_name,
+      name: data.data.name || data.data.fullName || data.data.full_name || data.data.username
+    };
+
+    setUser(processedUser);
+
+    // Update storage based on where token is stored
+    const hasRememberMe = localStorage.getItem('nosmoke_token');
+    if (hasRememberMe) {
+      localStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+    } else {
+      sessionStorage.setItem('nosmoke_user', JSON.stringify(processedUser));
+    }
+
+    // Dispatch custom event for other components
+    window.dispatchEvent(new CustomEvent('user-updated', {
+      detail: { user: processedUser }
+    }));
+
+    console.log('✅ AuthContext - User refreshed successfully:', processedUser);
+    return { success: true, user: processedUser };
+  } catch (err) {
+    console.error('❌ AuthContext - Refresh user error:', err);
+    setError(err.message);
+    return { success: false, error: err.message };
+  } finally {
+    setLoading(false);
+  }
+};
+
+// return (
+//   <AuthContext.Provider value={{ 
+//     user, 
+//     token, 
+//     loading, 
+//     error, 
+//     login, 
+//     logout, 
+//     setUser, 
+//     updateUser, 
+//     uploadAvatar,
+//     refreshUserFromAPI,
+//     isAuthenticated: !!user && !!token 
+//   }}>
+//     {children}
+//   </AuthContext.Provider>
+// );
 
 export default AuthContext;
