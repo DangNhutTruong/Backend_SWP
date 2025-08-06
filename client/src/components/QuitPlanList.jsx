@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getUserPlans, updatePlanStatus, deletePlan } from '../services/quitPlanService';
+import { getUserPlans, deletePlan } from '../services/quitPlanService';
 import { logDebug } from '../utils/debugHelpers';
 import './QuitPlanList.css';
 
@@ -48,9 +48,19 @@ const QuitPlanList = () => {
             console.log('🔍 QuitPlanList - Raw API response:', response);
 
             if (response && Array.isArray(response)) {
-                setPlans(response);
-                console.log(`✅ QuitPlanList - Loaded ${response.length} plans:`, response);
-                logDebug('QuitPlanList', `✅ Loaded ${response.length} plans`, response);
+                // Sắp xếp plans theo ID (thứ tự tạo) - cũ nhất trước, mới nhất sau
+                const sortedPlans = response.sort((a, b) => a.id - b.id);
+                setPlans(sortedPlans);
+                
+                console.log(`✅ QuitPlanList - Loaded ${response.length} plans:`, sortedPlans);
+                
+                // Debug: Show plan IDs for analysis
+                const planIds = sortedPlans.map(plan => plan.id);
+                console.log('📊 Plan IDs (sorted):', planIds);
+                console.log('📊 Min ID:', Math.min(...planIds));
+                console.log('📊 Max ID:', Math.max(...planIds));
+                
+                logDebug('QuitPlanList', `✅ Loaded ${response.length} plans`, sortedPlans);
             } else {
                 setPlans([]);
                 console.log('📋 QuitPlanList - No plans found or invalid response');
@@ -74,30 +84,6 @@ const QuitPlanList = () => {
     // Hàm điều hướng đến trang chi tiết kế hoạch
     const handleViewPlanDetails = (planId) => {
         navigate(`/journey/plan/${planId}`);
-    };
-
-    // Hàm cập nhật trạng thái kế hoạch
-    const handleUpdateStatus = async (planId, newStatus, event) => {
-        // Ngăn chặn sự kiện click lan ra ngoài
-        event.stopPropagation();
-
-        try {
-            setUpdatingPlanId(planId);
-
-            logDebug('QuitPlanList', `🔄 Updating plan ${planId} status to ${newStatus}`);
-            await updatePlanStatus(planId, newStatus);
-
-            // Cập nhật danh sách kế hoạch sau khi thay đổi trạng thái
-            await fetchPlans();
-
-            logDebug('QuitPlanList', `✅ Plan ${planId} status updated to ${newStatus}`);
-        } catch (err) {
-            console.error('Lỗi khi cập nhật trạng thái kế hoạch:', err);
-            alert('Không thể cập nhật trạng thái kế hoạch. Vui lòng thử lại sau.');
-            logDebug('QuitPlanList', '❌ Error updating plan status', err, true);
-        } finally {
-            setUpdatingPlanId(null);
-        }
     };
 
     // Hàm xóa kế hoạch
@@ -147,6 +133,8 @@ const QuitPlanList = () => {
                 return 'Hoàn thành';
             case 'failed':
                 return 'Đã bỏ';
+            case 'abandoned':
+                return 'Đã từ bỏ';
             default:
                 return 'Đang thực hiện';
         }
@@ -221,7 +209,7 @@ const QuitPlanList = () => {
                 </div>
             ) : (
                 <div className="plan-cards-grid">
-                    {plans.map(plan => {
+                    {plans.map((plan, index) => {
                         const progress = calculateProgress(plan);
                         const isUpdating = updatingPlanId === plan.id;
 
@@ -233,7 +221,7 @@ const QuitPlanList = () => {
                             >
                                 <div className="plan-card-header">
                                     <h3 className="plan-name">
-                                        {plan.planName || plan.plan_name || `Kế hoạch #${plan.id}`}
+                                        Kế hoạch {index + 1}
                                     </h3>
                                     <div className={`plan-status ${getStatusClass(plan.status)}`}>
                                         {getStatusLabel(plan.status)}
@@ -262,7 +250,7 @@ const QuitPlanList = () => {
                                         <div className="info-item">
                                             <span className="info-label">⚡ Chiến lược:</span>
                                             <span className="info-value">
-                                                {plan.strategy === 'quick' ? 'Nhanh chóng' : 'Từ từ'}
+                                                {plan.planName?.includes('nhanh') || plan.plan_name?.includes('nhanh') ? 'Nhanh chóng' : 'Từ từ'}
                                             </span>
                                         </div>
                                     </div>
@@ -293,23 +281,18 @@ const QuitPlanList = () => {
                                     </button>
 
                                     <div className="status-actions">
-                                        <select
-                                            className="status-select"
-                                            value={plan.status}
-                                            onChange={(e) => handleUpdateStatus(plan.id, e.target.value, e)}
-                                            disabled={isUpdating}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <option value="ongoing">Đang thực hiện</option>
-                                            <option value="completed">Hoàn thành</option>
-                                            <option value="failed">Đã bỏ</option>
-                                        </select>
+                                        {/* Hiển thị trạng thái hiện tại - chỉ đọc */}
+                                        <div className={`status-display ${getStatusClass(plan.status)}`}>
+                                            {plan.status === 'ongoing' && '🔄 Đang thực hiện'}
+                                            {plan.status === 'completed' && '✅ Hoàn thành'}
+                                            {plan.status === 'failed' && '❌ Đã từ bỏ'}
+                                        </div>
 
                                         <button
                                             className="btn-delete"
                                             onClick={(e) => handleDeletePlan(plan.id, e)}
                                             disabled={isUpdating}
-                                            title="Xóa kế hoạch"
+                                            title="Xóa kế hoạch vĩnh viễn"
                                         >
                                             🗑️
                                         </button>

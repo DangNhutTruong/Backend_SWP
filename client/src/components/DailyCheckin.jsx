@@ -788,10 +788,6 @@ const DailyCheckin = ({ onProgressUpdate, selectedPlan }) => {
                         {currentTarget} điếu
                     </div>
                     <p>Tuần {currentWeek} - Kế hoạch của bạn</p>
-                    {/* Debug info */}
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                        Debug: target={currentTarget}, state={todayData.targetCigarettes}, plan={currentPlan?.plan_name || 'none'}, render={forceRender}
-                    </div>
 
                     {todayData.weeklyProgress && (
                         <div className="progress-badge">
