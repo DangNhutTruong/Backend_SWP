@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import '../styles/JourneyStepper.css';
-import { createQuitPlan, updateQuitPlan, getUserPlans, deletePlan } from '../services/quitPlanService';
+import { createQuitPlan, updateQuitPlan, updatePlanStatus, getUserPlans, deletePlan, getQuitPlan } from '../services/quitPlanService';
 import { logDebug } from '../utils/debugHelpers';
 
 // Debug function to check authentication status
@@ -24,12 +24,14 @@ const checkAuthStatus = () => {
 export default function JourneyStepper({ onPlanCreated }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const params = useParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFullEdit, setIsFullEdit] = useState(false); // Phân biệt giữa edit một phần vs edit toàn bộ
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  const [activePlan, setActivePlan] = useState(null); // Track current plan với status
   const [formData, setFormData] = useState({
     cigarettesPerDay: 10,
     packPrice: 25000,
@@ -47,6 +49,8 @@ export default function JourneyStepper({ onPlanCreated }) {
 
   // Kiểm tra nếu đang ở route tạo mới
   const isCreatingNew = location.pathname === '/journey/create';
+  const isCompletion = location.pathname === '/journey/completion';
+  const planIdFromUrl = params.planId; // Lấy planId từ URL nếu có
 
   // Reset states khi đang tạo kế hoạch mới
   useEffect(() => {
@@ -69,11 +73,88 @@ export default function JourneyStepper({ onPlanCreated }) {
     }
   }, [isCreatingNew, location.pathname]);
 
-  // Kiểm tra kế hoạch từ database khi component được gắn vào (CHỈ khi KHÔNG phải tạo mới)
+  // Load specific plan khi có planId từ URL
   useEffect(() => {
-    // Nếu đang tạo kế hoạch mới, bỏ qua việc kiểm tra kế hoạch hiện có
-    if (isCreatingNew) {
-      console.log('🚫 Bỏ qua kiểm tra kế hoạch hiện có vì đang tạo mới');
+    if (planIdFromUrl && !isCreatingNew) {
+      console.log('🔍 Loading plan by ID from URL:', planIdFromUrl);
+      loadPlanById(planIdFromUrl);
+    }
+  }, [planIdFromUrl, isCreatingNew]);
+
+  // Function để load plan theo ID
+  const loadPlanById = async (planId) => {
+    try {
+      console.log('🚀 Fetching plan from database by ID:', planId);
+      const plan = await getQuitPlan(planId);
+      
+      if (plan) {
+        console.log('✅ Plan loaded from database:', plan);
+        setActivePlan(plan);
+        
+        // Đồng bộ vào localStorage
+        localStorage.setItem('activePlan', JSON.stringify(plan));
+        
+        // Nếu plan có status, hiển thị completion screen
+        if (plan.status) {
+          setIsCompleted(true);
+          setShowCompletionScreen(true);
+          setCurrentStep(4);
+          
+          // Load plan data vào formData để hiển thị
+          setFormData(prevData => ({
+            ...prevData,
+            cigarettesPerDay: plan.initial_cigarettes || plan.initialCigarettes || prevData.cigarettesPerDay,
+            packPrice: plan.metadata?.packPrice || 25000,
+            smokingYears: plan.metadata?.smokingYears || 5,
+            reasonToQuit: plan.goal || prevData.reasonToQuit,
+            selectedPlan: {
+              id: plan.metadata?.selectedPlanId || plan.id,
+              name: plan.plan_name || plan.planName,
+              title: plan.plan_name || plan.planName,
+              totalWeeks: plan.total_weeks || plan.totalWeeks,
+              weeks: plan.weeks || [],
+              createdAt: plan.created_at || plan.createdAt,
+              updatedAt: plan.updated_at || plan.updatedAt,
+              databaseId: plan.id
+            }
+          }));
+        }
+        
+        console.log('✅ Plan loaded and state updated for plan ID:', planId);
+      }
+    } catch (error) {
+      console.error('❌ Error loading plan by ID:', planId, error);
+    }
+  };
+
+  // Load activePlan từ localStorage khi component mount (cho test case và route completion)
+  useEffect(() => {
+    if ((!isCreatingNew || isCompletion) && !planIdFromUrl) {
+      const storedPlan = localStorage.getItem('activePlan');
+      if (storedPlan) {
+        try {
+          const plan = JSON.parse(storedPlan);
+          console.log('📋 Loaded activePlan from localStorage:', plan);
+          setActivePlan(plan);
+          
+          // Nếu có plan trong localStorage, hiển thị completion screen
+          if (plan.status) {
+            setIsCompleted(true);
+            setShowCompletionScreen(true);
+            setCurrentStep(4);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing activePlan from localStorage:', error);
+        }
+      }
+    }
+  }, [isCreatingNew, isCompletion, planIdFromUrl]);
+
+  // Kiểm tra kế hoạch từ database khi component được gắn vào (CHỈ khi KHÔNG phải tạo mới và KHÔNG có planId)
+  useEffect(() => {
+    // Nếu đang tạo kế hoạch mới hoặc có planId từ URL, bỏ qua việc kiểm tra kế hoạch general
+    if (isCreatingNew || planIdFromUrl) {
+      console.log('🚫 Bỏ qua kiểm tra kế hoạch general vì đang tạo mới hoặc có planId từ URL');
       return;
     }
 
@@ -85,7 +166,7 @@ export default function JourneyStepper({ onPlanCreated }) {
       console.log('🔍 Kiểm tra kế hoạch hiện có từ database...');
       checkExistingPlanFromDatabase();
     }
-  }, [isCreatingNew]);
+  }, [isCreatingNew, planIdFromUrl]);
 
   // Hàm kiểm tra kế hoạch từ database - CHÍNH THỨC
   const checkExistingPlanFromDatabase = async () => {
@@ -107,6 +188,9 @@ export default function JourneyStepper({ onPlanCreated }) {
 
         if (planToUse) {
           console.log('✅ Tìm thấy kế hoạch trong DATABASE:', planToUse.plan_name);
+
+          // Set activePlan state để track status
+          setActivePlan(planToUse);
 
           // Đồng bộ ngay vào localStorage
           localStorage.setItem('activePlan', JSON.stringify(planToUse));
@@ -275,7 +359,7 @@ export default function JourneyStepper({ onPlanCreated }) {
     try {
       // Chuẩn bị dữ liệu để cập nhật API theo đúng schema
       const updateData = {
-        planName: completeSelectedPlan?.title || completeSelectedPlan?.name || activePlan.planName || `Kế hoạch cai thuốc ${formData.cigarettesPerDay} điếu/ngày`,
+        planName: completeSelectedPlan?.name || completeSelectedPlan?.title || activePlan.planName || `Kế hoạch cai thuốc ${formData.cigarettesPerDay} điếu/ngày`,
         initialCigarettes: formData.cigarettesPerDay,
         strategy: 'gradual',
         goal: formData.reasonToQuit || 'health',
@@ -355,6 +439,8 @@ export default function JourneyStepper({ onPlanCreated }) {
       // Lấy kế hoạch đầy đủ dựa vào ID đã chọn
       let completeSelectedPlan = null;
 
+      console.log('🔍 Debug - formData.selectedPlan:', formData.selectedPlan);
+
       if (formData.selectedPlan) {
         let plans = [];
         if (formData.cigarettesPerDay < 10) {
@@ -365,25 +451,41 @@ export default function JourneyStepper({ onPlanCreated }) {
           plans = generateHeavySmokerPlans();
         }
 
+        console.log('🔍 Debug - Generated plans:', plans);
+
         // Tìm kế hoạch đầy đủ bằng ID
         const selectedPlanId = typeof formData.selectedPlan === 'object'
           ? formData.selectedPlan.id
           : formData.selectedPlan;
 
+        console.log('🔍 Debug - selectedPlanId:', selectedPlanId);
+
         completeSelectedPlan = plans.find(plan => plan.id === selectedPlanId);
+        console.log('🔍 Debug - completeSelectedPlan found:', completeSelectedPlan);
       }
 
       // Đảm bảo completeSelectedPlan không null
       if (!completeSelectedPlan && typeof formData.selectedPlan === 'object') {
         completeSelectedPlan = formData.selectedPlan;
+        console.log('🔍 Debug - Using formData.selectedPlan as fallback:', completeSelectedPlan);
       }
 
+      // Debug detailed plan name generation
+      console.log('🔍 DEBUG PLAN NAME GENERATION:');
+      console.log('  - completeSelectedPlan?.name:', completeSelectedPlan?.name);
+      console.log('  - completeSelectedPlan?.title:', completeSelectedPlan?.title);
+      console.log('  - fallback name:', `Kế hoạch cai thuốc ${formData.cigarettesPerDay} điếu/ngày`);
+      console.log('  - completeSelectedPlan object:', completeSelectedPlan);
+      
+      // Determine strategy based on plan name/id
+      const planStrategy = (completeSelectedPlan?.name?.includes('nhanh') || completeSelectedPlan?.id === 1) ? 'quick' : 'gradual';
+      
       // Chuẩn bị dữ liệu để gửi lên API theo đúng schema backend
       const planDataForAPI = {
-        planName: completeSelectedPlan?.title || `Kế hoạch cai thuốc ${formData.cigarettesPerDay} điếu/ngày`,
+        planName: completeSelectedPlan?.name || completeSelectedPlan?.title || `Kế hoạch cai thuốc ${formData.cigarettesPerDay} điếu/ngày`,
         startDate: now.split('T')[0],
         initialCigarettes: formData.cigarettesPerDay,
-        strategy: 'gradual', // hoặc 'immediate' tùy theo kế hoạch
+        strategy: planStrategy, // Dynamic strategy based on plan selection
         goal: formData.reasonToQuit || 'health',
         totalWeeks: completeSelectedPlan?.totalWeeks || 8,
         weeks: (completeSelectedPlan?.weeks || []).map(week => ({
@@ -399,9 +501,14 @@ export default function JourneyStepper({ onPlanCreated }) {
           completionDate: now
         }
       };
+      
+      console.log('🔍 FINAL PLAN NAME CHOSEN:', planDataForAPI.planName);
+      console.log('🔍 STRATEGY DETERMINED:', planStrategy);
 
       logDebug('QuitPlan', '📤 Gửi dữ liệu lên API', planDataForAPI);
       logDebug('QuitPlan', '📋 Weeks data structure:', planDataForAPI.weeks);
+      logDebug('QuitPlan', '🎯 Selected plan info:', completeSelectedPlan);
+      logDebug('QuitPlan', '📝 Plan name being sent:', planDataForAPI.planName);
 
       // Gọi API để lưu kế hoạch lên database
       const apiResponse = await createQuitPlan(planDataForAPI);
@@ -650,6 +757,198 @@ export default function JourneyStepper({ onPlanCreated }) {
         // Hiển thị text để người dùng có thể sao chép thủ công
         alert('Không thể sao chép tự động. Vui lòng sao chép text thủ công.');
       }
+    }
+  };
+
+  // Xử lý tạo kế hoạch mới
+  const handleCreateNewPlan = () => {
+    // Kiểm tra xem có đăng nhập không
+    const authStatus = checkAuthStatus();
+    
+    if (!authStatus.hasToken) {
+      alert('Vui lòng đăng nhập để tạo kế hoạch mới.');
+      navigate('/login'); // Hoặc chuyển đến trang đăng nhập
+      return;
+    }
+
+    console.log('🔄 Tạo kế hoạch mới - navigating to /journey/create');
+    navigate('/journey/create');
+  };
+
+  // Xử lý hoàn thành kế hoạch
+  const handleCompletePlan = async () => {
+    console.log('🔍 handleCompletePlan called');
+    
+    if (window.confirm('🎉 Chúc mừng! Bạn có chắc chắn đã hoàn thành kế hoạch cai thuốc không? Kế hoạch sẽ được đánh dấu là "Đã hoàn thành".')) {
+      console.log('✅ User confirmed completing plan');
+      
+      try {
+        console.log('🔍 Fetching user plans...');
+        // Lấy kế hoạch hiện tại từ database
+        const userPlans = await getUserPlans();
+        console.log('📋 User plans:', userPlans);
+        
+        const activePlan = userPlans && userPlans.length > 0 ? userPlans.find(plan => plan.status === 'ongoing') : null;
+        console.log('🎯 Active plan found:', activePlan);
+
+        if (!activePlan) {
+          console.log('❌ No active plan found');
+          alert('Không tìm thấy kế hoạch đang thực hiện để hoàn thành.');
+          return;
+        }
+
+        console.log('🔄 Đang hoàn thành kế hoạch:', activePlan.id);
+
+        // Cập nhật trạng thái kế hoạch thành "completed" sử dụng updatePlanStatus
+        console.log('📤 Sending status update to "completed"...');
+        const apiResponse = await updatePlanStatus(activePlan.id, 'completed');
+        console.log('📥 API Response:', apiResponse);
+
+        if (apiResponse && (apiResponse.success !== false)) {
+          console.log('✅ API call successful, updating localStorage...');
+          
+          // Cập nhật localStorage
+          const completedPlan = {
+            ...activePlan,
+            status: 'completed',
+            completed_date: new Date().toISOString()
+          };
+
+          localStorage.setItem('activePlan', JSON.stringify(completedPlan));
+          console.log('💾 Updated localStorage with completed plan');
+
+          // Cập nhật activePlan state
+          setActivePlan(completedPlan);
+
+          // Trigger reload cho components khác
+          window.dispatchEvent(new CustomEvent('localStorageChanged', {
+            detail: { key: 'activePlan' }
+          }));
+          console.log('📢 Dispatched localStorage change event');
+
+          // Hiển thị thông báo thành công với thông tin chi tiết
+          alert(`🎉 Chúc mừng! Kế hoạch hoàn thành thành công!
+
+📋 Kế hoạch "${activePlan.plan_name || activePlan.planName}" đã được đánh dấu là "Đã hoàn thành".
+
+🏆 Bạn đã vượt qua thử thách cai thuốc lá! Đây là một thành tựu tuyệt vời!
+
+💡 Hãy tiếp tục duy trì lối sống lành mạnh:
+• Tránh xa môi trường có khói thuốc
+• Duy trì chế độ ăn uống lành mạnh  
+• Tập thể dục thường xuyên
+• Chia sẻ kinh nghiệm với những người khác
+
+🚀 Bạn đã chứng minh ý chí mạnh mẽ của mình!`);
+          
+          console.log('🔄 Navigating to plans list...');
+          // Chuyển hướng về trang danh sách kế hoạch để thấy trạng thái mới
+          setTimeout(() => {
+            navigate('/journey/plans');
+          }, 2000);
+        } else {
+          console.error('❌ API call failed:', apiResponse);
+          alert('❌ Không thể cập nhật trạng thái kế hoạch. Vui lòng thử lại.\n\nResponse: ' + JSON.stringify(apiResponse));
+        }
+      } catch (error) {
+        console.error('❌ Exception in handleCompletePlan:', error);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error details:', {
+          name: error.name,
+          message: error.message,
+          response: error.response
+        });
+        alert('❌ Không thể cập nhật trạng thái kế hoạch. Vui lòng thử lại.\n\nLỗi: ' + (error.message || 'Lỗi không xác định'));
+      }
+    } else {
+      console.log('❌ User cancelled complete action');
+    }
+  };
+
+  // Xử lý từ bỏ kế hoạch
+  const handleAbandonPlan = async () => {
+    console.log('🔍 handleAbandonPlan called');
+    
+    if (window.confirm('⚠️ Bạn có chắc chắn muốn từ bỏ kế hoạch cai thuốc hiện tại không?\n\nKế hoạch sẽ được đánh dấu là "Đã từ bỏ" nhưng vẫn được lưu để bạn có thể xem lại sau này.')) {
+      console.log('✅ User confirmed abandoning plan');
+      
+      try {
+        console.log('🔍 Fetching user plans...');
+        // Lấy kế hoạch hiện tại từ database
+        const userPlans = await getUserPlans();
+        console.log('📋 User plans:', userPlans);
+        
+        const activePlan = userPlans && userPlans.length > 0 ? userPlans.find(plan => plan.status === 'ongoing') : null;
+        console.log('🎯 Active plan found:', activePlan);
+
+        if (!activePlan) {
+          console.log('❌ No active plan found');
+          alert('Không tìm thấy kế hoạch đang thực hiện để từ bỏ.');
+          return;
+        }
+
+        console.log('🔄 Đang từ bỏ kế hoạch:', activePlan.id);
+
+        // Cập nhật trạng thái kế hoạch thành "failed" 
+        console.log('📤 Sending status update to "failed"...');
+        const apiResponse = await updatePlanStatus(activePlan.id, 'failed');
+        console.log('📥 API Response:', apiResponse);
+
+        if (apiResponse && (apiResponse.success !== false)) {
+          console.log('✅ API call successful, updating localStorage...');
+          
+          // Cập nhật localStorage
+          const abandonedPlan = {
+            ...activePlan,
+            status: 'failed',
+            abandoned_date: new Date().toISOString()
+          };
+
+          localStorage.setItem('activePlan', JSON.stringify(abandonedPlan));
+          console.log('💾 Updated localStorage with abandoned plan');
+
+          // Cập nhật activePlan state
+          setActivePlan(abandonedPlan);
+
+          // Trigger reload cho components khác
+          window.dispatchEvent(new CustomEvent('localStorageChanged', {
+            detail: { key: 'activePlan' }
+          }));
+          console.log('📢 Dispatched localStorage change event');
+
+          // Hiển thị thông báo thành công với thông tin chi tiết
+          alert(`✅ Đã từ bỏ kế hoạch thành công!
+
+📋 Kế hoạch "${activePlan.plan_name || activePlan.planName}" đã được đánh dấu là "Đã từ bỏ".
+
+💡 Đừng nản lòng! Việc cai thuốc là một hành trình khó khăn. Bạn có thể:
+• Tạo kế hoạch mới bất cứ lúc nào
+• Xem lại kế hoạch cũ để rút kinh nghiệm
+• Tham gia cộng đồng để nhận hỗ trợ
+
+🚀 Hãy tiếp tục cố gắng - mỗi lần thử là một bước tiến!`);
+          
+          console.log('🔄 Navigating to plans list...');
+          // Chuyển hướng về trang danh sách kế hoạch để thấy trạng thái mới
+          setTimeout(() => {
+            navigate('/journey/plans');
+          }, 2000);
+        } else {
+          console.error('❌ API call failed:', apiResponse);
+          alert('❌ Không thể cập nhật trạng thái kế hoạch. Vui lòng thử lại.\n\nResponse: ' + JSON.stringify(apiResponse));
+        }
+      } catch (error) {
+        console.error('❌ Exception in handleAbandonPlan:', error);
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error details:', {
+          name: error.name,
+          message: error.message,
+          response: error.response
+        });
+        alert('❌ Không thể cập nhật trạng thái kế hoạch. Vui lòng thử lại.\n\nLỗi: ' + (error.message || 'Lỗi không xác định'));
+      }
+    } else {
+      console.log('❌ User cancelled abandon action');
     }
   };
 
@@ -990,10 +1289,40 @@ export default function JourneyStepper({ onPlanCreated }) {
         </div>        {/* Form content */}
         <div className="stepper-content">          {isCompleted && showCompletionScreen ? (
           <div className="completion-screen">
+            {console.log('🎯 DEBUG: Rendering completion screen', { 
+              activePlan, 
+              status: activePlan?.status, 
+              isFailed: activePlan?.status === 'failed' 
+            })}
             <div className="completion-checkmark-container">
-              <div className="completion-checkmark">✓</div>
-            </div>              <h2 className="completion-title">Chúc mừng bạn đã tạo kế hoạch cai thuốc!</h2>
-            <p className="completion-subtitle">Hành trình mới của bạn bắt đầu từ hôm nay</p>
+              <div className={`completion-checkmark ${activePlan?.status === 'failed' ? 'failed' : activePlan?.status === 'completed' ? 'completed' : 'ongoing'}`}>
+                {activePlan?.status === 'failed' ? '❌' : 
+                 activePlan?.status === 'completed' ? '🎉' : 
+                 activePlan?.status === 'ongoing' ? '⏳' : '✓'}
+              </div>
+            </div>
+            
+            {activePlan?.status === 'failed' ? (
+              <>
+                <h2 className="completion-title failed">Kế hoạch đã được đánh dấu "Đã từ bỏ"</h2>
+                <p className="completion-subtitle">Đừng nản lòng! Việc cai thuốc là một hành trình khó khăn.</p>
+              </>
+            ) : activePlan?.status === 'completed' ? (
+              <>
+                <h2 className="completion-title completed">🎉 Chúc mừng! Bạn đã hoàn thành kế hoạch cai thuốc!</h2>
+                <p className="completion-subtitle">Bạn đã vượt qua thử thách và đạt được mục tiêu. Thật tuyệt vời!</p>
+              </>
+            ) : activePlan?.status === 'ongoing' ? (
+              <>
+                <h2 className="completion-title ongoing">Kế hoạch cai thuốc đang được thực hiện</h2>
+                <p className="completion-subtitle">Bạn đang trên con đường đến thành công. Hãy kiên trì!</p>
+              </>
+            ) : (
+              <>
+                <h2 className="completion-title">Chúc mừng bạn đã tạo kế hoạch cai thuốc!</h2>
+                <p className="completion-subtitle">Hành trình mới của bạn bắt đầu từ hôm nay</p>
+              </>
+            )}
 
             {/* Tóm tắt kế hoạch */}
             <div className="plan-summary-container">
@@ -1042,81 +1371,114 @@ export default function JourneyStepper({ onPlanCreated }) {
                       </span>
                     </div>
                   )}
-                </div>                  <div className="plan-edit-options">
-                  <button className="btn-edit-plan" onClick={handleEditAllPlan}>
-                    <i className="fas fa-pencil-alt"></i> Chỉnh sửa lại kế hoạch
-                  </button>
-                  <button className="btn-edit-plan btn-clear-plan" onClick={handleClearPlan}>
-                    <i className="fas fa-trash-alt"></i> Xóa kế hoạch
-                  </button>
-                </div>
-                <div className="plan-share-container">
-                  <button className="btn-share-plan" onClick={handleSharePlan}>
-                    <i className="fas fa-share-alt"></i> Chia sẻ kế hoạch của bạn
-                  </button>
-                </div>
-                <div className="plan-persistence-notice">
-                  <i className="fas fa-info-circle"></i>
-                  Kế hoạch của bạn đã được lưu tự động. Bạn có thể quay lại bất kỳ lúc nào mà không cần tạo lại.
-                </div>
+                </div>                
+                
+                {activePlan?.status === 'ongoing' ? (
+                  // Chỉ hiển thị buttons khi kế hoạch đang thực hiện (ongoing)
+                  <>
+                    <div className="plan-edit-options">
+                      <button className="btn-edit-plan btn-complete-plan" onClick={handleCompletePlan}>
+                        <i className="fas fa-check-circle"></i> Hoàn thành kế hoạch
+                      </button>
+                      <button className="btn-edit-plan" onClick={handleEditAllPlan}>
+                        <i className="fas fa-pencil-alt"></i> Chỉnh sửa lại kế hoạch
+                      </button>
+                      <button className="btn-edit-plan btn-abandon-plan" onClick={handleAbandonPlan}>
+                        <i className="fas fa-ban"></i> Từ bỏ kế hoạch
+                      </button>
+                      <button className="btn-edit-plan btn-clear-plan" onClick={handleClearPlan}>
+                        <i className="fas fa-trash-alt"></i> Xóa kế hoạch
+                      </button>
+                    </div>
+                    <div className="plan-share-container">
+                      <button className="btn-share-plan" onClick={handleSharePlan}>
+                        <i className="fas fa-share-alt"></i> Chia sẻ kế hoạch của bạn
+                      </button>
+                    </div>
+                    <div className="plan-persistence-notice">
+                      <i className="fas fa-info-circle"></i>
+                      Kế hoạch của bạn đã được lưu tự động. Bạn có thể quay lại bất kỳ lúc nào mà không cần tạo lại.
+                    </div>
+                  </>
+                ) : (
+                  // Hiển thị message khác khi plan đã hoàn thành hoặc từ bỏ
+                  <div className="plan-completed-notice">
+                    {activePlan?.status === 'completed' ? (
+                      <div className="completed-message">
+                        <i className="fas fa-trophy"></i>
+                        <h3>🎉 Kế hoạch đã hoàn thành!</h3>
+                        <p>Chúc mừng bạn đã hoàn thành kế hoạch cai thuốc thành công! Đây là một thành tựu tuyệt vời.</p>
+                        <div className="completed-actions">
+                          <button className="btn-create-new-plan" onClick={() => navigate('/journey/create')}>
+                            <i className="fas fa-plus"></i> Tạo thử thách mới
+                          </button>
+                          <button className="btn-view-plans" onClick={() => navigate('/journey/plans')}>
+                            <i className="fas fa-list"></i> Xem tất cả kế hoạch
+                          </button>
+                        </div>
+                      </div>
+                    ) : activePlan?.status === 'failed' ? (
+                      <div className="failed-message">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <h3>Kế hoạch đã từ bỏ</h3>
+              
+                        <div className="failed-actions">
+                          <button className="btn-create-new-plan" onClick={() => navigate('/journey/create')}>
+                            <i className="fas fa-plus"></i> Tạo kế hoạch mới
+                          </button>
+                          <button className="btn-view-plans" onClick={() => navigate('/journey/plans')}>
+                            <i className="fas fa-list"></i> Xem tất cả kế hoạch
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="completion-stats">
-              <div className="completion-stat-card">
-                <div className="stat-icon">💰</div>
-                <div className="stat-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</div>
-                <div className="stat-label">Tiết kiệm mỗi năm</div>
-              </div>
-              <div className="completion-stat-card">
-                <div className="stat-icon">🚬</div>
-                <div className="stat-value">{formData.cigarettesPerDay * 365}</div>
-                <div className="stat-label">Điếu thuốc không hút mỗi năm</div>
-              </div>
-              <div className="completion-stat-card">
-                <div className="stat-icon">⏱️</div>
-                <div className="stat-value">
-                  {((formData.selectedPlan?.totalWeeks || 0) / 4).toFixed(1)}
+            {/* Statistics chỉ hiển thị khi plan đang ongoing */}
+            {activePlan?.status === 'ongoing' && (
+              <div className="completion-stats">
+                <div className="completion-stat-card">
+                  <div className="stat-icon">💰</div>
+                  <div className="stat-value">{Math.round(yearlySpending).toLocaleString()} VNĐ</div>
+                  <div className="stat-label">Tiết kiệm mỗi năm</div>
                 </div>
-                <div className="stat-label">Tháng thực hiện dự kiến</div>
-              </div>
-            </div>
-            <div className="completion-timeline">
-              <h3 className="timeline-title">Những lợi ích sức khỏe bạn sẽ nhận được</h3>
-              <div className="timeline-container">
-                {healthBenefits.slice(0, 4).map((benefit, index) => (
-                  <div className="timeline-milestone" key={index}>
-                    <div className="milestone-time">{benefit.time}</div>
-                    <div className="milestone-connector"></div>
-                    <div className="milestone-benefit">{benefit.benefit}</div>
+                <div className="completion-stat-card">
+                  <div className="stat-icon">🚬</div>
+                  <div className="stat-value">{formData.cigarettesPerDay * 365}</div>
+                  <div className="stat-label">Điếu thuốc không hút mỗi năm</div>
+                </div>
+                <div className="completion-stat-card">
+                  <div className="stat-icon">⏱️</div>
+                  <div className="stat-value">
+                    {((formData.selectedPlan?.totalWeeks || 0) / 4).toFixed(1)}
                   </div>
-                ))}
+                  <div className="stat-label">Tháng thực hiện dự kiến</div>
+                </div>
               </div>
-            </div>
-            <div className="completion-actions">
-              <h3 className="actions-title">Tiếp theo bạn nên làm gì?</h3>
-              <div className="action-buttons">
-                <button
-                  onClick={() => navigate('/journey/plans')}
-                  className="action-button primary"
-                >
-                  <span className="action-icon">📋</span>
-                  <span className="action-text">Xem danh sách kế hoạch</span>
-                </button>
-                <a href="/dashboard" className="action-button secondary">
-                  <span className="action-icon">📊</span>
-                  <span className="action-text">Theo dõi tiến độ</span>
-                </a>
-                <a href="/community" className="action-button secondary">
-                  <span className="action-icon">👥</span>
-                  <span className="action-text">Tham gia cộng đồng</span>
-                </a>
-                <a href="/resources" className="action-button secondary">
-                  <span className="action-icon">📚</span>
-                  <span className="action-text">Tài liệu hỗ trợ</span>
-                </a>
-              </div>
-            </div>              <div className="completion-motivation">
+            )}
+
+            {/* Timeline và actions chỉ hiển thị khi plan đang ongoing */}
+            {activePlan?.status === 'ongoing' && (
+              <>
+                <div className="completion-timeline">
+                  <h3 className="timeline-title">Những lợi ích sức khỏe bạn sẽ nhận được</h3>
+                  <div className="timeline-container">
+                    {healthBenefits.slice(0, 4).map((benefit, index) => (
+                      <div className="timeline-milestone" key={index}>
+                        <div className="milestone-time">{benefit.time}</div>
+                        <div className="milestone-connector"></div>
+                        <div className="milestone-benefit">{benefit.benefit}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+              
+            <div className="completion-motivation">
               <blockquote>
                 "Hành trình ngàn dặm bắt đầu từ một bước chân. Hôm nay bạn đã bước những bước đầu tiên để hướng tới cuộc sống khỏe mạnh hơn."
               </blockquote>
@@ -1303,6 +1665,7 @@ export default function JourneyStepper({ onPlanCreated }) {
                                 ? 'selected' : ''
                               }`}
                             onClick={() => {
+                              console.log('🔍 PLAN SELECTED:', plan.id, plan.name);
                               handleInputChange('selectedPlan', plan); // Lưu toàn bộ plan object thay vì chỉ ID
 
                               // Nếu đang ở chế độ chỉnh sửa, hiển thị thông báo
@@ -1651,17 +2014,11 @@ export default function JourneyStepper({ onPlanCreated }) {
                     <button className="btn-back" onClick={handleBack}>
                       <span className="btn-arrow">←</span> Quay lại
                     </button>
-                    <button className="btn-back-to-list" onClick={() => navigate('/journey/plans')}>
-                      📋 Danh sách kế hoạch
-                    </button>
                   </div>
                   {isCompleted ? (
                     <div className="completion-actions">
                       <button className="btn-back-to-summary" onClick={handleBackToSummary}>
                         Xem tổng quan kế hoạch
-                      </button>
-                      <button className="btn-go-to-plans" onClick={() => navigate('/journey/plans')}>
-                        📋 Danh sách kế hoạch
                       </button>
                     </div>
                   ) : isEditing && isFullEdit ? (
