@@ -1,8 +1,31 @@
+/**
+ * QUIT PLAN SERVICE - DỊCH VỤ QUẢN LÝ KẾ HOẠCH CAI THUỐC
+ * 
+ * Service layer cung cấp các API functions để:
+ * 1. TẠO KẾ HOẠCH MỚI: Gửi data lên backend để lưu kế hoạch
+ * 2. LẤY DANH SÁCH KẾ HOẠCH: Fetch tất cả kế hoạch của user
+ * 3. LẤY KẾ HOẠCH ACTIVE: Lấy kế hoạch đang hoạt động
+ * 4. CẬP NHẬT KẾ HOẠCH: Chỉnh sửa kế hoạch đã có
+ * 5. XÓA KẾ HOẠCH: Xóa kế hoạch khỏi database
+ * 6. QUẢN LÝ TRẠNG THÁI: Cập nhật status kế hoạch
+ * 
+ * Được sử dụng bởi:
+ * - JourneyStepper.jsx: Tạo và quản lý kế hoạch
+ * - QuitPlanList.jsx: Hiển thị danh sách kế hoạch
+ * - Progress.jsx: Lấy kế hoạch active để tính toán tiến độ
+ * - CoachDashboard: Xem kế hoạch của học viên
+ */
+
 import { logDebug } from '../utils/debugHelpers';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-// Utility function to get auth headers
+/**
+ * HÀM TẠO AUTH HEADERS CHO API CALLS
+ * Utility function để lấy token và tạo headers cho authentication
+ * @returns {object} Headers object với Authorization token
+ * @throws {Error} Nếu không tìm thấy token
+ */
 const getAuthHeaders = () => {
     // Tìm token từ cả localStorage và sessionStorage với đúng key
     const token = localStorage.getItem('nosmoke_token') ||
@@ -20,7 +43,16 @@ const getAuthHeaders = () => {
     };
 };
 
-// Create a new quit plan
+/**
+ * TẠO KẾ HOẠCH CAI THUỐC MỚI
+ * Gửi dữ liệu kế hoạch lên backend để lưu vào database
+ * @param {object} planData - Dữ liệu kế hoạch từ JourneyStepper
+ * @param {string} planData.planName - Tên kế hoạch
+ * @param {string} planData.startDate - Ngày bắt đầu
+ * @param {number} planData.initialCigarettes - Số điếu ban đầu
+ * @param {Array} planData.weeks - Mảng timeline theo tuần
+ * @returns {object} Response từ API với thông tin kế hoạch đã tạo
+ */
 export const createQuitPlan = async (planData) => {
     try {
         logDebug('QuitPlan', '🚀 Creating quit plan in database', planData);
@@ -50,7 +82,11 @@ export const createQuitPlan = async (planData) => {
     }
 };
 
-// Get all quit plans for the current user
+/**
+ * LẤY TẤT CẢ KẾ HOẠCH CỦA USER HIỆN TẠI
+ * Fetch danh sách kế hoạch từ backend để hiển thị trong QuitPlanList
+ * @returns {Array} Mảng các kế hoạch của user, sorted theo thời gian tạo
+ */
 export const getUserPlans = async () => {
     try {
         logDebug('QuitPlan', '🚀 Fetching user quit plans from database...');
@@ -83,7 +119,12 @@ export const getUserPlans = async () => {
     }
 };
 
-// Get a specific quit plan by ID
+/**
+ * LẤY KẾ HOẠCH CỤ THỂ THEO ID
+ * Fetch một kế hoạch cụ thể để xem chi tiết hoặc chỉnh sửa
+ * @param {string|number} planId - ID của kế hoạch cần lấy
+ * @returns {object} Thông tin chi tiết của kế hoạch
+ */
 export const getQuitPlan = async (planId) => {
     try {
         console.log('🚀 Fetching quit plan by ID:', planId);

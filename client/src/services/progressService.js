@@ -1,3 +1,17 @@
+/**
+ * PROGRESS SERVICE - QUẢN LÝ API CHO TIẾN TRÌNH CAI THUỐC
+ * 
+ * File này cung cấp các API functions để:
+ * 1. Tạo, cập nhật, xóa check-in hằng ngày
+ * 2. Lấy lịch sử tiến trình theo user/plan
+ * 3. Tính toán các metrics: số điếu tránh, tiền tiết kiệm, điểm sức khỏe
+ * 4. Đồng bộ dữ liệu với backend database
+ * 
+ * Được sử dụng bởi:
+ * - CheckinHistory.jsx: CRUD operations cho lịch sử check-in
+ * - DailyCheckin.jsx: Tạo/cập nhật check-in hằng ngày
+ * - ProgressDashboard.jsx: Hiển thị thống kê tổng quan
+ */
 import axios from '../utils/axiosConfig';
 import { getCurrentUserId, getAuthToken } from '../utils/userUtils';
 
@@ -7,9 +21,17 @@ const API_URL = '/api/progress';
 // Debug API URL
 console.log('API URL for progress service:', API_URL);
 
-// Service cho các hoạt động liên quan đến tiến trình cai thuốc
+/**
+ * SERVICE OBJECT CHỨA TẤT CẢ CÁC FUNCTIONS API
+ */
 const progressService = {
-  // Tạo check-in mới
+  /**
+   * TẠO CHECK-IN MỚI CHO MỘT NGÀY CỤ THỂ
+   * @param {string} userId - ID của người dùng
+   * @param {string} date - Ngày check-in (YYYY-MM-DD)
+   * @param {object} checkinData - Dữ liệu check-in {targetCigarettes, actualCigarettes, notes, etc.}
+   * @returns {object} Response từ API
+   */
   createCheckin: async (userId, date, checkinData) => {
     try {
       // Sử dụng ngày được cung cấp hoặc ngày hôm nay nếu không có
@@ -125,7 +147,12 @@ const progressService = {
     }
   },
 
-  // Cập nhật check-in cho một ngày cụ thể
+  /**
+   * CẬP NHẬT CHECK-IN CHO MỘT NGÀY CỤ THỂ
+   * @param {string} date - Ngày cần cập nhật (YYYY-MM-DD)
+   * @param {object} checkinData - Dữ liệu check-in mới
+   * @returns {object} Response từ API
+   */
   updateCheckin: async (date, checkinData) => {
     try {
       console.log(`Updating checkin for date ${date}:`, checkinData);
@@ -438,7 +465,11 @@ const progressService = {
     }
   },
 
-  // Xóa check-in theo ngày đơn giản
+  /**
+   * XÓA CHECK-IN THEO NGÀY ĐỢN GIẢN (SỬ DỤNG TRONG CHECKINHISTORY)
+   * @param {string} date - Ngày cần xóa (YYYY-MM-DD)
+   * @returns {object} Response từ API
+   */
   deleteCheckinByDate: async (date) => {
     try {
       console.log('🗑️ Deleting checkin for date:', date);
@@ -726,7 +757,12 @@ const progressService = {
     }
   },
 
-  // Lấy progress theo userId (không cần auth)
+  /**
+   * LẤY LỊCH SỬ PROGRESS THEO USER ID (SỬ DỤNG TRONG CHECKINHISTORY)
+   * @param {string} userId - ID của người dùng
+   * @param {object} params - Query parameters {plan_id, date, etc.}
+   * @returns {object} Response chứa danh sách progress data
+   */
   getProgressByUserId: async (userId, params = {}) => {
     try {
       const queryString = new URLSearchParams(params).toString();
@@ -750,7 +786,13 @@ const progressService = {
     }
   },
 
-  // Cập nhật check-in cho một ngày cụ thể theo userId
+  /**
+   * CẬP NHẬT CHECK-IN THEO USER ID VÀ NGÀY (SỬ DỤNG TRONG CHECKINHISTORY)
+   * @param {string} userId - ID của người dùng
+   * @param {string} date - Ngày cần cập nhật (YYYY-MM-DD)
+   * @param {object} checkinData - Dữ liệu check-in mới
+   * @returns {object} Response từ API
+   */
   updateCheckinByUserId: async (userId, date, checkinData) => {
     try {
       console.log(`Updating checkin for userId ${userId} on date ${date}:`, checkinData);

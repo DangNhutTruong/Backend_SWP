@@ -1,7 +1,34 @@
+/**
+ * QUIT PLAN CONTROLLER - XỬ LÝ CÁC API LIÊN QUAN ĐẾN KẾ HOẠCH CAI THUỐC
+ * 
+ * Controller xử lý các endpoint:
+ * 1. createQuitPlan: Tạo kế hoạch mới từ frontend
+ * 2. getUserPlans: Lấy danh sách kế hoạch của user
+ * 3. getPlanById: Lấy chi tiết một kế hoạch
+ * 4. updatePlan: Cập nhật thông tin kế hoạch
+ * 5. updatePlanStatus: Thay đổi trạng thái kế hoạch
+ * 6. deletePlan: Xóa kế hoạch khỏi database
+ * 7. getPlanTemplates: Lấy kế hoạch mẫu cho admin
+ * 
+ * Database Schema: quit_smoking_plan
+ * - id, smoker_id, plan_name, plan_details (JSON)
+ * - start_date, end_date, status, created_at, updated_at
+ */
+
 import { pool } from '../config/database.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 
-// Create a new quit plan
+/**
+ * TẠO KẾ HOẠCH CAI THUỐC MỚI
+ * Endpoint: POST /api/quit-plans
+ * Nhận dữ liệu từ JourneyStepper và lưu vào database
+ * @param {object} req.body - Dữ liệu kế hoạch từ frontend
+ * @param {string} req.body.planName - Tên kế hoạch
+ * @param {string} req.body.startDate - Ngày bắt đầu
+ * @param {number} req.body.initialCigarettes - Số điếu ban đầu
+ * @param {Array} req.body.weeks - Timeline theo tuần
+ * @param {object} req.body.metadata - Dữ liệu bổ sung
+ */
 export const createQuitPlan = async (req, res) => {
     // Check if user is authenticated first
     if (!req.user || !req.user.id) {
@@ -13,6 +40,7 @@ export const createQuitPlan = async (req, res) => {
         console.log('💡 createQuitPlan - Request body:', JSON.stringify(req.body, null, 2));
         console.log('💡 User ID from token:', req.user.id);
 
+        // ===== CHUẨN HÓA DỮ LIỆU ĐẦU VÀO =====
         // Accept both planName and plan_name to be more flexible
         const planName = req.body.planName || req.body.plan_name;
         const startDate = req.body.startDate || req.body.start_date;
@@ -21,7 +49,7 @@ export const createQuitPlan = async (req, res) => {
         const strategy = req.body.strategy || req.body.planType || 'gradual';
         const goal = req.body.goal || req.body.motivation || 'health';
 
-        // Enhanced validation with detailed error messages
+        // ===== VALIDATION DỮ LIỆU =====
         if (!planName || planName.trim() === '') {
             console.log('❌ Validation error: planName is missing or empty');
             return sendError(res, 'Plan name is required and cannot be empty', 400);

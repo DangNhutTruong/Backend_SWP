@@ -1,4 +1,24 @@
-// Utility function to get current user ID consistently across the app
+/**
+ * USER UTILITIES - QUẢN LÝ THÔNG TIN NGƯỜI DÙNG
+ * 
+ * File này cung cấp các utility functions để:
+ * 1. Lấy thông tin user ID từ localStorage/sessionStorage
+ * 2. Kiểm tra trạng thái đăng nhập
+ * 3. Quản lý token authentication
+ * 4. Hỗ trợ nhiều format dữ liệu user khác nhau
+ * 
+ * Được sử dụng bởi:
+ * - CheckinHistory.jsx: Lấy userId để load/save data
+ * - progressService.js: Authentication cho API calls
+ * - AuthContext.jsx: Quản lý trạng thái đăng nhập
+ */
+
+/**
+ * LẤY USER ID HIỆN TẠI TỪ STORAGE
+ * Utility function để lấy user ID nhất quán trong toàn app
+ * Hỗ trợ nhiều format dữ liệu và fallback options
+ * @returns {string|null} User ID hoặc null nếu không tìm thấy
+ */
 export const getCurrentUserId = () => {
     // Priority order: auth system keys -> legacy keys -> user object fields -> null
     let userId = localStorage.getItem('user_id') || localStorage.getItem('userId');
@@ -36,7 +56,10 @@ export const getCurrentUserId = () => {
     return userId || null;
 };
 
-// Check if user is logged in
+/**
+ * KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP
+ * @returns {boolean} True nếu user đã đăng nhập (có userId và token)
+ */
 export const isUserLoggedIn = () => {
     const userId = getCurrentUserId();
     const token = getAuthToken();
@@ -44,7 +67,10 @@ export const isUserLoggedIn = () => {
     return !!(userId && token);
 };
 
-// Get user info object
+/**
+ * LẤY THÔNG TIN USER OBJECT ĐẦY ĐỦ
+ * @returns {object|null} User object hoặc null nếu không tìm thấy
+ */
 export const getCurrentUser = () => {
     const userStr = localStorage.getItem('nosmoke_user') || sessionStorage.getItem('nosmoke_user') || 
                    localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -60,13 +86,21 @@ export const getCurrentUser = () => {
     return null;
 };
 
-// Get current auth token consistently across the app
+/**
+ * LẤY AUTH TOKEN HIỆN TẠI TỪ STORAGE
+ * Tìm kiếm token trong localStorage và sessionStorage với nhiều key khác nhau
+ * @returns {string|null} Auth token hoặc null nếu không tìm thấy
+ */
 export const getAuthToken = () => {
     return localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') ||
            localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
 };
 
-// Fallback for development/testing - should not be used in production
+/**
+ * FALLBACK CHO DEVELOPMENT/TESTING - KHÔNG SỬ DỤNG TRONG PRODUCTION
+ * @returns {string} Development user ID
+ * @deprecated Chỉ dùng cho testing, không sử dụng trong production
+ */
 export const getDevelopmentUserId = () => {
     console.warn('🚨 Using development fallback user ID. This should not happen in production!');
     console.warn('🚨 Please ensure user is properly logged in.');

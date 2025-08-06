@@ -1,12 +1,35 @@
+/**
+ * AUTH CONTEXT - QUẢN LÝ XÁC THỰC VÀ TRẠNG THÁI NGƯỜI DÙNG
+ * 
+ * File này cung cấp:
+ * 1. React Context cho authentication state
+ * 2. Functions để login/logout/register
+ * 3. Quản lý user session và persistence
+ * 4. Role-based access control (smoker, coach, admin)
+ * 5. Hardcoded coach accounts cho testing
+ * 
+ * Được sử dụng bởi:
+ * - CheckinHistory.jsx: Lấy user info qua useAuth() hook
+ * - ProgressDashboard.jsx: Kiểm tra user authentication
+ * - Tất cả components cần thông tin user
+ */
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
-// Tạo context cho xác thực
+/**
+ * TẠO CONTEXT CHO XÁC THỰC
+ */
 const AuthContext = createContext(null);
 
-// Hook tùy chỉnh để sử dụng AuthContext
+/**
+ * HOOK TÙY CHỈNH ĐỂ SỬ DỤNG AUTHCONTEXT
+ * @returns {object} Auth context object với user, login, logout functions
+ */
 export const useAuth = () => useContext(AuthContext);
 
-// Hardcoded coach accounts
+/**
+ * HARDCODED COACH ACCOUNTS CHO TESTING VÀ DEVELOPMENT
+ * Trong production, data này sẽ được lấy từ database
+ */
 const COACH_ACCOUNTS = [
   {
     id: 1,
@@ -51,15 +74,21 @@ const COACH_ACCOUNTS = [
   }
 ];
 
-// Provider component
+/**
+ * AUTH PROVIDER COMPONENT - CUNG CẤP CONTEXT CHO TOÀN ỨNG DỤNG
+ * @param {object} children - React children components
+ */
 export const AuthProvider = ({ children }) => {
-  // Khởi tạo trạng thái từ localStorage hoặc sessionStorage (nếu có)
+  /**
+   * KHỞI TẠO USER STATE TỪ STORAGE
+   * Ưu tiên localStorage (remember me) > sessionStorage (session only)
+   */
   const [user, setUser] = useState(() => {
     // Ưu tiên localStorage (ghi nhớ), sau đó mới sessionStorage (không ghi nhớ)
     const storedUser = localStorage.getItem('nosmoke_user') || sessionStorage.getItem('nosmoke_user');
     if (storedUser) {
       const userData = JSON.parse(storedUser);
-      // Normalize user data
+      // Normalize user data để đảm bảo consistency
       return {
         ...userData,
         name: userData.name || userData.fullName || userData.username,
@@ -72,7 +101,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Lưu user vào storage khi thay đổi
+  /**
+   * EFFECT LƯU USER VÀO STORAGE KHI STATE THAY ĐỔI
+   */
   useEffect(() => {
     if (user) {
       // Kiểm tra xem có token trong localStorage không (tức là có ghi nhớ)

@@ -1,3 +1,23 @@
+/**
+ * QUIT PLAN LIST - COMPONENT HIỂN THỊ DANH SÁCH KẾ HOẠCH CAI THUỐC
+ * 
+ * Component này có chức năng:
+ * 1. HIỂN THỊ DANH SÁCH: Load và hiển thị tất cả kế hoạch của user
+ * 2. QUẢN LÝ TRẠNG THÁI: Cập nhật status kế hoạch (ongoing, completed, failed)
+ * 3. XÓA KẾ HOẠCH: Cho phép user xóa kế hoạch không cần thiết
+ * 4. ĐIỀU HƯỚNG: Navigate đến chi tiết kế hoạch hoặc tạo kế hoạch mới
+ * 5. TÍNH TOÁN TIẾN ĐỘ: Hiển thị phần trăm hoàn thành của từng kế hoạch
+ * 
+ * Data Flow:
+ * - Load plans từ quitPlanService.getUserPlans()
+ * - Listen events từ JourneyStepper khi có plan mới/xóa
+ * - Update UI real-time khi có thay đổi
+ * 
+ * Được sử dụng tại:
+ * - /journey/plans: Route chính xem danh sách kế hoạch
+ * - JourneyRouter: Tự động hiển thị khi user có kế hoạch
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getUserPlans, updatePlanStatus, deletePlan } from '../services/quitPlanService';
@@ -5,23 +25,28 @@ import { logDebug } from '../utils/debugHelpers';
 import './QuitPlanList.css';
 
 const QuitPlanList = () => {
-    const [plans, setPlans] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [updatingPlanId, setUpdatingPlanId] = useState(null);
+    // ===== STATES QUẢN LÝ DANH SÁCH KẾ HOẠCH =====
+    const [plans, setPlans] = useState([]);                    // Danh sách kế hoạch từ database
+    const [loading, setLoading] = useState(true);              // Trạng thái loading khi fetch data
+    const [error, setError] = useState(null);                  // Error message nếu có lỗi
+    const [updatingPlanId, setUpdatingPlanId] = useState(null); // ID kế hoạch đang được update
     const navigate = useNavigate();
 
-    // Fetch danh sách kế hoạch khi component được mount
+    /**
+     * EFFECT: LOAD DANH SÁCH KẾ HOẠCH VÀ LISTEN EVENTS
+     * Fetch plans khi component mount và setup event listeners
+     */
     useEffect(() => {
         fetchPlans();
 
-        // Lắng nghe sự kiện khi có kế hoạch mới được tạo
+        // ===== EVENT LISTENERS CHO REAL-TIME UPDATES =====
+        // Lắng nghe sự kiện khi có kế hoạch mới được tạo từ JourneyStepper
         const handlePlanCreated = () => {
             console.log('🔄 QuitPlanList - Nhận event kế hoạch mới được tạo, refresh danh sách...');
             fetchPlans();
         };
 
-        // Lắng nghe sự kiện khi kế hoạch bị xóa
+        // Lắng nghe sự kiện khi kế hoạch bị xóa từ JourneyStepper  
         const handlePlanDeleted = () => {
             console.log('🗑️ QuitPlanList - Nhận event kế hoạch bị xóa, refresh danh sách...');
             fetchPlans();

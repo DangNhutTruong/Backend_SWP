@@ -1,9 +1,24 @@
+/**
+ * PROGRESS PAGE - TRANG TIẾN TRÌNH CAI THUỐC CHÍNH
+ * 
+ * Trang này kết hợp tất cả các components liên quan đến theo dõi tiến trình:
+ * 1. DailyCheckin - Form check-in hằng ngày
+ * 2. ProgressDashboard - Hiển thị các metrics tổng quan
+ * 3. CheckinHistory - Sidebar lịch sử check-in với CRUD operations
+ * 4. ActivePlanSelector - Chuyển đổi giữa các kế hoạch cai thuốc
+ * 5. ResetCheckinData - Xóa/reset dữ liệu check-in
+ * 
+ * Data Flow:
+ * - CheckinHistory nhận onProgressUpdate prop để sync với ProgressDashboard
+ * - ActivePlanSelector trigger reload data khi chuyển kế hoạch
+ * - Tất cả components đều đồng bộ qua localStorage và custom events
+ */
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import DailyCheckin from '../components/DailyCheckin';
 import ProgressDashboard from '../components/ProgressDashboard';
-import CheckinHistory from '../components/CheckinHistory';
+import CheckinHistory from '../components/CheckinHistory'; // SIDEBAR LỊCH SỬ CHECK-IN VỚI CRUD
 import ResetCheckinData from '../components/ResetCheckinData';
 import ActivePlanSelector from '../components/ActivePlanSelector';
 import { FaCalendarCheck, FaLeaf, FaCoins, FaHeart } from 'react-icons/fa';
@@ -37,7 +52,10 @@ export default function Progress() {
 
   // Removed health benefits function - now handled by ProgressDashboard component
 
-  // Load user plan and progress from localStorage and API
+  /**
+   * LOAD USER PLAN VÀ PROGRESS DATA
+   * Function chính để tải dữ liệu kế hoạch và tiến trình từ API/localStorage
+   */
   useEffect(() => {
     loadUserPlanAndProgress();
 
@@ -586,7 +604,14 @@ export default function Progress() {
     }
   };
 
-  // Xử lý cập nhật tiến trình từ Daily Checkin
+  /**
+   * XỬ LÝ CẬP NHẬT TIẾN TRÌNH TỪ CHECKINHISTORY VÀ DAILYCHECKIN
+   * Callback function được truyền cho CheckinHistory component
+   * Khi user chỉnh sửa/xóa data trong CheckinHistory, function này sẽ:
+   * 1. Reload toàn bộ progress data
+   * 2. Recalculate statistics cho dashboard
+   * @param {object} newProgress - Dữ liệu progress mới (hoặc null nếu xóa)
+   */
   const handleProgressUpdate = async (newProgress) => {
     console.log('Progress updated, reloading all data...');
 
@@ -600,7 +625,10 @@ export default function Progress() {
     }, 100);
   };
 
-  // Xử lý cập nhật tâm trạng từ Mood Tracking
+  /**
+   * XỬ LÝ CẬP NHẬT TÂM TRẠNG TỪ MOOD TRACKING
+   * @param {object} newMoodData - Dữ liệu tâm trạng mới
+   */
   const handleMoodUpdate = (newMoodData) => {
     // Có thể thêm logic cập nhật mood data ở đây nếu cần
     setMoodData(prev => [...prev, newMoodData]);
@@ -965,7 +993,11 @@ export default function Progress() {
         }}
       />
 
-      {/* Lịch sử Check-in */}
+      {/* LỊCH SỬ CHECK-IN COMPONENT */}
+      {/* CheckinHistory component nhận prop onProgressUpdate từ parent */}
+      {/* Prop này là callback function để thông báo khi có thay đổi data */}
+      {/* Khi user edit/delete entry trong CheckinHistory, nó sẽ gọi onProgressUpdate */}
+      {/* để trigger reload toàn bộ data ở parent component (Progress.jsx) */}
       <div className="section-divider"></div>
       <CheckinHistory
         onProgressUpdate={handleProgressUpdate}

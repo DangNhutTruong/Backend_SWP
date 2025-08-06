@@ -1,10 +1,35 @@
+/**
+ * JOURNEY STEPPER - COMPONENT TẠO KẾ HOẠCH CAI THUỐC
+ * 
+ * Component chính để tạo và quản lý kế hoạch cai thuốc lá
+ * Chức năng chính:
+ * 1. TẠO KẾ HOẠCH MỚI: Thu thập thông tin user và tạo kế hoạch cá nhân hóa
+ * 2. CHỈNH SỬA KẾ HOẠCH: Cho phép user sửa đổi kế hoạch đã có
+ * 3. XEM KẾ HOẠCH: Hiển thị kế hoạch đã tạo với timeline chi tiết
+ * 4. SINH KẾ HOẠCH TỰ ĐỘNG: Tạo nhiều kế hoạch phù hợp dựa trên mức độ hút thuốc
+ * 
+ * Data Flow:
+ * - Input: Thông tin user (số điếu/ngày, giá gói thuốc, số năm hút)
+ * - Processing: Tính toán mức độ phụ thuộc WHO, sinh kế hoạch giảm dần
+ * - Output: Kế hoạch cai thuốc với timeline chi tiết, lưu vào database
+ * 
+ * Được sử dụng tại:
+ * - /journey/create: Tạo kế hoạch mới
+ * - /journey/plan/:id: Xem/chỉnh sửa kế hoạch có sẵn
+ * - /journey: Route chính cho hệ thống kế hoạch
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/JourneyStepper.css';
 import { createQuitPlan, updateQuitPlan, getUserPlans, deletePlan } from '../services/quitPlanService';
 import { logDebug } from '../utils/debugHelpers';
 
-// Debug function to check authentication status
+/**
+ * HÀM KIỂM TRA TRẠNG THÁI AUTHENTICATION
+ * Debug function để verify user đã đăng nhập và có token hợp lệ
+ * @returns {object} {hasToken, hasUser, isPersistent, tokenLocal, tokenSession}
+ */
 const checkAuthStatus = () => {
   // Tìm token từ cả localStorage và sessionStorage với đúng key (tương thích với quitPlanService.js)
   const tokenLocal = localStorage.getItem('nosmoke_token') ||
@@ -24,31 +49,39 @@ const checkAuthStatus = () => {
 export default function JourneyStepper({ onPlanCreated }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [showCompletionScreen, setShowCompletionScreen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isFullEdit, setIsFullEdit] = useState(false); // Phân biệt giữa edit một phần vs edit toàn bộ
-  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  
+  // ===== STATES QUẢN LÝ UI VÀ LUỒNG TẠO KẾ HOẠCH =====
+  const [currentStep, setCurrentStep] = useState(1);                    // Bước hiện tại (1-4)
+  const [isCompleted, setIsCompleted] = useState(false);                // Đã hoàn thành tạo kế hoạch
+  const [showCompletionScreen, setShowCompletionScreen] = useState(false); // Hiển thị màn hình chúc mừng
+  const [isEditing, setIsEditing] = useState(false);                    // Đang ở chế độ chỉnh sửa
+  const [isFullEdit, setIsFullEdit] = useState(false);                  // Phân biệt giữa edit một phần vs edit toàn bộ
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);        // Hiển thị thông báo chào mừng quay lại
+  
+  // ===== STATE FORM DATA - THÔNG TIN NGƯỜI DÙNG =====
   const [formData, setFormData] = useState({
-    cigarettesPerDay: 10,
-    packPrice: 25000,
-    smokingYears: 5,
-    reasonToQuit: 'sức khỏe',
-    selectedPlan: null, // Kế hoạch được chọn
+    cigarettesPerDay: 10,       // Số điếu thuốc hút mỗi ngày (dùng để tính toán kế hoạch)
+    packPrice: 25000,           // Giá một gói thuốc (dùng để tính tiết kiệm)
+    smokingYears: 5,            // Số năm hút thuốc (dùng để đánh giá mức độ phụ thuộc)
+    reasonToQuit: 'sức khỏe',   // Lý do cai thuốc (motivation)
+    selectedPlan: null,         // Kế hoạch được chọn (object hoặc ID)
   });
 
+  // ===== CẤU HÌNH STEPS CHO UI =====
   const steps = [
-    { id: 1, name: "Thói quen" },
-    { id: 2, name: "Quá trình" },
-    { id: 3, name: "Lợi ích" },
-    { id: 4, name: "Xác nhận" },
+    { id: 1, name: "Thói quen" },    // Thu thập thông tin hút thuốc hiện tại
+    { id: 2, name: "Quá trình" },    // Chọn kế hoạch giảm dần phù hợp
+    { id: 3, name: "Lợi ích" },      // Hiển thị lợi ích và motivation
+    { id: 4, name: "Xác nhận" },     // Xác nhận và lưu kế hoạch vào database
   ];
 
-  // Kiểm tra nếu đang ở route tạo mới
+  // ===== LOGIC PHÂN BIỆT TẠO MỚI VS CHỈNH SỬA =====
   const isCreatingNew = location.pathname === '/journey/create';
 
-  // Reset states khi đang tạo kế hoạch mới
+  /**
+   * EFFECT: RESET STATES KHI TẠO KẾ HOẠCH MỚI
+   * Đảm bảo UI sạch khi user chọn tạo kế hoạch mới
+   */
   useEffect(() => {
     if (isCreatingNew) {
       console.log('🆕 ĐANG TẠO KẾ HOẠCH MỚI - Reset tất cả states');
@@ -338,24 +371,26 @@ export default function JourneyStepper({ onPlanCreated }) {
       alert('Không thể cập nhật kế hoạch. Vui lòng thử lại.');
     }
   };
-  // Function to update active steps
-  const animateProgressBar = (newStep) => {
-    // No longer need to animate step-line since it has been removed
-    // Only update other elements if necessary
-  }; const handleSubmit = async () => {
+  /**
+   * HÀM LƯU KẾ HOẠCH VÀO DATABASE
+   * Function chính để xử lý submit form và tạo kế hoạch mới
+   * Flow: Thu thập data → Validate → Gọi API → Đồng bộ localStorage → UI feedback
+   */
+  const handleSubmit = async () => {
     // Add animation to the submit button
     const submitButton = document.querySelector('.btn-submit');
     submitButton.classList.add('loading');
     submitButton.innerHTML = '<div class="loader"></div>';
 
     try {
-      // Lấy thời gian hiện tại
+      // Lấy thời gian hiện tại cho startDate và timestamps
       const now = new Date().toISOString();
 
-      // Lấy kế hoạch đầy đủ dựa vào ID đã chọn
+      // ===== BƯỚC 1: LẤY KẾ HOẠCH ĐẦY ĐỦ TỪ ID ĐÃ CHỌN =====
       let completeSelectedPlan = null;
 
       if (formData.selectedPlan) {
+        // Tạo lại danh sách kế hoạch phù hợp với mức độ hút thuốc
         let plans = [];
         if (formData.cigarettesPerDay < 10) {
           plans = generateLightSmokerPlans();
@@ -697,7 +732,13 @@ export default function JourneyStepper({ onPlanCreated }) {
     return Math.round(dependenceScore);
   };
 
-  // Tạo 2 kế hoạch cho người hút nhẹ (<10 điếu/ngày)
+  // ===== HỆ THỐNG SINH KẾ HOẠCH TỰ ĐỘNG =====
+
+  /**
+   * TẠO KẾ HOẠCH CHO NGƯỜI HÚT NHẸ (<10 điếu/ngày)
+   * Tạo 2 lựa chọn kế hoạch phù hợp cho người hút ít thuốc
+   * @returns {Array} Mảng 2 kế hoạch với timeline chi tiết
+   */
   const generateLightSmokerPlans = () => {
     const cigarettesPerDay = formData.cigarettesPerDay;
 
@@ -753,7 +794,11 @@ export default function JourneyStepper({ onPlanCreated }) {
     return [plan1, plan2];
   };
 
-  // Tạo 2 kế hoạch cho người hút trung bình (10-20 điếu/ngày)
+  /**
+   * TẠO KẾ HOẠCH CHO NGƯỜI HÚT TRUNG BÌNH (10-20 điếu/ngày)
+   * Tạo 2 lựa chọn kế hoạch cho người hút thuốc mức độ trung bình
+   * @returns {Array} Mảng 2 kế hoạch với timeline chi tiết
+   */
   const generateModerateSmokerPlans = () => {
     const cigarettesPerDay = formData.cigarettesPerDay;
 
@@ -809,7 +854,11 @@ export default function JourneyStepper({ onPlanCreated }) {
     return [plan1, plan2];
   };
 
-  // Tạo 2 kế hoạch cho người hút nặng (>20 điếu/ngày)
+  /**
+   * TẠO KẾ HOẠCH CHO NGƯỜI HÚT NẶNG (>20 điếu/ngày)
+   * Tạo 2 lựa chọn kế hoạch cho người hút thuốc nhiều, cần thời gian dài hơn
+   * @returns {Array} Mảng 2 kế hoạch với timeline chi tiết
+   */
   const generateHeavySmokerPlans = () => {
     const cigarettesPerDay = formData.cigarettesPerDay;
 

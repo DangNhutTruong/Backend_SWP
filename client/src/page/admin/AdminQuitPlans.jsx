@@ -1,3 +1,24 @@
+/**
+ * ADMIN QUIT PLANS - QUẢN LÝ KẾ HOẠCH CAI THUỐC CHO ADMIN
+ * 
+ * Component dành cho Admin để:
+ * 1. QUẢN LÝ KẾ HOẠCH MẪU: Tạo, sửa, xóa các template kế hoạch
+ * 2. XEM THỐNG KÊ: Số lượng người sử dụng mỗi kế hoạch  
+ * 3. PHÂN LOẠI: Theo độ khó và đối tượng phù hợp
+ * 4. TẠO NỘI DUNG: Định nghĩa các bước thực hiện cho từng kế hoạch
+ * 5. QUẢN LÝ TRẠNG THÁI: Publish/unpublish các kế hoạch
+ * 
+ * Features:
+ * - Tạo kế hoạch với steps tùy chỉnh
+ * - Phân loại theo user type (beginners, heavy-smokers, etc.)
+ * - Quản lý độ khó (easy, medium, hard)
+ * - Tracking usage statistics
+ * 
+ * Kết nối với:
+ * - Backend API getPlanTemplates
+ * - JourneyStepper để cung cấp template choices
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
