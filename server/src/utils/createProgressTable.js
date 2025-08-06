@@ -7,6 +7,7 @@ const createProgressTable = async () => {
             CREATE TABLE IF NOT EXISTS daily_progress (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 smoker_id INT NOT NULL,
+                plan_id INT NULL,
                 date DATE NOT NULL,
                 target_cigarettes INT NOT NULL DEFAULT 0,
                 actual_cigarettes INT NOT NULL DEFAULT 0,
@@ -19,7 +20,9 @@ const createProgressTable = async () => {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_smoker_date (smoker_id, date),
                 FOREIGN KEY (smoker_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (plan_id) REFERENCES quit_smoking_plan(id) ON DELETE SET NULL,
                 INDEX idx_smoker_date (smoker_id, date),
+                INDEX idx_plan_id (plan_id),
                 INDEX idx_date (date)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `;

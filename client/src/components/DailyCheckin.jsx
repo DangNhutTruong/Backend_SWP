@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FaCalendarCheck, FaSave } from 'react-icons/fa';
 import progressService from '../services/progressService';
 import { getCurrentUserId } from '../utils/userUtils';
 import { useAuth } from '../context/AuthContext';
 
-const DailyCheckin = ({ onProgressUpdate }) => {
+const DailyCheckin = ({ onProgressUpdate, selectedPlan }) => {
     const { user } = useAuth(); // Lấy thông tin user từ AuthContext
 
     const [todayData, setTodayData] = useState({
@@ -19,14 +19,14 @@ const DailyCheckin = ({ onProgressUpdate }) => {
     const [currentWeek, setCurrentWeek] = useState(1); // Tuần hiện tại
     const [streakDays, setStreakDays] = useState(0); // Số ngày liên tiếp đạt mục tiêu
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' }); // Thông báo dạng toast
-    const [currentPlan, setCurrentPlan] = useState(null); // Lưu kế hoạch hiện tại    // Load kế hoạch từ localStorage hoặc database
-    const loadUserPlan = async () => {
-        console.log('🔍 DailyCheckin loadUserPlan - Starting...');
+    const [currentPlan, setCurrentPlan] = useState(null); // Lưu kế hoạch hiện tại
+    const [forceRender, setForceRender] = useState(0); // Force re-render
 
+    // Load kế hoạch từ localStorage hoặc database
+    const loadUserPlan = async () => {
         try {
             // Ưu tiên lấy từ localStorage (kế hoạch được chọn từ ActivePlanSelector)
             const localPlan = localStorage.getItem('activePlan');
-            console.log('🔍 DailyCheckin loadUserPlan - localPlan:', localPlan);
 
             if (localPlan) {
                 const parsedPlan = JSON.parse(localPlan);
@@ -34,28 +34,22 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
                 // Lấy số điếu ban đầu từ plan
                 let initialCigs = 0;
-                console.log('🔍 DailyCheckin - LocalStorage plan structure:', parsedPlan);
 
                 // Ưu tiên lấy từ initialCigarettes trực tiếp
                 if (parsedPlan.initialCigarettes) {
                     initialCigs = parsedPlan.initialCigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.initialCigarettes:', initialCigs);
                 } else if (parsedPlan.initial_cigarettes) {
                     initialCigs = parsedPlan.initial_cigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.initial_cigarettes:', initialCigs);
                 } else if (parsedPlan.dailyCigarettes) {
                     initialCigs = parsedPlan.dailyCigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.dailyCigarettes:', initialCigs);
                 } else if (parsedPlan.daily_cigarettes) {
                     initialCigs = parsedPlan.daily_cigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.daily_cigarettes:', initialCigs);
                 } else if (parsedPlan.weeks && parsedPlan.weeks.length > 0) {
                     // Lấy từ tuần đầu tiên
                     const firstWeek = parsedPlan.weeks[0];
                     initialCigs = firstWeek.amount || firstWeek.cigarettes ||
                         firstWeek.dailyCigarettes || firstWeek.daily_cigarettes ||
                         firstWeek.target || 0;
-                    console.log('🔍 DailyCheckin - Got from first week:', initialCigs);
                 }
 
                 // Update todayData với initialCigarettes
@@ -64,31 +58,25 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                     initialCigarettes: initialCigs
                 }));
 
-                console.log('🔍 DailyCheckin - Set initialCigarettes from localStorage:', initialCigs);
-
                 return parsedPlan;
             }
 
             // Fallback: Load từ API nếu không có trong localStorage
             const auth_token = localStorage.getItem('nosmoke_token') || sessionStorage.getItem('nosmoke_token') ||
                 localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            console.log('🔍 DailyCheckin loadUserPlan - auth_token:', auth_token ? 'Found' : 'Not found');
 
             if (auth_token) {
                 const quitPlanService = await import('../services/quitPlanService');
                 const response = await quitPlanService.getUserActivePlan();
-                console.log('🔍 DailyCheckin loadUserPlan - getUserActivePlan response:', response);
 
                 if (response && response.success && response.plan) {
                     let plan = response.plan;
-                    console.log('🔍 DailyCheckin loadUserPlan - plan from API:', plan);
 
                     // Parse plan_details nếu nó là string
                     if (plan.plan_details && typeof plan.plan_details === 'string') {
                         try {
                             const parsedDetails = JSON.parse(plan.plan_details);
                             plan = { ...plan, ...parsedDetails };
-                            console.log('🔍 DailyCheckin loadUserPlan - plan after parsing:', plan);
                         } catch (e) {
                             console.error('Error parsing plan_details:', e);
                         }
@@ -98,28 +86,22 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
                     // Lấy số điếu ban đầu từ plan
                     let initialCigs = 0;
-                    console.log('🔍 DailyCheckin - Plan structure:', plan);
 
                     // Ưu tiên lấy từ initialCigarettes trực tiếp
                     if (plan.initialCigarettes) {
                         initialCigs = plan.initialCigarettes;
-                        console.log('🔍 DailyCheckin - Got from plan.initialCigarettes:', initialCigs);
                     } else if (plan.initial_cigarettes) {
                         initialCigs = plan.initial_cigarettes;
-                        console.log('🔍 DailyCheckin - Got from plan.initial_cigarettes:', initialCigs);
                     } else if (plan.dailyCigarettes) {
                         initialCigs = plan.dailyCigarettes;
-                        console.log('🔍 DailyCheckin - Got from plan.dailyCigarettes:', initialCigs);
                     } else if (plan.daily_cigarettes) {
                         initialCigs = plan.daily_cigarettes;
-                        console.log('🔍 DailyCheckin - Got from plan.daily_cigarettes:', initialCigs);
                     } else if (plan.weeks && plan.weeks.length > 0) {
                         // Lấy từ tuần đầu tiên
                         const firstWeek = plan.weeks[0];
                         initialCigs = firstWeek.amount || firstWeek.cigarettes ||
                             firstWeek.dailyCigarettes || firstWeek.daily_cigarettes ||
                             firstWeek.target || 0;
-                        console.log('🔍 DailyCheckin - Got from first week:', initialCigs);
                     }
 
                     // Update todayData với initialCigarettes
@@ -128,53 +110,10 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                         initialCigarettes: initialCigs
                     }));
 
-                    console.log('🔍 DailyCheckin - Set initialCigarettes:', initialCigs);
-
                     return plan;
                 }
             }
-            if (localPlan) {
-                const parsedPlan = JSON.parse(localPlan);
-                setCurrentPlan(parsedPlan);
 
-                // Lấy số điếu ban đầu từ plan
-                let initialCigs = 0; // Default fallback - sẽ được lấy từ plan thực tế
-                console.log('🔍 DailyCheckin - LocalStorage plan structure:', parsedPlan);
-
-                // Ưu tiên lấy từ initialCigarettes trực tiếp
-                if (parsedPlan.initialCigarettes) {
-                    initialCigs = parsedPlan.initialCigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.initialCigarettes:', initialCigs);
-                } else if (parsedPlan.initial_cigarettes) {
-                    initialCigs = parsedPlan.initial_cigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.initial_cigarettes:', initialCigs);
-                } else if (parsedPlan.dailyCigarettes) {
-                    initialCigs = parsedPlan.dailyCigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.dailyCigarettes:', initialCigs);
-                } else if (parsedPlan.daily_cigarettes) {
-                    initialCigs = parsedPlan.daily_cigarettes;
-                    console.log('🔍 DailyCheckin - Got from parsedPlan.daily_cigarettes:', initialCigs);
-                } else if (parsedPlan.weeks && parsedPlan.weeks.length > 0) {
-                    // Lấy từ tuần đầu tiên
-                    const firstWeek = parsedPlan.weeks[0];
-                    initialCigs = firstWeek.amount || firstWeek.cigarettes ||
-                        firstWeek.dailyCigarettes || firstWeek.daily_cigarettes ||
-                        firstWeek.target || 0;
-                    console.log('🔍 DailyCheckin - Got from first week:', initialCigs);
-                }
-
-                // Update todayData với initialCigarettes
-                setTodayData(prev => ({
-                    ...prev,
-                    initialCigarettes: initialCigs
-                }));
-
-                console.log('🔍 DailyCheckin - Set initialCigarettes from localStorage:', initialCigs);
-
-                return parsedPlan;
-            }
-
-            console.log('🔍 DailyCheckin loadUserPlan - No plan found');
             return null;
         } catch (error) {
             console.error('❌ Error loading plan:', error);
@@ -184,21 +123,30 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
     // Tính target cigarettes dựa trên kế hoạch và ngày hiện tại
     const calculateTodayTarget = (plan = currentPlan) => {
+        console.log('🎯 calculateTodayTarget - Input plan:', plan?.plan_name || plan?.planName, 'ID:', plan?.id);
+
         // Nếu không có kế hoạch, trả về 0 để báo hiệu cần lập kế hoạch
         if (!plan || !plan.weeks || !Array.isArray(plan.weeks) || plan.weeks.length === 0) {
             console.log("⚠️ Không có kế hoạch hợp lệ, target = 0");
             return 0;
         }
 
+        console.log('🎯 calculateTodayTarget - Plan weeks:', plan.weeks.length, 'weeks');
+        console.log('🎯 calculateTodayTarget - First week data:', plan.weeks[0]);
+
         const planStartDate = plan.startDate || plan.start_date;
+        console.log('🎯 calculateTodayTarget - Plan start date:', planStartDate);
 
         if (!planStartDate) {
             const firstWeek = plan.weeks[0];
             if (firstWeek) {
-                return firstWeek.amount ?? firstWeek.target ??
+                const target = firstWeek.amount ?? firstWeek.target ??
                     firstWeek.cigarettes ?? firstWeek.dailyCigarettes ??
-                    firstWeek.targetCigarettes ?? 0; // Fallback là 0 thay vì 12
+                    firstWeek.targetCigarettes ?? 0;
+                console.log('🎯 calculateTodayTarget - No start date, using first week target:', target);
+                return target;
             }
+            console.log('🎯 calculateTodayTarget - No start date, no first week data, target = 0');
             return 0; // Không có dữ liệu tuần đầu
         }
 
@@ -208,11 +156,15 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
             if (isNaN(startDate.getTime())) {
                 console.log("⚠️ Ngày bắt đầu không hợp lệ, sử dụng tuần đầu tiên");
-                return plan.weeks[0]?.amount || 0; // Fallback là 0
+                const target = plan.weeks[0]?.amount || 0;
+                console.log('🎯 calculateTodayTarget - Invalid start date, using first week target:', target);
+                return target;
             }
 
             const daysDiff = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
             const currentWeekNumber = Math.floor(daysDiff / 7) + 1;
+
+            console.log('🎯 calculateTodayTarget - Days diff:', daysDiff, 'Current week:', currentWeekNumber);
 
             setCurrentWeek(currentWeekNumber);
 
@@ -222,6 +174,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                 const weekByIndex = plan.weeks[currentWeekNumber - 1];
                 const weekByProperty = plan.weeks.find(w => w.week === currentWeekNumber);
                 currentWeekPlan = weekByProperty || weekByIndex;
+                console.log('🎯 calculateTodayTarget - Current week plan:', currentWeekPlan);
             }
 
             if (currentWeekPlan) {
@@ -234,6 +187,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                 };
 
                 const currentAmount = getTargetAmount(currentWeekPlan);
+                console.log('🎯 calculateTodayTarget - Current week target amount:', currentAmount);
 
                 if (currentWeekNumber > 1) {
                     const prevWeekByIndex = plan.weeks[currentWeekNumber - 2];
@@ -256,7 +210,9 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                     }
                 }
 
-                return currentAmount || 0; // Fallback là 0 thay vì 12
+                const finalTarget = currentAmount || 0;
+                console.log('🎯 calculateTodayTarget - Final target:', finalTarget);
+                return finalTarget;
             }
 
             if (currentWeekNumber > plan.weeks.length) {
@@ -328,9 +284,57 @@ const DailyCheckin = ({ onProgressUpdate }) => {
         loadPlanAndCalculateTarget();
     }, []);
 
-    // Reset state khi user thay đổi để tránh dính data từ user trước
+    // Memoized target calculation để tránh cache issues
+    const currentTarget = useMemo(() => {
+        if (!selectedPlan) return todayData.targetCigarettes;
+
+        const target = calculateTodayTarget(selectedPlan);
+        console.log('🎯 useMemo - Calculated target:', target, 'for plan:', selectedPlan.plan_name);
+        return target;
+    }, [selectedPlan?.id, selectedPlan?.weeks, todayData.targetCigarettes]);
+
+    // Watch selectedPlan changes from parent (Progress component) - MAIN UPDATE METHOD
     useEffect(() => {
-        if (user) {
+        if (selectedPlan) {
+            console.log('🔄 DailyCheckin - selectedPlan prop changed:', selectedPlan.plan_name || selectedPlan.planName);
+            console.log('🔄 DailyCheckin - Recalculating target for new plan...');
+
+            // Update currentPlan and recalculate target
+            setCurrentPlan(selectedPlan);
+            const target = calculateTodayTarget(selectedPlan);
+
+            console.log('🔄 DailyCheckin - New target calculated:', target);
+
+            // FORCE COMPLETE STATE RESET to avoid caching
+            setTodayData(prev => {
+                const newData = {
+                    date: new Date().toISOString().split('T')[0],
+                    targetCigarettes: target, // Use fresh calculated target
+                    actualCigarettes: prev.actualCigarettes, // Keep user input
+                    initialCigarettes: selectedPlan.initial_cigarettes || selectedPlan.initialCigarettes || 0,
+                    notes: prev.notes
+                };
+                console.log('🔄 DailyCheckin - COMPLETE STATE RESET:', newData);
+                return newData;
+            });
+
+            // Force re-render with delay to ensure state update
+            setTimeout(() => {
+                setForceRender(prev => prev + 1);
+                console.log('🔄 DailyCheckin - Force render triggered after state reset');
+            }, 50);
+        }
+    }, [selectedPlan]);
+
+    // Reset state khi user thay đổi để tránh dính data từ user trước - TEMPORARILY DISABLED
+    useEffect(() => {
+        // TEMPORARILY DISABLED TO DEBUG FLICKERING ISSUE
+        console.log('👤 DailyCheckin - User useEffect DISABLED to prevent target override');
+        return;
+
+        if (user?.id) {
+            console.log('👤 DailyCheckin - User changed, resetting state for user:', user.id);
+
             // Reset tất cả state về trạng thái ban đầu
             setTodayData({
                 date: new Date().toISOString().split('T')[0],
@@ -346,10 +350,12 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
             // Load lại dữ liệu cho user mới
             const loadPlanAndCalculateTarget = async () => {
+                console.log('👤 DailyCheckin - Loading initial plan for user:', user.id);
                 const plan = await loadUserPlan();
 
                 if (plan) {
                     const target = calculateTodayTarget(plan);
+                    console.log('👤 DailyCheckin - Initial target for user:', target);
                     setTodayData(prev => ({
                         ...prev,
                         targetCigarettes: target
@@ -365,29 +371,57 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                 calculateStreakDays();
             };
 
-            loadPlanAndCalculateTarget();
-            // Xóa tất cả dữ liệu check-in cũ khi có user mới
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('checkin_')) {
-                    localStorage.removeItem(key);
-                }
-            });
+            // Only run if this is actually a new user, not just component re-render
+            const currentUserId = localStorage.getItem('currentUserId');
+            if (currentUserId !== user.id.toString()) {
+                localStorage.setItem('currentUserId', user.id.toString());
+                loadPlanAndCalculateTarget();
 
-            console.log('🔄 Reset DailyCheckin state và xóa dữ liệu cũ cho user mới:', user.id);
+                // Xóa tất cả dữ liệu check-in cũ khi có user mới
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('checkin_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                console.log('🔄 Reset DailyCheckin state và xóa dữ liệu cũ cho user mới:', user.id);
+            } else {
+                console.log('👤 DailyCheckin - Same user, skipping reset');
+            }
         }
     }, [user?.id]); // Chỉ chạy khi user ID thay đổi
 
-    // Lắng nghe sự kiện thay đổi kế hoạch từ ActivePlanSelector
+    // Lắng nghe sự kiện thay đổi kế hoạch từ ActivePlanSelector - DISABLED TO AVOID CONFLICT
     useEffect(() => {
-        const handlePlanChange = () => {
-            console.log('🔄 DailyCheckin - Plan changed, reloading plan and recalculating target...');
+        // Temporarily disabled - using props instead
+        console.log('🔧 DailyCheckin - Event listener disabled, using props communication');
+        return;
+
+        console.log('🔧 DailyCheckin - Setting up event listener for plan changes...');
+
+        const handlePlanChange = (event) => {
+            console.log('🔄 DailyCheckin - Plan changed event received:', event.detail);
+            console.log('🔄 DailyCheckin - Current localStorage activePlan:', localStorage.getItem('activePlan'));
 
             // Reload plan and recalculate target
             const loadPlanAndCalculateTarget = async () => {
+                console.log('🔄 DailyCheckin - Loading new plan...');
                 const plan = await loadUserPlan();
 
                 if (plan) {
+                    console.log('🔄 DailyCheckin - New plan loaded:', plan.plan_name || plan.planName);
+                    console.log('🔄 DailyCheckin - Plan details for target calculation:', {
+                        weeks: plan.weeks?.length || 0,
+                        startDate: plan.startDate || plan.start_date,
+                        firstWeekAmount: plan.weeks?.[0]?.amount || plan.weeks?.[0]?.cigarettes || plan.weeks?.[0]?.target || 'N/A'
+                    });
+
+                    // Force use the new plan for calculation, not currentPlan state
                     const target = calculateTodayTarget(plan);
+                    console.log('🔄 DailyCheckin - Calculated new target:', target);
+
+                    // Update both targetCigarettes and currentPlan
+                    setCurrentPlan(plan);
                     setTodayData(prev => ({
                         ...prev,
                         targetCigarettes: target
@@ -395,6 +429,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
                     console.log('🔄 DailyCheckin - Updated target after plan change:', target);
                 } else {
                     console.log("⚠️ Không có kế hoạch sau khi thay đổi, target = 0");
+                    setCurrentPlan(null);
                     setTodayData(prev => ({
                         ...prev,
                         targetCigarettes: 0
@@ -407,9 +442,11 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
         // Lắng nghe sự kiện thay đổi kế hoạch
         window.addEventListener('localStorageChanged', handlePlanChange);
+        console.log('✅ DailyCheckin - Event listener added for localStorageChanged');
 
         return () => {
             window.removeEventListener('localStorageChanged', handlePlanChange);
+            console.log('🧹 DailyCheckin - Event listener removed');
         };
     }, []);
 
@@ -705,7 +742,7 @@ const DailyCheckin = ({ onProgressUpdate }) => {
             });
             return false;
         }
-    }; const isTargetAchieved = todayData.actualCigarettes <= todayData.targetCigarettes;    // Hàm đóng toast notification
+    }; const isTargetAchieved = todayData.actualCigarettes <= currentTarget;    // Hàm đóng toast notification
     const closeToast = () => {
         // Thêm class để animation chạy trước khi ẩn
         const toastElement = document.querySelector('.toast-notification');
@@ -745,10 +782,16 @@ const DailyCheckin = ({ onProgressUpdate }) => {
 
             <div className="checkin-content">
                 {/* Target vs Actual */}
-                <div className="progress-section">                    <div className="target-card">
+                <div className="progress-section">                    <div className="target-card" key={`target-${currentTarget}-${currentPlan?.id || 'none'}-${forceRender}`}>
                     <h3>Mục tiêu hôm nay</h3>
-                    <div className="target-amount">{todayData.targetCigarettes} điếu</div>
+                    <div className="target-amount" style={{ fontWeight: 'bold', color: '#2196F3' }}>
+                        {currentTarget} điếu
+                    </div>
                     <p>Tuần {currentWeek} - Kế hoạch của bạn</p>
+                    {/* Debug info */}
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Debug: target={currentTarget}, state={todayData.targetCigarettes}, plan={currentPlan?.plan_name || 'none'}, render={forceRender}
+                    </div>
 
                     {todayData.weeklyProgress && (
                         <div className="progress-badge">
