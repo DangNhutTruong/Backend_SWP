@@ -24,6 +24,7 @@ import {
   FaCheck,
   FaClipboardList,
   FaArrowRight,
+  FaHistory,
 } from "react-icons/fa";
 
 import "./Profile.css";
@@ -38,6 +39,7 @@ import Achievement from "../components/Achievement.jsx";
 import CollapsibleSection from "../components/CollapsibleSection.jsx";
 import HealthProfile from "../components/HealthProfile.jsx";
 import ProfilePlan from "../components/ProfilePlan.jsx";
+import CheckinHistory from "../components/CheckinHistory.jsx";
 import "../styles/CollapsibleSection.css";
 import "../styles/HealthProfile.css";
 import "../styles/ProfilePlan.css";
@@ -813,6 +815,22 @@ export default function ProfilePage() {
               }
             }}
           >            <FaTrophy /> Huy hiệu          </Link>
+
+          <Link
+            to="#"
+            className={`nav-item ${activeTab === "history" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("history");
+              const profileContent = document.querySelector('.profile-content');
+              if (profileContent) {
+                setTimeout(() => {
+                  profileContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 10);
+              }
+            }}
+          >
+            <FaHistory /> Lịch sử
+          </Link>
           </div>
           
           <div className="nav-bottom-group">
@@ -1005,6 +1023,31 @@ export default function ProfilePage() {
           </div>
         )}        {activeTab === "achievements" && (
           <Achievement achievements={userData.achievements} />
+        )}
+
+        {activeTab === "history" && (
+          <div className="history-section">
+            <h1>Lịch sử tiến trình cai thuốc</h1>
+            <p className="section-description">Theo dõi chi tiết quá trình cai thuốc của bạn qua từng ngày</p>
+            
+            <CheckinHistory
+              onProgressUpdate={(data) => {
+                console.log("Dữ liệu cập nhật từ lịch sử:", data);
+              }}
+              activePlan={activePlan}
+              dashboardStats={{
+                noSmokingDays: savings.days,
+                savedCigarettes: savings.cigarettes,
+                savedMoney: savings.money,
+                healthProgress: 0
+              }}
+              actualProgress={[]}
+              completionDate={activePlan?.start_date || new Date().toISOString()}
+              onDataReset={() => {
+                console.log("Reset dữ liệu lịch sử");
+              }}
+            />
+          </div>
         )}
 
         {activeTab === "appointments" && (

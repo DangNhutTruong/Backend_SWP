@@ -6,7 +6,7 @@ import { getCurrentUserId } from '../utils/userUtils';
 import { useAuth } from '../context/AuthContext';
 import '../styles/CheckinHistory.css';
 
-const CheckinHistory = ({ onProgressUpdate }) => {
+const CheckinHistory = ({ onProgressUpdate, activePlan: propActivePlan, dashboardStats, actualProgress, completionDate, onDataReset }) => {
     const { user } = useAuth();
     const [checkinHistory, setCheckinHistory] = useState([]);
     const [loading, setLoading] = useState(true);
