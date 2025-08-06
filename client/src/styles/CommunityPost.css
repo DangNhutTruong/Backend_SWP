@@ -126,18 +126,18 @@
 .achievement-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: linear-gradient(135deg, #ffd700, #ffed4e);
   color: #333;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 11px;
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(255, 215, 0, 0.25);
 }
 
 .achievement-badge .achievement-icon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .achievement-badge .achievement-name {

@@ -789,12 +789,12 @@ const DailyCheckin = ({ onProgressUpdate, selectedPlan }) => {
                     </div>
                     <p>Tuần {currentWeek} - Kế hoạch của bạn</p>
 
-                    {todayData.weeklyProgress && (
+                    {/* {todayData.weeklyProgress && (
                         <div className="progress-badge">
                             <span>-{todayData.weeklyProgress.reduction} điếu ({todayData.weeklyProgress.percentReduction}%)</span>
                             <p>so với tuần trước</p>
                         </div>
-                    )}
+                    )} */}
                 </div>
 
                     <div className="vs-divider">VS</div>                    <div className="actual-card">
