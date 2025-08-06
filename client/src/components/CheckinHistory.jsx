@@ -6,27 +6,43 @@ import { getCurrentUserId } from '../utils/userUtils';
 import { useAuth } from '../context/AuthContext';
 import '../styles/CheckinHistory.css';
 
+/**
+ * COMPONENT QUẢN LÝ LỊCH SỬ CHECK-IN CAI THUỐC
+ * 
+ * Chức năng chính:
+ * 1. Hiển thị lịch sử check-in hằng ngày theo từng kế hoạch cai thuốc
+ * 2. Tính toán số điếu đã tránh, tiền tiết kiệm, điểm sức khỏe
+ * 3. Cho phép chỉnh sửa và xóa dữ liệu check-in
+ * 4. Đồng bộ dữ liệu giữa localStorage và database
+ * 5. Tự động tính lại khi chuyển đổi kế hoạch
+ * 6. Thông báo tổng thống kê cho các component khác
+ */
 const CheckinHistory = ({ onProgressUpdate }) => {
     const { user } = useAuth();
-    const [checkinHistory, setCheckinHistory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [editingEntry, setEditingEntry] = useState(null);
-    const [tempEditData, setTempEditData] = useState({});
-    const [currentPage, setCurrentPage] = useState(1);
-    const [entriesPerPage] = useState(7); // Hiển thị 7 ngày mỗi trang
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-    // Sử dụng useReducer để force update component khi cần thiết
-    const [, forceUpdate] = useReducer(x => x + 1, 0);
-    // State để kiểm soát việc mở/đóng sidebar
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Tải kế hoạch từ database để lấy initialCigarettes
-    const [userPlan, setUserPlan] = useState(null);
+    // ============ STATE MANAGEMENT ============
+    const [checkinHistory, setCheckinHistory] = useState([]); // Danh sách lịch sử check-in
+    const [loading, setLoading] = useState(true); // Trạng thái loading khi tải dữ liệu
+    const [error, setError] = useState(null); // Thông báo lỗi
+    const [editingEntry, setEditingEntry] = useState(null); // Entry đang được chỉnh sửa (date)
+    const [tempEditData, setTempEditData] = useState({}); // Dữ liệu tạm khi chỉnh sửa
+    const [currentPage, setCurrentPage] = useState(1); // Trang hiện tại cho pagination
+    const [entriesPerPage] = useState(7); // Số entry hiển thị mỗi trang (7 ngày)
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' }); // Thông báo toast
+    const [, forceUpdate] = useReducer(x => x + 1, 0); // Force update component khi cần
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Trạng thái mở/đóng sidebar
+    const [userPlan, setUserPlan] = useState(null); // Kế hoạch cai thuốc hiện tại của user
 
-    // Hàm tính tiền tiết kiệm dựa trên pack price từ kế hoạch
+    // ============ CALCULATION FUNCTIONS ============
+
+    /**
+     * TÍNH TIỀN TIẾT KIỆM DỰA TRÊN SỐ ĐIẾU ĐÃ TRÁNH
+     * @param {number} cigarettesAvoided - Số điếu đã tránh
+     * @param {object} plan - Kế hoạch cai thuốc (chứa giá gói thuốc)
+     * @returns {number} Số tiền tiết kiệm (VND)
+     */
     const calculateMoneySaved = (cigarettesAvoided, plan) => {
-        let packPrice = 25000; // Giá mặc định nếu không tìm thấy
+        let packPrice = 25000; // Giá mặc định nếu không tìm thấy (25k/gói)
 
         // Lấy giá gói thuốc từ kế hoạch hiện tại
         try {
@@ -61,12 +77,18 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return moneySaved;
     };
 
-    // Hàm chuyển đổi trạng thái của sidebar (mở/đóng)
+    /**
+     * CHUYỂN ĐỔI TRẠNG THÁI SIDEBAR (MỞ/ĐÓNG)
+     */
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
 
-    // Hàm tính tổng số điếu đã tránh từ lịch sử check-in
+    /**
+     * TÍNH TỔNG SỐ ĐIẾU ĐÃ TRÁNH TỪ LỊCH SỬ CHECK-IN
+     * @param {array} historyData - Mảng dữ liệu lịch sử check-in
+     * @returns {number} Tổng số điếu đã tránh
+     */
     const calculateTotalCigarettesAvoided = (historyData) => {
         if (!historyData || historyData.length === 0) {
             return 0;
@@ -84,7 +106,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return totalAvoided;
     };
 
-    // Hàm tính tổng số tiền đã tiết kiệm từ lịch sử check-in
+    /**
+     * TÍNH TỔNG SỐ TIỀN ĐÃ TIẾT KIỆM TỪ LỊCH SỬ CHECK-IN
+     * @param {array} historyData - Mảng dữ liệu lịch sử check-in
+     * @returns {number} Tổng số tiền đã tiết kiệm (VND)
+     */
     const calculateTotalMoneySaved = (historyData) => {
         if (!historyData || historyData.length === 0) {
             return 0;
@@ -102,7 +128,13 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return totalMoney;
     };
 
-    // Hàm thông báo kết quả tổng số điếu đã tránh cho component khác
+    // ============ EVENT NOTIFICATION FUNCTIONS ============
+
+    /**
+     * THÔNG BÁO TỔNG SỐ ĐIẾU ĐÃ TRÁNH CHO CÁC COMPONENT KHÁC
+     * Sử dụng Custom Event và localStorage để thông báo cho ProgressDashboard
+     * @param {number} total - Tổng số điếu đã tránh
+     */
     const notifyTotalCigarettesAvoided = (total) => {
         // Dispatch custom event để thông báo cho ProgressDashboard hoặc component khác
         const event = new CustomEvent('totalCigarettesAvoidedUpdated', {
@@ -114,7 +146,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         localStorage.setItem('totalCigarettesAvoided', total.toString());
     };
 
-    // Hàm thông báo kết quả tổng số tiền đã tiết kiệm cho component khác
+    /**
+     * THÔNG BÁO TỔNG SỐ TIỀN ĐÃ TIẾT KIỆM CHO CÁC COMPONENT KHÁC
+     * Sử dụng Custom Event và localStorage để thông báo cho ProgressDashboard
+     * @param {number} total - Tổng số tiền đã tiết kiệm
+     */
     const notifyTotalMoneySaved = (total) => {
         // Dispatch custom event để thông báo cho ProgressDashboard hoặc component khác
         const event = new CustomEvent('totalMoneySavedUpdated', {
@@ -126,7 +162,13 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         localStorage.setItem('totalMoneySaved', total.toString());
     };
 
-    // Hàm lấy kế hoạch của người dùng từ localStorage hoặc API
+    // ============ PLAN MANAGEMENT FUNCTIONS ============
+
+    /**
+     * TẢI KẾ HOẠCH CAI THUỐC CỦA NGƯỜI DÙNG
+     * Ưu tiên từ localStorage (kế hoạch được chọn), fallback về API
+     * @returns {object|null} Thông tin kế hoạch cai thuốc
+     */
     const loadUserPlan = async () => {
         try {
             console.log('🔍 CheckinHistory loadUserPlan - Starting...');
@@ -170,7 +212,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }
     };
 
-    // Lấy initialCigarettes từ plan
+    /**
+     * LẤY SỐ ĐIẾU BAN ĐẦU TỪ KẾ HOẠCH
+     * @param {object} plan - Kế hoạch cai thuốc
+     * @returns {number} Số điếu ban đầu mỗi ngày
+     */
     const getInitialCigarettesFromPlan = (plan) => {
         if (!plan) return 0;
 
@@ -194,7 +240,14 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return 0;
     };
 
-    // Hàm tạo danh sách các ngày từ ngày bắt đầu kế hoạch đến ngày kết thúc (bao gồm cả ngày tương lai)
+    // ============ DATA GENERATION FUNCTIONS ============
+
+    /**
+     * TẠO DANH SÁCH CÁC NGÀY TỪ NGÀY BẮT ĐẦU ĐẾN NGÀY KẾT THÚC KẾ HOẠCH
+     * @param {string} startDate - Ngày bắt đầu kế hoạch (YYYY-MM-DD)
+     * @param {string} endDate - Ngày kết thúc kế hoạch (optional)
+     * @returns {array} Mảng các ngày theo format YYYY-MM-DD
+     */
     const generateDaysArray = (startDate, endDate = null) => {
         const today = new Date();
         const start = new Date(startDate);
@@ -226,7 +279,13 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return days;
     };
 
-    // Hàm tạo check-in trống cho một ngày
+    /**
+     * TẠO ENTRY CHECK-IN TRỐNG CHO MỘT NGÀY
+     * @param {string} date - Ngày theo format YYYY-MM-DD
+     * @param {number} initialCigarettes - Số điếu ban đầu mỗi ngày
+     * @param {number} targetCigarettes - Mục tiêu số điếu cho ngày đó
+     * @returns {object} Entry check-in trống
+     */
     const createEmptyCheckin = (date, initialCigarettes, targetCigarettes = null) => {
         // Mục tiêu phải lấy từ kế hoạch, không phải số điếu ban đầu
         // Nếu không có mục tiêu cụ thể, gán giá trị 0 để người dùng sẽ điền sau
@@ -245,7 +304,12 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         };
     };
 
-    // Hàm tính mục tiêu cho từng ngày dựa trên kế hoạch
+    /**
+     * TÍNH MỤC TIÊU SỐ ĐIẾU CHO TỪNG NGÀY DỰA TRÊN KẾ HOẠCH
+     * @param {string} date - Ngày cần tính mục tiêu (YYYY-MM-DD)
+     * @param {object} plan - Kế hoạch cai thuốc chứa thông tin các tuần
+     * @returns {number} Số điếu mục tiêu cho ngày đó
+     */
     const getTargetCigarettesForDate = (date, plan) => {
         if (!plan || !plan.weeks || (!plan.startDate && !plan.start_date)) {
             console.log('🔍 CheckinHistory - Không tìm thấy thông tin kế hoạch đầy đủ để tính mục tiêu');
@@ -279,7 +343,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return week ? (week.target ?? week.amount ?? week.cigarettes ?? 0) : 0;
     };
 
-    // Tải lịch sử check-in
+    // ============ MAIN DATA LOADING EFFECT ============
+
+    /**
+     * EFFECT CHỦ YẾU: TẢI LỊCH SỬ CHECK-IN KHI COMPONENT MOUNT
+     * 1. Load thông tin kế hoạch từ localStorage/API
+     * 2. Tạo danh sách ngày đầy đủ từ ngày bắt đầu đến kết thúc kế hoạch
+     * 3. Kết hợp với dữ liệu thực tế từ API/localStorage
+     * 4. Tính toán và thông báo tổng thống kê
+     */
     useEffect(() => {
         const loadCheckinHistory = async () => {
             try {
@@ -565,7 +637,15 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         loadCheckinHistory();
     }, []);
 
-    // Lắng nghe sự kiện thay đổi kế hoạch từ ActivePlanSelector
+    // ============ PLAN CHANGE LISTENER EFFECT ============
+
+    /**
+     * EFFECT LẮNG NGHE SỰ KIỆN THAY ĐỔI KẾ HOẠCH
+     * Khi user chuyển đổi kế hoạch từ ActivePlanSelector:
+     * 1. Reset lại state và trang hiện tại
+     * 2. Tải lại dữ liệu với kế hoạch mới
+     * 3. Tính toán lại tất cả metrics theo kế hoạch mới
+     */
     useEffect(() => {
         const handlePlanChange = () => {
             console.log('🔄 CheckinHistory - Plan changed, reloading history...');
@@ -698,7 +778,12 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         };
     }, []);
 
-    // Lắng nghe sự kiện từ nút trong ProgressDashboard
+    // ============ SIDEBAR TOGGLE LISTENER EFFECT ============
+
+    /**
+     * EFFECT LẮNG NGHE SỰ KIỆN MỞ/ĐÓNG SIDEBAR TỪ PROGRESSDASHBOARD
+     * Cho phép ProgressDashboard điều khiển việc hiển thị CheckinHistory sidebar
+     */
     useEffect(() => {
         const handleToggleEvent = () => {
             console.log('Toggling sidebar from external button');
@@ -714,7 +799,12 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         };
     }, []);
 
-    // Bắt đầu chỉnh sửa
+    // ============ EDIT FUNCTIONS ============
+
+    /**
+     * BẮT ĐẦU CHỈNH SỬA MỘT ENTRY CHECK-IN
+     * @param {object} entry - Entry cần chỉnh sửa
+     */
     const handleEdit = (entry) => {
         setEditingEntry(entry.date);
         // Lấy dữ liệu hiện tại từ entry để đảm bảo dữ liệu nhất quán
@@ -727,13 +817,19 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         });
     };
 
-    // Hủy chỉnh sửa
+    /**
+     * HỦY CHỈNH SỬA VÀ RESET STATE
+     */
     const handleCancelEdit = () => {
         setEditingEntry(null);
         setTempEditData({});
     };
 
-    // Cập nhật giá trị khi chỉnh sửa
+    /**
+     * CẬP NHẬT GIÁ TRỊ KHI ĐANG CHỈNH SỬA
+     * @param {string} field - Tên field cần update
+     * @param {any} value - Giá trị mới
+     */
     const handleEditChange = (field, value) => {
         setTempEditData(prev => ({
             ...prev,
@@ -741,7 +837,10 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }));
     };
 
-    // Lưu thay đổi
+    /**
+     * LƯU THAY ĐỔI CHỈNH SỬA VÀO DATABASE VÀ LOCALSTORAGE
+     * @param {string} date - Ngày của entry cần lưu (YYYY-MM-DD)
+     */
     const handleSaveEdit = async (date) => {
         try {
             // Lấy giá trị initialCigarettes từ userPlan đã tải (được tải trong useEffect)
@@ -992,7 +1091,19 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }, 3000);
     };
 
-    // Xóa dữ liệu checkin
+    // ============ DELETE FUNCTION ============
+
+    /**
+     * XÓA DỮ LIỆU CHECK-IN CHO MỘT NGÀY CỤ THỂ
+     * @param {string} date - Ngày cần xóa dữ liệu (YYYY-MM-DD)
+     * 
+     * Quy trình xóa:
+     * 1. Xác nhận với người dùng
+     * 2. Kiểm tra xem là entry trống hay có dữ liệu thực
+     * 3. Gọi API xóa nếu có dữ liệu thực
+     * 4. Reset entry về trạng thái trống với target được tính lại
+     * 5. Cập nhật localStorage và thông báo tổng thống kê
+     */
     const handleDeleteEntry = async (date) => {
         // Hiển thị xác nhận trước khi xóa
         const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa dữ liệu check-in ngày ${formatDisplayDate(date)}?`);
@@ -1124,7 +1235,13 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }, 3000);
     };
 
-    // Format date to display
+    // ============ UTILITY FUNCTIONS ============
+
+    /**
+     * FORMAT NGÀY HIỂN THỊ CHO NGƯỜI DÙNG
+     * @param {string} dateStr - Ngày theo format YYYY-MM-DD
+     * @returns {string} Ngày đã format theo tiếng Việt (VD: "Thứ 2, 01/08/2025")
+     */
     const formatDisplayDate = (dateStr) => {
         const date = new Date(dateStr);
         // Format: "Thứ 2, 01/08/2025"
@@ -1137,26 +1254,43 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         return `${dayName}, ${day}/${month}/${year}`;
     };
 
-    // Kiểm tra xem ngày đó có phải là hôm nay không
+    /**
+     * KIỂM TRA XEM NGÀY ĐÓ CÓ PHẢI LÀ HÔM NAY KHÔNG
+     * @param {string} dateStr - Ngày cần kiểm tra (YYYY-MM-DD)
+     * @returns {boolean} True nếu là hôm nay
+     */
     const isToday = (dateStr) => {
         const today = new Date().toISOString().split('T')[0];
         return dateStr === today;
     };
 
-    // Pagination logic
+    // ============ PAGINATION LOGIC ============
+
+    /**
+     * TÍNH TOÁN CÁC ENTRY HIỂN THỊ TRÊN TRANG HIỆN TẠI
+     */
     const indexOfLastEntry = currentPage * entriesPerPage;
     const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
     const currentEntries = checkinHistory.slice(indexOfFirstEntry, indexOfLastEntry);
     const totalPages = Math.ceil(checkinHistory.length / entriesPerPage);
 
-    // Change page
+    /**
+     * CHUYỂN TRANG TRONG PAGINATION
+     * @param {number} pageNumber - Số trang cần chuyển đến
+     */
     const paginate = (pageNumber) => {
         if (pageNumber > 0 && pageNumber <= totalPages) {
             setCurrentPage(pageNumber);
         }
     };
 
-    // Tải lại dữ liệu của ngày hiện tại từ API (không sử dụng await để không chặn UI)
+    // ============ REFRESH FUNCTION ============
+
+    /**
+     * TẢI LẠI DỮ LIỆU NGÀY HÔM NAY TỪ API (BACKGROUND TASK)
+     * Hàm này chạy ngầm để đồng bộ dữ liệu mà không chặn UI
+     * @param {string} userId - ID của người dùng
+     */
     const refreshTodayData = (userId) => {
         const today = new Date().toISOString().split('T')[0];
 
@@ -1222,6 +1356,11 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             });
     };
 
+    // ============ CONDITIONAL RENDERING ============
+
+    /**
+     * HIỂN THỊ LOADING STATE
+     */
     if (loading) {
         return (
             <div className="checkin-history-wrapper">
@@ -1234,6 +1373,9 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         );
     }
 
+    /**
+     * HIỂN THỊ ERROR STATE KHI KHÔNG TẢI ĐƯỢC DỮ LIỆU
+     */
     if (error && checkinHistory.length === 0) {
         return (
             <div className="checkin-history-wrapper">
@@ -1272,6 +1414,9 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         );
     }
 
+    /**
+     * HIỂN THỊ EMPTY STATE KHI CHƯA CÓ DỮ LIỆU CHECK-IN
+     */
     if (checkinHistory.length === 0) {
         return (
             <div className="checkin-history-wrapper">
@@ -1308,7 +1453,9 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         );
     }
 
-    // Hàm tải lại toàn bộ trang (giống nhấn F5)
+    /**
+     * HÀM TẢI LẠI TOÀN BỘ TRANG (TƯƠNG ĐƯƠNG F5)
+     */
     const handleRefresh = () => {
         // Hiển thị thông báo trước khi tải lại
         setToast({
@@ -1324,9 +1471,19 @@ const CheckinHistory = ({ onProgressUpdate }) => {
         }, 500);
     };
 
+    // ============ MAIN COMPONENT RENDER ============
+
+    /**
+     * RENDER CHÍNH CỦA COMPONENT
+     * Bao gồm:
+     * - Toggle button cho sidebar
+     * - Sidebar chứa table lịch sử check-in
+     * - Pagination controls
+     * - Toast notifications
+     */
     return (
         <div className="checkin-history-wrapper">
-            {/* Nút toggle sidebar - chỉ hiển thị ở mobile hoặc khi cần thiết */}
+            {/* Toggle button - ẩn vì đã có nút ở ProgressDashboard */}
             <button
                 className="toggle-history-sidebar compact-button"
                 onClick={toggleSidebar}
@@ -1340,6 +1497,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
             {/* Sidebar chứa lịch sử check-in */}
             <div className={`checkin-history-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
                 <div className="checkin-history">
+                    {/* Header với title và các nút điều khiển */}
                     <div className="history-header">
                         <h2 className="history-title">
                             <FaCalendarAlt className="title-icon" />
@@ -1365,12 +1523,14 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                         </div>
                     </div>
 
+                    {/* Hiển thị warning message nếu có lỗi */}
                     {error && (
                         <div className="warning-message">
                             {error}
                         </div>
                     )}
 
+                    {/* Bảng hiển thị lịch sử check-in */}
                     <div className="history-table-container">
                         <table className="history-table">
                             <thead>
@@ -1386,6 +1546,7 @@ const CheckinHistory = ({ onProgressUpdate }) => {
                                 </tr>
                             </thead>
                             <tbody>
+                                {/* Render từng entry check-in */}
                                 {currentEntries.map((entry) => (
                                     <tr
                                         key={`${entry.date}_${entry.actualCigarettes}_${entry.cigarettesAvoided}`}
@@ -1551,4 +1712,21 @@ const CheckinHistory = ({ onProgressUpdate }) => {
     );
 };
 
+/**
+ * EXPORT COMPONENT
+ * 
+ * CheckinHistory component - Quản lý lịch sử check-in cai thuốc
+ * 
+ * Props:
+ * - onProgressUpdate: Callback function để cập nhật dashboard khi có thay đổi
+ * 
+ * Features:
+ * - Hiển thị lịch sử check-in theo từng kế hoạch
+ * - Tính toán tổng số điếu đã tránh và tiền tiết kiệm
+ * - Chỉnh sửa và xóa dữ liệu check-in
+ * - Pagination cho danh sách dài
+ * - Event-driven communication với ProgressDashboard
+ * - Đồng bộ dữ liệu giữa localStorage và database
+ * - Responsive sidebar interface
+ */
 export default CheckinHistory;
