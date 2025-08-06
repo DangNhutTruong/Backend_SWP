@@ -1,3 +1,72 @@
+/* History Section */
+.history-section {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.history-section h1 {
+  font-size: 24px;
+  color: #333;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+  padding: 25px 25px 0 25px;
+}
+
+.history-section .section-description {
+  color: #666;
+  font-size: 14px;
+  margin: 0 0 20px 0;
+  padding: 0 25px;
+}
+
+/* Điều chỉnh CheckinHistory trong Profile */
+.history-section .checkin-history-wrapper {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.history-section .checkin-history-sidebar {
+  background: transparent;
+  box-shadow: none;
+  position: static;
+  width: 100%;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  display: block;
+}
+
+.history-section .checkin-history-sidebar.closed {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+}
+
+.history-section .checkin-history {
+  background: transparent;
+  padding: 0 25px 25px 25px;
+}
+
+.history-section .history-header {
+  display: none; /* Ẩn header của CheckinHistory vì đã có h1 riêng */
+}
+
+.history-section .toggle-history-sidebar {
+  display: none; /* Ẩn nút toggle vì không cần trong Profile */
+}
+
+/* Đảm bảo table hiển thị đầy đủ */
+.history-section .history-table-container {
+  margin-top: 0;
+}
+
+.history-section .history-table {
+  width: 100%;
+}
+
 /* Profile Page Styles */
 .profile-container {
   display: flex;
